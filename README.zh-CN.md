@@ -62,4 +62,4 @@ dsh plugin --profile web exec dsh-auth-remote revoke-sessions --lang zh
 
 ## 项目与维护
 
-插件复用 DSH 的 WebServer、Connection、设置 slot、官方工作区浏览与预览。一个账号及其会话存储在 profile 的私有 JSON 文件中；无需独立身份服务。检查和边界参见[开发](docs/development.zh-CN.md)与[部署](docs/deployment.zh-CN.md)。
+插件复用 DSH 的 WebServer、Connection、设置 slot、官方工作区浏览与预览。一个账号及其会话存储在 profile 的私有 JSON 文件中；无需独立身份服务。检查和边界参见[开发](docs/development.zh-CN.md)与[部署](docs/deployment.zh-CN.md)。变更记录见[更新日志](CHANGELOG.zh-CN.md)；参与项目可阅读[贡献指南](CONTRIBUTING.zh-CN.md)、[发布指南](docs/releasing.zh-CN.md)及 [MIT 协议](LICENSE)。

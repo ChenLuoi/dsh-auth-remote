@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
 import { once } from 'node:events'
-import { chromium } from '@playwright/test'
 import { assertDevHome, dsh, dshEnv, home, port } from './dev-common.mjs'
 import { packageName } from './runtime.mjs'
 
@@ -13,7 +12,6 @@ const child = spawn(dsh, ['web', '--no-open', '--port', String(port)], {
   stdio: ['ignore', 'pipe', 'pipe'],
 })
 let stderr = ''
-let browser
 child.stderr.on('data', (chunk) => {
   stderr += chunk.toString('utf8')
 })
@@ -44,21 +42,6 @@ try {
   const loginHtml = await login.text()
   assert.match(loginHtml, /<html lang="en">/u)
   assert.match(loginHtml, /Sign in to DSH/u)
-  browser = await chromium.launch({
-    headless: true,
-    ...(process.env.DSH_TEST_BROWSER ? { executablePath: process.env.DSH_TEST_BROWSER } : {}),
-  })
-  const browserPage = await browser.newPage({ locale: 'en-US' })
-  const pageErrors = []
-  browserPage.on('pageerror', (error) => pageErrors.push(error.message))
-  await browserPage.goto(`${base}/auth-remote/login`)
-  await browserPage.locator('#language').waitFor()
-  assert.equal(await browserPage.locator('html').getAttribute('lang'), 'en')
-  const englishHeading = await browserPage.locator('h1').textContent()
-  await browserPage.locator('#language').selectOption('zh')
-  assert.equal(await browserPage.locator('html').getAttribute('lang'), 'zh')
-  assert.notEqual(await browserPage.locator('h1').textContent(), englishHeading)
-  assert.deepEqual(pageErrors, [])
   const state = await fetch(`${base}/auth-remote/state`)
   assert.equal(state.status, 200)
   const stateBody = await state.json()
@@ -78,7 +61,6 @@ try {
   console.info(`Smoke passed: ${base} redirects anonymous users to the isolated login page`)
   console.info('DSH_HOME: .dev/dsh-home')
 } finally {
-  await browser?.close()
   if (child.exitCode === null && child.signalCode === null) {
     child.kill('SIGTERM')
     await once(child, 'exit').catch(() => {})

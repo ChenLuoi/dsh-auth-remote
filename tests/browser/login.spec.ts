@@ -6,9 +6,9 @@ import { request as httpRequest } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { chromium, expect, type BrowserContext, type Locator, type Page } from '@playwright/test'
+import { chromium, expect, type BrowserContext, type Page } from '@playwright/test'
 import { totpCode } from '../../src/auth/totp.js'
-import { archive, dsh, launchBrowser } from '../helpers/runtime.js'
+import { archive, clickThroughDshPrompts, dsh, launchBrowser } from '../helpers/runtime.js'
 
 const password = 'browser test password 123'
 const hostName = 'auth-remote.test'
@@ -185,21 +185,9 @@ async function fixture(
 }
 
 async function openSecurity(page: Page): Promise<void> {
-  const notice = page.getByRole('dialog', { name: '内测声明' })
-  async function clickAfterNotice(target: Locator): Promise<void> {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (await notice.isVisible()) await notice.getByRole('button', { name: '继续' }).click()
-      try {
-        await target.click({ timeout: 3000 })
-        return
-      } catch (error) {
-        if (attempt === 2 || !(await notice.isVisible())) throw error
-      }
-    }
-  }
-  await clickAfterNotice(page.getByRole('button', { name: '设置', exact: true }))
+  await clickThroughDshPrompts(page, page.getByRole('button', { name: '设置', exact: true }))
   const settings = page.getByRole('dialog', { name: '设置' })
-  await clickAfterNotice(settings.getByText('安全', { exact: true }))
+  await clickThroughDshPrompts(page, settings.getByText('安全', { exact: true }))
   await settings.getByRole('heading', { name: '账号安全' }).waitFor()
 }
 
@@ -673,7 +661,7 @@ test('official plugin settings persist through the guarded remote browser', asyn
     await notice.waitFor()
     await notice.getByRole('button', { name: '继续' }).click()
     await notice.waitFor({ state: 'hidden' })
-    await f.page.getByRole('button', { name: '选择工作区' }).click()
+    await clickThroughDshPrompts(f.page, f.page.getByRole('button', { name: '选择工作区' }))
     const directory = f.page.getByRole('dialog', { name: '选择工作区目录' })
     const addWorkspace = f.page.getByText('添加工作区…', { exact: true })
     await Promise.any([

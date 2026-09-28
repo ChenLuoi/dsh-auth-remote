@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { chromium } from '@playwright/test'
-import { dsh as dshBin, launchBrowser } from '../helpers/runtime.js'
+import { clickThroughDshPrompts, dsh as dshBin, launchBrowser } from '../helpers/runtime.js'
 
 const publicHost = 'auth-remote.test:13090'
 
@@ -75,7 +75,7 @@ test('target DSH boots at a non-loopback browser origin with Host settings acces
     await notice.waitFor({ state: 'visible' })
     await notice.getByRole('button', { name: '继续' }).click()
     await notice.waitFor({ state: 'hidden' })
-    await page.getByRole('button', { name: '设置', exact: true }).click()
+    await clickThroughDshPrompts(page, page.getByRole('button', { name: '设置', exact: true }))
     const dialog = page.getByRole('dialog', { name: '设置' })
     await dialog.waitFor()
     assert.equal(await dialog.getByRole('button', { name: '模型', exact: true }).count(), 1)
