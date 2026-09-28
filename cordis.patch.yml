@@ -1,0 +1,45 @@
+# Bundle baseline: replace the native listener with the authenticated WebServer.
+# The plugin reads the listener address from the official web-startup service.
+# A profile-level disable is recommended when protection against a skipped
+# bundle is desired; the bundle itself disables the native row while active.
+- id: webserver
+  disabled: true
+
+# Keep the native Web surface and trust settings, but replace its token URL
+# announcement and browser handoff with auth-remote startup URLs.
+- id: web-runtime
+  inject: [webStartup]
+  config:
+    openBrowser: false
+    printUrl: false
+    surfaceContext: true
+    trustedHosts: !!js ctx.webStartup.trustedHosts
+
+- insert:
+    - id: auth-remote
+      name: dsh-auth-remote
+      inject: [webStartup]
+      config:
+        allowedOrigins: []
+        requireTotp: true
+        sessionHours: 168
+        preserveOriginPaths: []
+
+# Connection starts after the authenticated listener and receives public
+# authorities only when a preserved path needs the original browser Host.
+- id: connection
+  inject: [webRuntime, webServer]
+  config:
+    trustedHosts: !!js '[...ctx.webRuntime.trustedHosts, ...ctx.webServer.connectionTrustedHosts]'
+
+# Reuse the official browser directory picker.
+- id: directory-picker
+  disabled: true
+
+- insert:
+    - id: auth-remote-directory-picker
+      name: '@deepseek-ai/dsh-host-directory-picker-browse'
+      config:
+        maxEntries: 1000
+    - id: auth-remote-directory-picker-ui
+      name: '@deepseek-ai/dsh-client-ui-directory-picker-browse'

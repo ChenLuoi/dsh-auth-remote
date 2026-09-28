@@ -1,0 +1,227 @@
+:root {
+  color-scheme: light dark;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --surface: #fff;
+  --background: #f4f6fa;
+  --text: #172033;
+  --muted: #526077;
+  --border: #d6dce6;
+  --accent: #255ad7;
+  --accent-hover: #1749bc;
+  --error: #b42332;
+  --info: #195b3b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #202634;
+    --background: #141923;
+    --text: #f0f3f9;
+    --muted: #b8c0cf;
+    --border: #465168;
+    --accent: #7b9dff;
+    --accent-hover: #a6bbff;
+    --error: #ff9a9f;
+    --info: #95ddb4;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+}
+.login-page {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.login-card {
+  width: min(100%, 430px);
+  padding: 32px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 12px 36px #101a3012;
+}
+.brand {
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.login-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.language-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.language-control select {
+  min-height: 36px;
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+h1 {
+  margin: 16px 0 12px;
+  font-size: 26px;
+  line-height: 1.25;
+}
+p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+form {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+label {
+  font-size: 14px;
+  font-weight: 600;
+}
+input {
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+input:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+button {
+  min-height: 42px;
+  padding: 9px 15px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--background);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+button:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+button.secondary {
+  background: transparent;
+  color: var(--accent);
+}
+button.secondary:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.link-button {
+  margin-top: 15px;
+  padding-left: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+}
+.link-button:hover {
+  background: transparent;
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+.command {
+  display: grid;
+  gap: 12px;
+  margin: 22px 0;
+}
+.command code,
+.secret code {
+  overflow-wrap: anywhere;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  user-select: all;
+}
+.secret {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+.secret span {
+  color: var(--muted);
+  font-size: 13px;
+}
+#totp-qr {
+  display: block;
+  max-width: 100%;
+  margin: 18px auto;
+  background: #fff;
+  border-radius: 6px;
+}
+.actions {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+}
+.backup-codes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 22px;
+  margin: 22px 0;
+  padding-left: 24px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 14px;
+}
+.backup-codes li {
+  padding-left: 3px;
+  overflow-wrap: anywhere;
+}
+.message {
+  min-height: 1.5em;
+  margin: 18px 0 0;
+  font-size: 14px;
+}
+.message.error {
+  color: var(--error);
+}
+.message.info {
+  color: var(--info);
+}
+
+@media (max-width: 480px) {
+  .login-page {
+    padding: 12px;
+  }
+  .login-card {
+    padding: 24px 20px;
+  }
+}

@@ -1,0 +1,20 @@
+# Traefik file-provider example. Configure the websecure entry point and
+# replace the certificate resolver and upstream address for your installation.
+# Keep the browser's Host and Origin intact; do not add an Origin-stripping middleware.
+http:
+  routers:
+    dsh-auth-remote:
+      rule: 'Host(`dsh.example.com`)'
+      entryPoints: [websecure]
+      service: dsh-auth-remote
+      tls:
+        certResolver: replace-with-your-resolver
+
+  services:
+    dsh-auth-remote:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: 'http://dsh-upstream.internal:13090'
+        responseForwarding:
+          flushInterval: -1ms

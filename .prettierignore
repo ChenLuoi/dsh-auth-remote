@@ -1,0 +1,11 @@
+task/
+/*-remote/
+node_modules/
+dist/
+artifacts/
+.dev/
+.cache/
+coverage/
+test-results/
+playwright-report/
+pnpm-lock.yaml

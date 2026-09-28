@@ -1,0 +1,14 @@
+# Merge these rows into the web profile's cordis.patch.yml. Keep unrelated
+# model and plugin rows. Install this package into the same profile first.
+# Replace dsh.example.com in the public origin. Select the private listener
+# port with dsh web --port. For direct loopback, use HTTP.
+# Disabling the native row here is recommended for an independent fallback.
+- id: webserver
+  disabled: true
+
+- id: auth-remote
+  config:
+    allowedOrigins: [https://dsh.example.com]
+    requireTotp: true
+    sessionHours: 168
+    preserveOriginPaths: []
