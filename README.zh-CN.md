@@ -6,22 +6,21 @@ DeepSeek Harness（DSH）的单用户远程登录插件，提供密码、TOTP、
 
 ## 前置条件
 
-- Linux（含 `/proc`）、Node.js 24 或更高版本、pnpm 12.5.1，以及已测试的 DSH **0.1.7-rc.1** 运行时。
+- Linux（含 `/proc`）、Node.js 24 或更高版本，以及已测试的 DSH **0.1.7-rc.1** 运行时。仅从源码构建时需要 pnpm 12.5.1。
 - DSH 默认的 `~/.dsh` 数据目录和 `web` profile。账号状态属于该 profile，不与其他 profile 共用。
-- 浏览器测试先执行 `pnpm exec playwright install chromium`。测试使用 Playwright 管理的浏览器和专用自签 TLS 夹具。
+- 源码浏览器测试先执行 `pnpm exec playwright install chromium`。测试使用 Playwright 管理的浏览器和专用自签 TLS 夹具。
 
-## 从源码最小化本地安装
+## 从 npm 安装
 
-在源码检出目录执行：
+安装 DSH 后，核对版本并把已发布的插件安装到默认 `web` profile：
 
 ```sh
-pnpm install --frozen-lockfile
-pnpm pack:local
 dsh --version
-dsh plugin --profile web add "$PWD/artifacts/dsh-auth-remote-0.1.0.tgz"
+dsh plugin --profile web add dsh-auth-remote@0.1.1
+dsh plugin --profile web list
 ```
 
-确认 `dsh --version` 输出 `0.1.7-rc.1`。在源码目录运行命令，使 `$PWD` 指向生成的压缩包；DSH 会在 profile 目录执行插件安装。`pnpm pack:local` 只构建、检查本地压缩包，不发布。这些 `dsh` 命令使用默认数据目录。需要隔离开发运行时时可执行 `pnpm dev:prepare`；参见[开发指南](docs/development.zh-CN.md)。
+确认 `dsh --version` 输出 `0.1.7-rc.1`，且插件列表中有 `dsh-auth-remote@0.1.1`。这些命令使用 DSH 默认数据目录。源码构建及隔离开发运行时参见[开发指南](docs/development.zh-CN.md)。
 
 ## 配置 web profile
 

@@ -19,6 +19,8 @@ import { AuthStateStore } from '../../src/storage/store.js'
 import { archive, dsh, packageName, project } from '../helpers/runtime.js'
 
 const cli = join(project, 'dist/cli.js')
+const packageVersion = JSON.parse(await readFile(join(project, 'package.json'), 'utf8'))
+  .version as string
 const password = 'test secure password 123'
 const replacement = 'replacement password 456'
 
@@ -89,7 +91,7 @@ test('CLI language precedence, option positions, help, version and JSON remain s
       f.home,
     )
     assert.equal(version.code, 0, version.stderr)
-    assert.equal(version.stdout, '0.1.0\n')
+    assert.equal(version.stdout, `${packageVersion}\n`)
     const jsonZh = await run(
       process.execPath,
       [cli, 'status', '--json', '--lang', 'zh'],

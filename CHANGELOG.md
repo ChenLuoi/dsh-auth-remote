@@ -8,6 +8,11 @@ This file records user-visible changes to the released package. Version numbers 
 
 No changes recorded yet.
 
+## 0.1.1 - 2026-09-28
+
+- Documented installation from the published npm package in English and Chinese.
+- Made the release workflow publish the tested archive by an explicit file path, with a dedicated archive preparation command.
+
 ## 0.1.0 - 2026-09-28
 
 - Initial public release of the single-user DSH remote authentication plugin.

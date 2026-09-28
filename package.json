@@ -1,6 +1,6 @@
 {
   "name": "dsh-auth-remote",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Single-user remote authentication for DeepSeek Harness: password, TOTP and revocable sessions.",
   "license": "MIT",
   "repository": {
@@ -65,8 +65,10 @@
     "test:browser": "node scripts/prepare-test.mjs && pnpm build && node scripts/pack.mjs && tsx --test --test-concurrency=1 tests/browser/*.spec.ts",
     "check:static": "pnpm typecheck && pnpm format:check && pnpm build && pnpm check:package && pnpm check:deployment && pnpm check:docs && pnpm check:release",
     "check": "pnpm check:static && pnpm test:unit && pnpm test:integration && pnpm test:cli && pnpm test:browser",
-    "pack:local": "pnpm check:static && node scripts/pack.mjs",
-    "smoke": "pnpm dev:install && node scripts/smoke.mjs"
+    "release:pack": "pnpm check:static && node scripts/pack.mjs",
+    "pack:local": "pnpm release:pack",
+    "smoke:packed": "pnpm dev:prepare && node scripts/dev-install.mjs && node scripts/smoke.mjs",
+    "smoke": "pnpm pack:local && pnpm smoke:packed"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": ">=4.0.4 <5",

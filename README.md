@@ -6,22 +6,21 @@ Single-user remote sign-in for DeepSeek Harness (DSH), with password, TOTP, one-
 
 ## Requirements
 
-- Linux with `/proc`, Node.js 24 or newer, pnpm 12.5.1, and the tested DSH **0.1.7-rc.1** runtime.
+- Linux with `/proc`, Node.js 24 or newer, and the tested DSH **0.1.7-rc.1** runtime. pnpm 12.5.1 is needed only when building from source.
 - DSH's default `~/.dsh` data directory and a `web` profile. The account state belongs to that profile; it is not shared with another profile.
-- For browser tests, install Playwright Chromium with `pnpm exec playwright install chromium`. The tests use that managed browser and a dedicated, self-signed TLS fixture.
+- For source browser tests, install Playwright Chromium with `pnpm exec playwright install chromium`. The tests use that managed browser and a dedicated, self-signed TLS fixture.
 
-## Minimal local installation from source
+## Install from npm
 
-From a source checkout:
+With DSH installed, verify its version and install the published plugin into the default `web` profile:
 
 ```sh
-pnpm install --frozen-lockfile
-pnpm pack:local
 dsh --version
-dsh plugin --profile web add "$PWD/artifacts/dsh-auth-remote-0.1.0.tgz"
+dsh plugin --profile web add dsh-auth-remote@0.1.1
+dsh plugin --profile web list
 ```
 
-Check that `dsh --version` prints `0.1.7-rc.1`. Run the commands from the checkout so `$PWD` names the built archive; DSH runs the plugin installer inside the profile directory. `pnpm pack:local` builds and checks a local archive; it does not publish one. These `dsh` commands use the default data directory. An isolated development runtime can be prepared with `pnpm dev:prepare`; see the [development guide](docs/development.md).
+Check that `dsh --version` prints `0.1.7-rc.1` and the plugin list includes `dsh-auth-remote@0.1.1`. These commands use DSH's default data directory. For source builds and an isolated development runtime, see the [development guide](docs/development.md).
 
 ## Configure the web profile
 
