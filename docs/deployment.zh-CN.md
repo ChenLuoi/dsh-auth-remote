@@ -4,18 +4,17 @@
 
 本指南说明使用已验证的 DSH `0.1.7-rc.1` 和默认的 `~/.dsh` 数据目录进行全新安装，不假定公网域名、代理网络、服务管理器或现有账号数据库。
 
-## 最小化本地安装
+## 从 npm 最小化安装
 
-在源码检出目录构建本地压缩包，并安装到默认的 `web` profile：
+把已发布的包安装到默认 `web` profile：
 
 ```sh
-pnpm install --frozen-lockfile
-pnpm pack:local
 dsh --version
-dsh plugin --profile web add "$PWD/artifacts/dsh-auth-remote-0.1.0.tgz"
+dsh plugin --profile web add dsh-auth-remote@0.1.1
+dsh plugin --profile web list
 ```
 
-确认 `dsh --version` 输出 `0.1.7-rc.1`。DSH 会在 profile 目录执行插件安装，因此 `$PWD` 为压缩包提供绝对路径。bundle 提供认证监听，默认 `allowedOrigins: []`，因此只准入字面回环主机。最小安装无需修改 profile 补丁。在一个终端启动 DSH：
+确认 `dsh --version` 输出 `0.1.7-rc.1`，且列表中有 `dsh-auth-remote@0.1.1`。bundle 提供认证监听，默认 `allowedOrigins: []`，因此只准入字面回环主机。最小安装无需修改 profile 补丁。在一个终端启动 DSH：
 
 ```sh
 dsh web --no-open --port 13090
@@ -73,7 +72,7 @@ dsh plugin --profile web exec dsh-auth-remote init --lang zh
 
 ## 启动并检查公网入口
 
-1. 核对 Linux、Node.js 24+、pnpm 12.5.1 和已安装的 DSH 版本。按上文最小化命令安装压缩包。测试和开发运行时应与默认账号 profile 分开。
+1. 核对 Linux、Node.js 24+ 和已安装的 DSH 版本。按上文最小化命令安装 npm 包。测试和开发运行时应与默认账号 profile 分开。
 2. 合并上文公网入口的 profile 配置；建议独立禁用 `webserver`。代理只应通过受控私有传输访问监听；参见[代理指南](reverse-proxy.zh-CN.md)。
 3. 用 `dsh web --no-open --port 13090` 启动。开放外部入口前检查 `curl -fsS -H 'Host: dsh.example.com' http://127.0.0.1:13090/auth-remote/ready`，要求 JSON 同时包含 `"plugin":"dsh-auth-remote"`、`"protocolVersion":1` 和 `"ready":true`。
 4. 确认匿名 HTML 请求跳转 `/auth-remote/login`，匿名 `/api/settings` 等 API 被拒绝。若尚未初始化账号，先用本地 CLI 初始化；随后登录、绑定 TOTP、保存备用码，并经选定浏览器入口测试官方设置、工作区、预览、上传和流。

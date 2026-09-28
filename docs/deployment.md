@@ -4,18 +4,17 @@
 
 This guide describes a new installation with the verified DSH `0.1.7-rc.1` runtime and its default `~/.dsh` data directory. It does not depend on a particular public hostname, proxy network, service manager, or existing account database.
 
-## Minimal local installation
+## Minimal installation from npm
 
-From the source checkout, build the local archive and install it into the default `web` profile:
+Install the published package into the default `web` profile:
 
 ```sh
-pnpm install --frozen-lockfile
-pnpm pack:local
 dsh --version
-dsh plugin --profile web add "$PWD/artifacts/dsh-auth-remote-0.1.0.tgz"
+dsh plugin --profile web add dsh-auth-remote@0.1.1
+dsh plugin --profile web list
 ```
 
-Verify that `dsh --version` prints `0.1.7-rc.1`. DSH runs the plugin installer inside the profile directory, so `$PWD` supplies an absolute archive path. The bundle supplies an auth listener with `allowedOrigins: []`, which admits only literal loopback hosts. No profile patch is needed for this setup. Start DSH in one terminal:
+Verify that `dsh --version` prints `0.1.7-rc.1` and the list includes `dsh-auth-remote@0.1.1`. The bundle supplies an auth listener with `allowedOrigins: []`, which admits only literal loopback hosts. No profile patch is needed for this setup. Start DSH in one terminal:
 
 ```sh
 dsh web --no-open --port 13090
@@ -73,7 +72,7 @@ Binding to an interface does not restrict client source addresses. Apply any req
 
 ## Start and verify the public entry
 
-1. Verify Linux, Node.js 24+, pnpm 12.5.1, and the installed DSH version. Install the archive with the minimal commands above. Keep any test or development runtime separate from the default account profile.
+1. Verify Linux, Node.js 24+, and the installed DSH version. Install the npm package with the minimal commands above. Keep any test or development runtime separate from the default account profile.
 2. Merge the public-origin profile configuration above. The independent `webserver` disable is recommended. A proxy should reach only the private listener through a transport you control; see the [proxy guide](reverse-proxy.md).
 3. Start with `dsh web --no-open --port 13090`. Before opening external access, inspect `curl -fsS -H 'Host: dsh.example.com' http://127.0.0.1:13090/auth-remote/ready` and require JSON containing `"plugin":"dsh-auth-remote"`, `"protocolVersion":1`, and `"ready":true`.
 4. Confirm an anonymous HTML request redirects to `/auth-remote/login`, and an anonymous API request such as `/api/settings` is denied. Initialize through the local CLI if needed, then sign in, bind TOTP, save backup codes and exercise official settings, workspace, preview, uploads and streams through the chosen browser origin.

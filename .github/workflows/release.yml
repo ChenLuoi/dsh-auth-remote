@@ -59,7 +59,8 @@ jobs:
           runtime: node@24
           require-lockfile: true
       - run: pnpm test:cli
-      - run: pnpm smoke
+      - run: pnpm release:pack
+      - run: pnpm smoke:packed
       - name: Record archive checksum
         run: |
           cd artifacts
@@ -116,7 +117,7 @@ jobs:
           echo "status=$status" >> "$GITHUB_OUTPUT"
       - name: Publish to npm with trusted publishing
         if: steps.npm-version.outputs.status == 'unpublished'
-        run: npm publish "artifacts/dsh-auth-remote-${GITHUB_REF_NAME#v}.tgz" --access public
+        run: npm publish "./artifacts/dsh-auth-remote-${GITHUB_REF_NAME#v}.tgz" --access public
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
