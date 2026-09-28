@@ -11,9 +11,12 @@ const root = args.length ? resolve(args[1]) : resolve(import.meta.dirname, '..')
 const packaged = args.length > 0
 const pairs = [
   ['README.md', 'README.zh-CN.md'],
+  ['CHANGELOG.md', 'CHANGELOG.zh-CN.md'],
+  ['CONTRIBUTING.md', 'CONTRIBUTING.zh-CN.md'],
   ['docs/deployment.md', 'docs/deployment.zh-CN.md'],
   ['docs/development.md', 'docs/development.zh-CN.md'],
   ['docs/reverse-proxy.md', 'docs/reverse-proxy.zh-CN.md'],
+  ['docs/releasing.md', 'docs/releasing.zh-CN.md'],
   ...(!packaged ? [['tests/README.md', 'tests/README.zh-CN.md']] : []),
 ]
 
@@ -66,7 +69,8 @@ for (const [english, chinese] of pairs) {
     [zhPath, zh],
   ]) {
     const label = relative(root, file)
-    assert(content.length > 600, `${label} is too short to be a usable guide`)
+    if (!label.startsWith('CHANGELOG'))
+      assert(content.length > 600, `${label} is too short to be a usable guide`)
     checkPrivateEnvironment(file, content)
     for (const match of content.matchAll(/https?:\/\/([a-z0-9.-]+)/giu)) {
       const host = match[1].toLowerCase()

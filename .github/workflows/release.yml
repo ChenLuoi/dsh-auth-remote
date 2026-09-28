@@ -1,0 +1,132 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  tag:
+    name: Verify tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          package-manager-cache: false
+      - name: Check version and master ancestry
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          test "$GITHUB_REF_NAME" = "v$version"
+          git fetch --no-tags origin master:refs/remotes/origin/master
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/master
+
+  static:
+    name: Release static and core tests
+    needs: tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v3
+        with:
+          runtime: node@24
+          require-lockfile: true
+      - run: node scripts/check-release.mjs --tag "$GITHUB_REF_NAME"
+      - run: pnpm check:static
+      - run: pnpm test:unit
+      - run: pnpm test:integration
+
+  cli:
+    name: Release CLI and package
+    needs: tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v3
+        with:
+          runtime: node@24
+          require-lockfile: true
+      - run: pnpm test:cli
+      - run: pnpm smoke
+      - name: Record archive checksum
+        run: |
+          cd artifacts
+          sha256sum ./*.tgz > SHA256SUMS
+          sha256sum -c SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-package
+          path: |
+            artifacts/*.tgz
+            artifacts/SHA256SUMS
+          if-no-files-found: error
+
+  browser:
+    name: Release browser tests
+    needs: tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v3
+        with:
+          runtime: node@24
+          require-lockfile: true
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:browser
+
+  publish:
+    name: Publish npm and GitHub Release
+    needs: [static, cli, browser]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          registry-url: https://registry.npmjs.org/
+          package-manager-cache: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-package
+          path: artifacts
+      - name: Verify archive and check npm version
+        id: npm-version
+        run: |
+          cd artifacts
+          sha256sum -c SHA256SUMS
+          cd ..
+          archive="artifacts/dsh-auth-remote-${GITHUB_REF_NAME#v}.tgz"
+          status="$(node scripts/check-npm-publication.mjs "$archive")"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - name: Publish to npm with trusted publishing
+        if: steps.npm-version.outputs.status == 'unpublished'
+        run: npm publish "artifacts/dsh-auth-remote-${GITHUB_REF_NAME#v}.tgz" --access public
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          node scripts/release-notes.mjs "${GITHUB_REF_NAME#v}" > "$RUNNER_TEMP/release-notes.md"
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" artifacts/*.tgz artifacts/SHA256SUMS --clobber
+            gh release edit "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/release-notes.md"
+          else
+            gh release create "$GITHUB_REF_NAME" artifacts/*.tgz artifacts/SHA256SUMS \
+              --verify-tag --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/release-notes.md"
+          fi

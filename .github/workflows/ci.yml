@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    name: Static and core tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v3
+        with:
+          runtime: node@24
+          cache: true
+          require-lockfile: true
+      - run: pnpm check:static
+      - run: pnpm test:unit
+      - run: pnpm test:integration
+
+  cli:
+    name: CLI and installation smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v3
+        with:
+          runtime: node@24
+          cache: true
+          require-lockfile: true
+      - run: pnpm test:cli
+      - run: pnpm smoke
+
+  browser:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v3
+        with:
+          runtime: node@24
+          cache: true
+          require-lockfile: true
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:browser
+
+  verify:
+    name: CI Verify
+    needs: [static, cli, browser]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all checks
+        env:
+          STATIC_RESULT: ${{ needs.static.result }}
+          CLI_RESULT: ${{ needs.cli.result }}
+          BROWSER_RESULT: ${{ needs.browser.result }}
+        run: |
+          test "$STATIC_RESULT" = success
+          test "$CLI_RESULT" = success
+          test "$BROWSER_RESULT" = success

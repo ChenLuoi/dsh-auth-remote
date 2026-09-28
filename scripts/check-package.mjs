@@ -1,19 +1,35 @@
 import assert from 'node:assert/strict'
 import { access, readFile } from 'node:fs/promises'
 import vm from 'node:vm'
+import semver from 'semver'
 
 const manifest = JSON.parse(await readFile('package.json', 'utf8'))
 assert.equal(manifest.name, 'dsh-auth-remote')
-assert.equal(manifest.version, '0.1.0')
+assert.equal(semver.valid(manifest.version), manifest.version)
 assert.equal(Object.hasOwn(manifest, 'private'), false)
-assert.equal(manifest.license, 'UNLICENSED')
-for (const field of ['repository', 'bugs', 'homepage'])
-  assert.equal(Object.hasOwn(manifest, field), false, `${field} must not expose an account or host`)
+assert.equal(manifest.license, 'MIT')
+assert.deepEqual(manifest.repository, {
+  type: 'git',
+  url: 'git+https://github.com/ChenLuoi/dsh-auth-remote.git',
+})
+assert.equal(manifest.homepage, 'https://github.com/ChenLuoi/dsh-auth-remote#readme')
+assert.deepEqual(manifest.bugs, {
+  url: 'https://github.com/ChenLuoi/dsh-auth-remote/issues',
+})
+assert.deepEqual(manifest.publishConfig, {
+  access: 'public',
+  registry: 'https://registry.npmjs.org/',
+})
 assert.deepEqual(manifest.files, [
   'dist',
   'cordis.patch.yml',
   'README.md',
   'README.zh-CN.md',
+  'CONTRIBUTING.md',
+  'CONTRIBUTING.zh-CN.md',
+  'LICENSE',
+  'CHANGELOG.md',
+  'CHANGELOG.zh-CN.md',
   'docs',
   'examples',
 ])

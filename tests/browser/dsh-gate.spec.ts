@@ -8,7 +8,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { chromium } from '@playwright/test'
-import { archive, dsh as dshBin, launchBrowser, packageName } from '../helpers/runtime.js'
+import {
+  archive,
+  clickThroughDshPrompts,
+  dsh as dshBin,
+  launchBrowser,
+  packageName,
+} from '../helpers/runtime.js'
 
 const host = 'auth-remote.test:13090'
 const origin = `http://${host}`
@@ -149,9 +155,7 @@ test('installed package and test gate boot full DSH without exposing native cred
       (await context.cookies()).map((cookie) => cookie.name),
       ['auth-gate-test'],
     )
-    const notice = page.getByRole('dialog', { name: '内测声明' })
-    if (await notice.isVisible()) await notice.getByRole('button', { name: '继续' }).click()
-    await page.getByRole('button', { name: '设置', exact: true }).click()
+    await clickThroughDshPrompts(page, page.getByRole('button', { name: '设置', exact: true }))
     const dialog = page.getByRole('dialog', { name: '设置' })
     await dialog.waitFor()
     await dialog.getByRole('button', { name: '中文', exact: true }).click()
