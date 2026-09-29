@@ -8,7 +8,13 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 import { chromium, expect, type BrowserContext, type Page } from '@playwright/test'
 import { totpCode } from '../../src/auth/totp.js'
-import { archive, clickThroughDshPrompts, dsh, launchBrowser } from '../helpers/runtime.js'
+import {
+  archive,
+  clickThroughDshPrompts,
+  dsh,
+  launchBrowser,
+  selectDshTheme,
+} from '../helpers/runtime.js'
 import { dshVersion, project } from '../../scripts/runtime.mjs'
 
 const password = 'browser test password 123'
@@ -247,9 +253,9 @@ test('login and security settings follow DSH themes and fit narrow screens', asy
     await openSecurity(f.page)
     const dialog = f.page.getByRole('dialog', { name: '设置' })
     const backgrounds: string[] = []
-    for (const theme of ['浅色', '深色']) {
+    for (const theme of ['light', 'dark'] as const) {
       await dialog.getByRole('button', { name: '通用设置' }).click()
-      await dialog.getByRole('button', { name: theme, exact: true }).click()
+      await selectDshTheme(f.page, theme)
       await dialog.getByText('安全', { exact: true }).click()
       await dialog.getByRole('button', { name: '修改密码', exact: true }).click()
       const input = dialog.getByLabel('当前密码')
@@ -262,7 +268,7 @@ test('login and security settings follow DSH themes and fit narrow screens', asy
         assert.equal(await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth), true)
         await expect(input).toHaveValue('unsaved draft')
         await f.page.screenshot({
-          path: join(screenshots, `security-${theme === '浅色' ? 'light' : 'dark'}-${width}.png`),
+          path: join(screenshots, `security-${theme}-${width}.png`),
         })
       }
       await f.page.setViewportSize({ width: 1280, height: 900 })
@@ -782,13 +788,13 @@ test('official plugin settings persist through the guarded remote browser', asyn
     await renewed.getByText('自定义设置', { exact: true }).click()
     assert.equal(await renewed.getByLabel('API 地址').inputValue(), modelAddress)
     await renewed.getByRole('button', { name: '通用设置' }).click()
-    await renewed.getByText('浅色', { exact: true }).click()
+    await selectDshTheme(f.page, 'light')
     await renewed.getByText('安全', { exact: true }).click()
     const security = renewed.locator('section[aria-label="安全设置"]')
     await security.waitFor()
     const light = await security.evaluate((node) => getComputedStyle(node).color)
     await renewed.getByRole('button', { name: '通用设置' }).click()
-    await renewed.getByText('深色', { exact: true }).click()
+    await selectDshTheme(f.page, 'dark')
     await renewed.getByText('安全', { exact: true }).click()
     await expect(security).not.toHaveCSS('color', light)
     const dark = await security.evaluate((node) => getComputedStyle(node).color)

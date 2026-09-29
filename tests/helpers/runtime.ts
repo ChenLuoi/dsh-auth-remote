@@ -1,4 +1,4 @@
-import { chromium, type Locator, type Page } from '@playwright/test'
+import { chromium, expect, type Locator, type Page } from '@playwright/test'
 import { archive, packageName, project, selectedTestDsh } from '../../scripts/runtime.mjs'
 
 export { archive, packageName, project }
@@ -23,6 +23,29 @@ export async function completeApiKeyPrompt(page: Page, waitMs = 0): Promise<bool
   await continueButton.click()
   await page.getByText('添加一个 API Key 开始使用').waitFor({ state: 'hidden' })
   return true
+}
+
+/** Theme clicks paint optimistically; wait for the durable host write before leaving General. */
+export async function selectDshTheme(page: Page, theme: 'light' | 'dark'): Promise<void> {
+  const option = page.getByRole('button', {
+    name: theme === 'light' ? '浅色' : '深色',
+    exact: true,
+  })
+  if ((await option.getAttribute('aria-pressed')) !== 'true') {
+    const mutation = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/settings/mutate' &&
+        response.request().postData()?.includes('ui-theme') === true,
+    )
+    await option.click()
+    const response = await mutation
+    expect(response.status()).toBe(200)
+    expect((await response.json()).result.ok).toBe(true)
+  }
+  await expect(option).toHaveAttribute('aria-pressed', 'true')
+  await expect
+    .poll(() => page.locator('body').evaluate((node) => node.hasAttribute('data-ds-dark-theme')))
+    .toBe(theme === 'dark')
 }
 
 export async function clickThroughDshPrompts(
