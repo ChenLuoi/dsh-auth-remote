@@ -1,0 +1,158 @@
+/* Inherit the host's live DSH theme. Scope every rule to this settings section.
+ * Radius fallbacks match 0.1.7, before DSH published the shared radius tokens. */
+.auth-remote-security {
+  min-width: 0;
+  color: var(--dsw-alias-label-primary);
+  font-family: var(--dsw-font-family);
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.auth-remote-security h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+}
+
+.auth-remote-security h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.auth-remote-security p {
+  margin: 0 0 16px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.auth-remote-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 0 20px;
+}
+
+.auth-remote-security form {
+  margin: 0;
+  padding: 20px 0;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.auth-remote-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.auth-remote-field input {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 420px;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: var(--dsw-radius-md, 8px);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.auth-remote-field input:focus {
+  outline: none;
+  border-color: var(--dsw-alias-state-business-primary);
+}
+
+.auth-remote-button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  max-width: 100%;
+  padding: 6px 14px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-md, 18px);
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 14px;
+  line-height: 22px;
+  cursor: pointer;
+}
+
+.auth-remote-button:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.auth-remote-button[aria-pressed='true'] {
+  background: var(--dsw-alias-bg-module-platform);
+  border-color: var(--dsw-static-neutral-bluish-400);
+}
+
+.auth-remote-primary {
+  border-color: transparent;
+  background: var(--dsw-alias-button-primary-fill);
+  color: var(--dsw-alias-label-primary-foreground);
+}
+
+.auth-remote-primary:hover:not(:disabled) {
+  background: var(--dsw-alias-button-primary-hover);
+}
+
+.auth-remote-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.auth-remote-button:focus-visible {
+  outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+
+.auth-remote-restart {
+  margin-left: 8px;
+}
+
+.auth-remote-security img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 16px 0;
+  border-radius: var(--dsw-radius-md, 8px);
+}
+
+.auth-remote-security code,
+.auth-remote-backup-codes {
+  font-family: var(--ds-font-family-code);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.auth-remote-backup-codes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 24px;
+  margin: 20px 0;
+  padding: 16px 16px 16px 40px;
+  border-radius: var(--dsw-radius-lg, 16px);
+  background: var(--dsw-alias-bg-module-platform);
+}
+
+.auth-remote-security .auth-remote-error {
+  margin: 12px 0 0;
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.auth-remote-error:empty {
+  display: none;
+}

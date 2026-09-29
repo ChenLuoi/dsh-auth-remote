@@ -4,7 +4,7 @@ import { dshVersion, isolatedDshEnv, project } from './runtime.mjs'
 
 export { project, dshVersion }
 export const devRoot = join(project, '.dev')
-export const runtime = join(devRoot, 'runtime')
+export const runtime = join(devRoot, `runtime-${dshVersion}`)
 export const home = join(devRoot, 'dsh-home')
 export const profile = join(home, 'profiles/web')
 export const dsh = join(runtime, 'node_modules/.bin/dsh')

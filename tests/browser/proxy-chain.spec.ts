@@ -12,9 +12,9 @@ import { request as httpsRequest } from 'node:https'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { chromium, type Page } from '@playwright/test'
+import { chromium } from '@playwright/test'
 import { startForwarder, type Forwarder } from '../helpers/proxy.js'
-import { archive, dsh, launchBrowser, project } from '../helpers/runtime.js'
+import { archive, completeApiKeyPrompt, dsh, launchBrowser, project } from '../helpers/runtime.js'
 
 const publicPort = 13100
 const dshPort = 13101
@@ -36,15 +36,6 @@ function testEnv(home: string): NodeJS.ProcessEnv {
 
 function quote(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`
-}
-
-async function completeApiKeyPrompt(page: Page): Promise<boolean> {
-  const continueButton = page.getByRole('button', { name: '保存并继续' })
-  if (!(await continueButton.isVisible())) return false
-  await page.getByRole('textbox', { name: 'API 密钥' }).fill('proxy-test-key')
-  await continueButton.click()
-  await page.getByText('添加一个 API Key 开始使用').waitFor({ state: 'hidden' })
-  return true
 }
 
 async function run(command: string, args: string[], home: string): Promise<void> {
@@ -384,11 +375,11 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
     await page.getByRole('button', { name: '继续' }).click()
     await page.getByRole('button', { name: '跳过，进入 DSH' }).click()
     await page.waitForSelector('[class*="frame"]')
-    const notice = page.getByRole('dialog', { name: '内测声明' })
+    const notice = page.getByRole('dialog', { name: /^(?:内测声明|预览版说明)$/u })
     await notice.waitFor()
     await notice.getByRole('button', { name: '继续' }).click()
     await notice.waitFor({ state: 'hidden' })
-    await completeApiKeyPrompt(page)
+    await completeApiKeyPrompt(page, 5000)
     await page.getByRole('button', { name: '设置', exact: true }).click()
     const settings = page.getByRole('dialog', { name: '设置' })
     const modelTab = settings.getByRole('button', { name: '模型', exact: true })
@@ -398,14 +389,11 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
       if (!(await completeApiKeyPrompt(page))) throw error
       await modelTab.click()
     }
-    await settings
-      .getByRole('button', { name: /编辑/u })
-      .click({ timeout: 10000 })
-      .catch(async (error) => {
-        throw new Error(
-          `model editor unavailable: ${String(error)}; settings=${(await settings.innerText()).slice(0, 1500)}; API=${JSON.stringify(apiFailures)}`,
-        )
-      })
+    // Some DSH versions open an unconfigured provider directly in edit mode.
+    const edit = settings.getByRole('button', { name: /编辑/u })
+    const customized = settings.getByText('自定义设置', { exact: true })
+    await edit.or(customized).first().waitFor()
+    if (!(await customized.isVisible())) await edit.click()
     await settings.getByText('自定义设置', { exact: true }).click()
     await settings.getByLabel('API 地址').fill('http://127.0.0.1:13103/anthropic')
     const modelApiKey = settings.getByRole('textbox', { name: 'API 密钥' })

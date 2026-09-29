@@ -6,9 +6,17 @@ Single-user remote sign-in for DeepSeek Harness (DSH), with password, TOTP, one-
 
 ## Requirements
 
-- Linux with `/proc`, Node.js 24 or newer, and the tested DSH **0.1.7-rc.1** runtime. pnpm 12.5.1 is needed only when building from source.
+- Linux with `/proc`, Node.js 24 or newer, and a tested DSH runtime: **0.1.7-rc.1**, **0.1.7-rc.2**, or **0.2.0-rc.1**. pnpm 12.5.1 is needed only when building from source.
 - DSH's default `~/.dsh` data directory and a `web` profile. The account state belongs to that profile; it is not shared with another profile.
 - For source browser tests, install Playwright Chromium with `pnpm exec playwright install chromium`. The tests use that managed browser and a dedicated, self-signed TLS fixture.
+
+## DSH compatibility
+
+The current source is tested against DSH **0.1.7-rc.1**, **0.1.7-rc.2**, and **0.2.0-rc.1**. The host peer declaration and runtime version check both use `>=0.1.7-rc.1`, with no upper bound. DSH's loader includes prereleases, so 0.2 and later releases are admitted without a per-version exemption or a plugin update solely to widen the range.
+
+Later versions are forward-admitted, not claimed as tested. The plugin still verifies the required WebServer/Connection APIs, shared host package identity, and native authentication exchange. If those contracts change, authentication stays unavailable with a diagnostic; removing the version ceiling cannot guarantee compatibility with unknown API changes. CI runs CLI and browser regressions on all three tested versions.
+
+These compatibility and theme changes are **unreleased**. Published `0.1.1` still targets DSH 0.1.x; use a [source build](docs/development.md) for DSH 0.2.0-rc.1 until the next plugin release. The npm instructions below describe the published version.
 
 ## Install from npm
 

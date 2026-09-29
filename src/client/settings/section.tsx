@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import QRCode from 'qrcode'
 import type { SettingsSectionOwnerProps } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
@@ -11,30 +11,6 @@ import {
   type AccountStatus,
   type SettingsMessage,
 } from './api.js'
-
-const field: CSSProperties = {
-  display: 'block',
-  width: '100%',
-  maxWidth: 420,
-  minHeight: 38,
-  margin: '6px 0 14px',
-  padding: '7px 10px',
-  border: '1px solid currentColor',
-  borderRadius: 6,
-  background: 'transparent',
-  color: 'inherit',
-  font: 'inherit',
-}
-const button: CSSProperties = {
-  padding: '8px 13px',
-  border: '1px solid currentColor',
-  borderRadius: 6,
-  background: 'transparent',
-  color: 'inherit',
-  font: 'inherit',
-  cursor: 'pointer',
-}
-const row: CSSProperties = { display: 'flex', flexWrap: 'wrap', gap: 10, margin: '20px 0' }
 
 type Panel = 'password' | 'totp' | 'sessions' | null
 type Binding = { challenge: string; secret: string; uri: string }
@@ -67,10 +43,9 @@ function TextField(props: {
   autoComplete?: string
 }): JSX.Element {
   return (
-    <label style={{ display: 'block' }}>
+    <label className="auth-remote-field">
       {props.label}
       <input
-        style={field}
         name={props.name}
         defaultValue={draft.fields[props.name] ?? ''}
         onChange={(event) => {
@@ -174,16 +149,20 @@ export function SecuritySection({
 
   if (backupCodes) {
     return (
-      <section ref={sectionRef} aria-label={t('settingsSectionAria')}>
+      <section
+        ref={sectionRef}
+        className="auth-remote-security"
+        aria-label={t('settingsSectionAria')}
+      >
         <h2>{t('settingsBackupTitle')}</h2>
         <p>{t('settingsBackupDescription')}</p>
-        <ol style={{ columns: 2, fontFamily: 'monospace' }}>
+        <ol className="auth-remote-backup-codes">
           {backupCodes.map((code) => (
             <li key={code}>{code}</li>
           ))}
         </ol>
         <button
-          style={button}
+          className="auth-remote-button"
           onClick={() => {
             resetDraft()
             goToLogin('updated')
@@ -199,7 +178,7 @@ export function SecuritySection({
     <section
       ref={sectionRef}
       aria-label={t('settingsSectionAria')}
-      style={{ maxWidth: 620, paddingBottom: 30 }}
+      className="auth-remote-security"
     >
       <h2>{t('settingsTitle')}</h2>
       <p>
@@ -210,10 +189,11 @@ export function SecuritySection({
             })
           : t('settingsLoading')}
       </p>
-      <div style={row}>
+      <div className="auth-remote-actions">
         <button
-          style={button}
-          disabled={!me}
+          className="auth-remote-button"
+          disabled={!me || busy}
+          aria-pressed={panel === 'password'}
           onClick={() => {
             setPanel('password')
             setMessage(null)
@@ -222,8 +202,9 @@ export function SecuritySection({
           {t('settingsChangePassword')}
         </button>
         <button
-          style={button}
-          disabled={!me}
+          className="auth-remote-button"
+          disabled={!me || busy}
+          aria-pressed={panel === 'totp'}
           onClick={() => {
             setPanel('totp')
             setBinding(null)
@@ -233,8 +214,9 @@ export function SecuritySection({
           {t(me?.totpEnabled ? 'settingsRebindTotp' : 'settingsBindTotp')}
         </button>
         <button
-          style={button}
-          disabled={!me}
+          className="auth-remote-button"
+          disabled={!me || busy}
+          aria-pressed={panel === 'sessions'}
           onClick={() => {
             setPanel('sessions')
             setMessage(null)
@@ -290,7 +272,7 @@ export function SecuritySection({
             type="password"
             autoComplete="new-password"
           />
-          <button style={button} disabled={busy} type="submit">
+          <button className="auth-remote-button auth-remote-primary" disabled={busy} type="submit">
             {t('settingsSavePassword')}
           </button>
         </form>
@@ -332,7 +314,11 @@ export function SecuritySection({
                 autoComplete="one-time-code"
               />
             )}
-            <button style={button} disabled={busy} type="submit">
+            <button
+              className="auth-remote-button auth-remote-primary"
+              disabled={busy}
+              type="submit"
+            >
               {t('settingsStartBinding')}
             </button>
           </form>
@@ -363,7 +349,11 @@ export function SecuritySection({
                 name="disableCode"
                 autoComplete="one-time-code"
               />
-              <button style={button} disabled={busy} type="submit">
+              <button
+                className="auth-remote-button auth-remote-primary"
+                disabled={busy}
+                type="submit"
+              >
                 {t('settingsDisableTotp')}
               </button>
             </form>
@@ -387,15 +377,14 @@ export function SecuritySection({
           <h3>{t('settingsScanQr')}</h3>
           <SecretQr uri={binding.uri} t={t} />
           <p>
-            {t('settingsManualSecret')}{' '}
-            <code style={{ overflowWrap: 'anywhere' }}>{binding.secret}</code>
+            {t('settingsManualSecret')} <code>{binding.secret}</code>
           </p>
           <TextField label={t('settingsNewCode')} name="code" autoComplete="one-time-code" />
-          <button style={button} disabled={busy} type="submit">
+          <button className="auth-remote-button auth-remote-primary" disabled={busy} type="submit">
             {t('settingsConfirmBinding')}
           </button>
           <button
-            style={{ ...button, marginLeft: 10 }}
+            className="auth-remote-button auth-remote-restart"
             type="button"
             onClick={() => setBinding(null)}
           >
@@ -407,7 +396,7 @@ export function SecuritySection({
         <>
           <h3>{t('settingsSessions')}</h3>
           <button
-            style={button}
+            className="auth-remote-button"
             disabled={busy}
             onClick={() =>
               void submit(
@@ -446,13 +435,17 @@ export function SecuritySection({
                 autoComplete="one-time-code"
               />
             )}
-            <button style={button} disabled={busy} type="submit">
+            <button
+              className="auth-remote-button auth-remote-primary"
+              disabled={busy}
+              type="submit"
+            >
               {t('settingsSignOutAll')}
             </button>
           </form>
         </>
       )}
-      <p role="alert" aria-live="assertive">
+      <p className="auth-remote-error" role="alert" aria-live="assertive">
         {message && t(message.key, message.params)}
       </p>
     </section>
