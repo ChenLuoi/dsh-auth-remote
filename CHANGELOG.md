@@ -6,6 +6,10 @@ This file records user-visible changes to the released package. Version numbers 
 
 ## Unreleased
 
+No changes recorded yet.
+
+## 0.1.2 - 2026-09-29
+
 - Align login and security settings with DSH typography, neutral colors, controls, and light/dark themes.
 - Verify DSH 0.1.7-rc.1, 0.1.7-rc.2, and 0.2.0-rc.1 in the CLI/browser matrix; use 0.2.0-rc.1 as the default development runtime.
 - Admit DSH versions `>=0.1.7-rc.1` without an upper version ceiling, retaining required authentication API and package identity checks. Later versions are forward-admitted, not individually verified.

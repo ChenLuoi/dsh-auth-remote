@@ -12,11 +12,11 @@ DeepSeek Harness（DSH）的单用户远程登录插件，提供密码、TOTP、
 
 ## DSH 兼容性
 
-当前源码已测试 DSH **0.1.7-rc.1**、**0.1.7-rc.2** 和 **0.2.0-rc.1**。宿主 peer 声明和运行时版本检查统一使用 `>=0.1.7-rc.1`，不设版本上限。DSH 的加载器检查包含预发布版本，因此 0.2 及后续版本无需逐版豁免，也无需仅为放宽版本范围而更新插件。
+插件 0.1.2 已测试 DSH **0.1.7-rc.1**、**0.1.7-rc.2** 和 **0.2.0-rc.1**。宿主 peer 声明和运行时版本检查统一使用 `>=0.1.7-rc.1`，不设版本上限。DSH 的加载器检查包含预发布版本，因此 0.2 及后续版本无需逐版豁免，也无需仅为放宽版本范围而更新插件。
 
 后续版本属于向前准入，并不宣称已经逐版测试。插件仍检查必需的 WebServer／Connection 接口、宿主包实例一致性和原生认证交换。若这些约定改变，认证入口会保持不可用并给出诊断；取消版本上限不能保证未知接口变更后的兼容性。CI 在上述三个版本上运行 CLI 和浏览器回归。
 
-这些兼容性和样式更新目前**尚未发布**。npm 上的 `0.1.1` 仍面向 DSH 0.1.x；下一版插件发布前，DSH 0.2.0-rc.1 请使用[源码构建](docs/development.zh-CN.md)。下面的 npm 步骤描述的是已发布版本。
+上述兼容性和样式更新从插件 **0.1.2** 开始提供。使用 DSH 0.2.0-rc.1 时，请将旧插件升级到 0.1.2 或更高版本。源码构建参见[开发指南](docs/development.zh-CN.md)。
 
 ## 从 npm 安装
 
@@ -24,11 +24,11 @@ DeepSeek Harness（DSH）的单用户远程登录插件，提供密码、TOTP、
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.1.1
+dsh plugin --profile web add dsh-auth-remote@0.1.2
 dsh plugin --profile web list
 ```
 
-确认 `dsh --version` 输出 `0.1.7-rc.1`，且插件列表中有 `dsh-auth-remote@0.1.1`。这些命令使用 DSH 默认数据目录。源码构建及隔离开发运行时参见[开发指南](docs/development.zh-CN.md)。
+确认 `dsh --version` 输出 `0.2.0-rc.1`（或上文列出的其他已测试版本），且插件列表中有 `dsh-auth-remote@0.1.2`。这些命令使用 DSH 默认数据目录。源码构建及隔离开发运行时参见[开发指南](docs/development.zh-CN.md)。
 
 ## 配置 web profile
 
