@@ -23,6 +23,7 @@ const builds = [
     packages: 'bundle',
     external: ['@deepseek-ai/*', 'react', 'react/*'],
     entryPoints: ['src/client/index.ts'],
+    loader: { '.css': 'text' },
     outfile: 'dist/client.js',
     platform: 'browser',
     target: 'es2023',

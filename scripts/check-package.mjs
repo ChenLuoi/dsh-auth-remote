@@ -67,7 +67,7 @@ const metadata = JSON.parse(await readFile('.cache/build-meta.json', 'utf8'))
 assert.equal(metadata.length, 3)
 const requiredSources = [
   ['src/index.ts', 'src/cli/index.ts'],
-  ['src/client/index.ts'],
+  ['src/client/index.ts', 'src/client/settings/style.css'],
   ['src/client/login/index.ts', 'src/client/login/style.css'],
 ]
 for (const [index, build] of metadata.entries()) {

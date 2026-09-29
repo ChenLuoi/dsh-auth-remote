@@ -4,6 +4,8 @@
 
 This guide describes a new installation with the verified DSH `0.1.7-rc.1` runtime and its default `~/.dsh` data directory. It does not depend on a particular public hostname, proxy network, service manager, or existing account database.
 
+The npm steps below target published plugin `0.1.1`. DSH 0.2.0-rc.1 support is currently in unreleased source; see [compatibility](../README.md#dsh-compatibility) and the [source build guide](development.md) until the next plugin release.
+
 ## Minimal installation from npm
 
 Install the published package into the default `web` profile:

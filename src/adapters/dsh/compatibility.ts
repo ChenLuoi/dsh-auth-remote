@@ -7,7 +7,10 @@ import semver from 'semver'
 
 const WEB_SERVER_PACKAGE = '@deepseek-ai/dsh-host-webserver'
 const CONNECTION_PACKAGE = '@deepseek-ai/dsh-client-connection'
-const SUPPORTED_DSH_RANGE = '>=0.1.7-rc.1 <0.2.0-0'
+// DSH's loader includes prereleases when evaluating this same peer range.
+// Future versions are admitted by version; the API and identity checks below
+// still fail closed if the host can no longer enforce the authentication gate.
+export const SUPPORTED_DSH_RANGE = '>=0.1.7-rc.1'
 
 interface PackageManifest {
   name: string

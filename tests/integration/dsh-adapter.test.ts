@@ -3,6 +3,7 @@ import { once } from 'node:events'
 import { request as httpRequest } from 'node:http'
 import { connect } from 'node:net'
 import { test } from 'node:test'
+import { createRequire } from 'node:module'
 import { gunzipSync } from 'node:zlib'
 import { Context } from '@deepseek-ai/cordis'
 import * as Connection from '@deepseek-ai/dsh-client-connection'
@@ -22,6 +23,7 @@ import { AuthRemoteWebServer } from '../../src/index.js'
 const origin = 'http://auth-remote.test:13090'
 const listener = { host: '127.0.0.1', port: 0 }
 const config = resolveAuthConfig({ allowedOrigins: [origin] }, listener)
+const require = createRequire(import.meta.url)
 
 test('startup output groups the profile listener and each public origin without a token or login path', () => {
   const remote = resolveAuthConfig(
@@ -192,7 +194,10 @@ test('official WebServer dispatches every registered handler through the gate', 
     }
   }
   try {
-    assert.equal(assertWebServerCompatibility(ctx), '0.1.7-rc.1')
+    assert.equal(
+      assertWebServerCompatibility(ctx),
+      require('@deepseek-ai/dsh-host-webserver/package.json').version,
+    )
     await ctx.plugin(TestServer, config)
     await ctx.fiber.await()
     const server = ctx.webServer
@@ -355,7 +360,10 @@ test('native browser exchange stays server-side and is bound to each authority a
     })
     await ctx.fiber.await()
     const connection = ctx.connection
-    assert.equal(assertConnectionCompatibility(connection), '0.1.7-rc.1')
+    assert.equal(
+      assertConnectionCompatibility(connection),
+      require('@deepseek-ai/dsh-client-connection/package.json').version,
+    )
     const auth = new NativeBrowserAuth()
     let exchanges = 0
     const counted = {

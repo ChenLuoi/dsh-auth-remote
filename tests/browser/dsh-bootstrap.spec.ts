@@ -71,7 +71,7 @@ test('target DSH boots at a non-loopback browser origin with Host settings acces
         `DSH browser boot failed: ${JSON.stringify({ pageErrors, body: (await page.locator('body').innerText()).slice(0, 500) })}`,
       )
     }
-    const notice = page.getByRole('dialog', { name: '内测声明' })
+    const notice = page.getByRole('dialog', { name: /^(?:内测声明|预览版说明)$/u })
     await notice.waitFor({ state: 'visible' })
     await notice.getByRole('button', { name: '继续' }).click()
     await notice.waitFor({ state: 'hidden' })

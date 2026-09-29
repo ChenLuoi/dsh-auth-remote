@@ -13,8 +13,11 @@ export function launchBrowser(args: string[] = []) {
   })
 }
 
-export async function completeApiKeyPrompt(page: Page): Promise<boolean> {
+export async function completeApiKeyPrompt(page: Page, waitMs = 0): Promise<boolean> {
   const continueButton = page.getByRole('button', { name: '保存并继续' })
+  if (waitMs) {
+    await continueButton.waitFor({ state: 'visible', timeout: waitMs }).catch(() => {})
+  }
   if (!(await continueButton.isVisible())) return false
   await page.getByRole('textbox', { name: 'API 密钥' }).fill('browser-test-key')
   await continueButton.click()
@@ -22,20 +25,33 @@ export async function completeApiKeyPrompt(page: Page): Promise<boolean> {
   return true
 }
 
-export async function clickThroughDshPrompts(page: Page, target: Locator): Promise<void> {
-  const notice = page.getByRole('dialog', { name: '内测声明' })
-  for (let attempt = 0; attempt < 3; attempt++) {
+export async function clickThroughDshPrompts(
+  page: Page,
+  target: Locator,
+  reopen?: Locator,
+): Promise<void> {
+  const notice = page.getByRole('dialog', { name: /^(?:内测声明|预览版说明)$/u })
+  // Onboarding can mount after the frame or briefly reload it after saving.
+  // Recheck the known prompts between short clicks instead of spending the
+  // entire action timeout blocked behind a late modal.
+  for (let attempt = 0; attempt < 6; attempt++) {
     if (await notice.isVisible()) {
       await notice.getByRole('button', { name: '继续' }).click()
       await notice.waitFor({ state: 'hidden' })
+      await completeApiKeyPrompt(page, 5000)
     }
     await completeApiKeyPrompt(page)
     try {
-      await target.click({ timeout: 3000 })
+      // Saving the first API key can reload older hosts and close Settings.
+      if (reopen && !(await target.isVisible())) await reopen.click({ timeout: 2000 })
+      await target.click({ timeout: 2000 })
       return
     } catch (error) {
-      if (attempt === 2 || (!(await notice.isVisible()) && !(await completeApiKeyPrompt(page))))
-        throw error
+      if (attempt === 5)
+        throw new Error(
+          `DSH prompt interaction failed: ${(await page.locator('body').innerText()).slice(0, 2000)}`,
+          { cause: error },
+        )
     }
   }
 }

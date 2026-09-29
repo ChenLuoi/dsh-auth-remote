@@ -4,8 +4,12 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const project = fileURLToPath(new URL('..', import.meta.url))
-export const dshVersion = '0.1.7-rc.1'
-export const testRuntime = join(project, '.cache/test-runtime')
+export const testedDshVersions = ['0.1.7-rc.1', '0.1.7-rc.2', '0.2.0-rc.1']
+export const dshVersion = process.env.DSH_TEST_VERSION || '0.2.0-rc.1'
+if (!testedDshVersions.includes(dshVersion)) {
+  throw new Error(`DSH_TEST_VERSION must be one of: ${testedDshVersions.join(', ')}`)
+}
+export const testRuntime = join(project, '.cache/test-runtime', dshVersion)
 export const testDsh = join(testRuntime, 'node_modules/.bin/dsh')
 export const packageManifest = JSON.parse(await readFile(join(project, 'package.json'), 'utf8'))
 export const packageName = packageManifest.name
