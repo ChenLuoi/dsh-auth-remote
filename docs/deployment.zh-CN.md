@@ -2,9 +2,9 @@
 
 [English](deployment.md)
 
-本指南说明使用已验证的 DSH `0.1.7-rc.1` 和默认的 `~/.dsh` 数据目录进行全新安装，不假定公网域名、代理网络、服务管理器或现有账号数据库。
+本指南说明使用已验证的 DSH `0.2.0-rc.1` 和默认的 `~/.dsh` 数据目录进行全新安装，不假定公网域名、代理网络、服务管理器或现有账号数据库。
 
-下面的 npm 步骤适用于已发布的插件 `0.1.1`。DSH 0.2.0-rc.1 支持目前位于未发布源码中；下一版插件发布前，请参阅[兼容说明](../README.zh-CN.md#dsh-兼容性)和[源码构建指南](development.zh-CN.md)。
+下面的 npm 步骤使用插件 `0.1.2`。升级已有安装前，请参阅[兼容说明](../README.zh-CN.md#dsh-兼容性)；源码构建参见[开发指南](development.zh-CN.md)。
 
 ## 从 npm 最小化安装
 
@@ -12,11 +12,11 @@
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.1.1
+dsh plugin --profile web add dsh-auth-remote@0.1.2
 dsh plugin --profile web list
 ```
 
-确认 `dsh --version` 输出 `0.1.7-rc.1`，且列表中有 `dsh-auth-remote@0.1.1`。bundle 提供认证监听，默认 `allowedOrigins: []`，因此只准入字面回环主机。最小安装无需修改 profile 补丁。在一个终端启动 DSH：
+确认 `dsh --version` 输出 `0.2.0-rc.1`，且列表中有 `dsh-auth-remote@0.1.2`。bundle 提供认证监听，默认 `allowedOrigins: []`，因此只准入字面回环主机。最小安装无需修改 profile 补丁。在一个终端启动 DSH：
 
 ```sh
 dsh web --no-open --port 13090
