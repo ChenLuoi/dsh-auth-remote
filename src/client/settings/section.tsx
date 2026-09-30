@@ -6,6 +6,7 @@ import type { BindingResponse } from '../../shared/auth-contract.js'
 import {
   authRequest,
   goToLogin,
+  holdLoginRedirect,
   isUnauthorized,
   settingsError,
   type AccountStatus,
@@ -30,8 +31,11 @@ let draft: SecurityDraft = {
   message: null,
   fields: {},
 }
+let releaseBackupCodesRedirect: (() => void) | undefined
 
 function resetDraft(): void {
+  releaseBackupCodesRedirect?.()
+  releaseBackupCodesRedirect = undefined
   draft = { panel: null, binding: null, backupCodes: null, message: null, fields: {} }
 }
 
@@ -130,6 +134,8 @@ export function SecuritySection({
 
   async function submit<T>(operation: () => Promise<T>, done: (result: T) => void): Promise<void> {
     if (busy) return
+    // Bound this hold so a lost management response cannot indefinitely block expiry.
+    const release = holdLoginRedirect(30_000)
     setBusy(true)
     setMessage(null)
     try {
@@ -138,6 +144,7 @@ export function SecuritySection({
       if (isUnauthorized(error)) goToLogin()
       else setMessage(settingsError(error))
     } finally {
+      release()
       setBusy(false)
     }
   }
@@ -164,8 +171,8 @@ export function SecuritySection({
         <button
           className="auth-remote-button"
           onClick={() => {
-            resetDraft()
             goToLogin('updated')
+            resetDraft()
           }}
         >
           {t('settingsBackupSaved')}
@@ -370,7 +377,16 @@ export function SecuritySection({
                   challenge: binding.challenge,
                   code: data.get('code'),
                 }),
-              (result) => setBackupCodes(result.backupCodes),
+              (result) => {
+                if (!sectionRef.current?.isConnected) {
+                  goToLogin('updated')
+                  return
+                }
+                // The server has revoked the session; keep these one-use codes
+                // visible until the user acknowledges them or closes Settings.
+                releaseBackupCodesRedirect ??= holdLoginRedirect()
+                setBackupCodes(result.backupCodes)
+              },
             )
           }}
         >

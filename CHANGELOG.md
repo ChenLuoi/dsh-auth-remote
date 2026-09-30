@@ -8,6 +8,13 @@ This file records user-visible changes to the released package. Version numbers 
 
 No changes recorded yet.
 
+## 0.1.3 - 2026-09-30
+
+- Verify DSH 0.2.0-rc.2 and add it to the CLI, installation smoke, and browser CI matrix, retaining all previously tested versions.
+- Use DSH 0.2.0-rc.2 as the default development, test, and release verification runtime; update pinned development dependencies and English/Chinese setup guides.
+- Match the chat completion status used by both older DSH runtimes and 0.2.0-rc.2 in the HTTPS forwarding regression.
+- Coordinate session-monitor redirects with security changes so a successful update retains its sign-in message and newly issued backup codes remain visible until acknowledged. Pending-operation protection expires after 30 seconds.
+
 ## 0.1.2 - 2026-09-29
 
 - Align login and security settings with DSH typography, neutral colors, controls, and light/dark themes.

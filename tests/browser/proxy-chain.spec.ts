@@ -422,7 +422,9 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
           `chat did not stream: ${String(error)}; body=${(await page.locator('body').innerText()).slice(-2500)}; mock=${JSON.stringify(modelRequests)}`,
         )
       })
-    await page.getByText('已完成工作').waitFor({ timeout: 15000 })
+    // DSH rc.2 shortened the completed-turn announcement from 已完成工作 to 已完成.
+    const completedTurn = page.getByRole('status').filter({ hasText: /^已完成(?:工作)?$/u })
+    await completedTurn.waitFor({ timeout: 15000 })
     await page.getByText('代理链路聊天成功', { exact: true }).last().waitFor()
     assert.ok(modelRequests.some((request) => request.method === 'POST'))
     assert.ok(modelRequests.every((request) => request.path === '/anthropic/v1/messages'))
@@ -442,7 +444,7 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
     await page.getByText('proxy-note.md', { exact: true }).click()
     await page.getByText('来自官方预览。').waitFor()
     await page.reload()
-    await page.getByText('已完成工作').waitFor()
+    await completedTurn.waitFor()
     const cookies = await context.cookies()
     assert.deepEqual(
       cookies.map((cookie) => cookie.name),
@@ -545,7 +547,7 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
     assert.equal(ready, true, `DSH restart never became ready: ${stderr.slice(0, 2000)}`)
     assert.equal((await proxyRequest('/auth-remote/me', { cookie: pluginCookie })).status, 200)
     await page.reload()
-    await page.getByText('已完成工作').waitFor()
+    await completedTurn.waitFor()
 
     const retainedSocketMessage = await page.evaluate(
       (address) =>
