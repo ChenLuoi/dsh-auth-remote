@@ -1,5 +1,8 @@
 import type { AuthErrorResponse, MeResponse } from '../../shared/auth-contract.js'
 import type { MessageKey } from '../../shared/i18n.js'
+import { LoginNavigation, type LoginReason } from './navigation.js'
+
+const loginNavigation = new LoginNavigation((reason) => location.assign(loginLocation(reason)))
 
 export interface SettingsMessage {
   key: MessageKey
@@ -25,8 +28,12 @@ export function loginLocation(reason = 'expired'): string {
   return target.pathname + target.search
 }
 
-export function goToLogin(reason = 'expired'): void {
-  location.assign(loginLocation(reason))
+export function holdLoginRedirect(timeoutMs?: number): () => void {
+  return loginNavigation.hold(timeoutMs)
+}
+
+export function goToLogin(reason: LoginReason = 'expired'): void {
+  loginNavigation.go(reason)
 }
 
 export async function authRequest<T>(path: string, body?: Record<string, unknown>): Promise<T> {

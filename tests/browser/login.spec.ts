@@ -628,9 +628,32 @@ test('security settings reverify password changes and TOTP rebinding', async () 
     await f.page.getByLabel('当前验证码或备用码').fill(originalCodes[1]!)
     await f.page.getByLabel('新密码', { exact: true }).fill(changedPassword)
     await f.page.getByLabel('再次输入新密码').fill(changedPassword)
+    // Force revocation monitoring to observe 401 before the successful mutation
+    // response arrives, rather than depending on CI timing to expose the race.
+    const revokedStatus = f.page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/auth-remote/me' && response.status() === 401,
+    )
+    void revokedStatus.catch(() => {})
+    await f.page.route('**/auth-remote/password', async (route) => {
+      const upstream = new URL(route.request().url())
+      const authority = upstream.host
+      upstream.hostname = '127.0.0.1'
+      const response = await route.fetch({
+        url: upstream.href,
+        headers: { ...(await route.request().allHeaders()), host: authority },
+      })
+      assert.equal(response.status(), 200)
+      await revokedStatus
+      // Let the monitor consume the 401 while the update response is still withheld.
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      await route.fulfill({ response })
+    })
     await f.page.getByRole('button', { name: '保存新密码' }).click()
     await f.page.getByRole('heading', { name: '登录 DSH' }).waitFor()
+    assert.equal(new URL(f.page.url()).searchParams.get('reason'), 'updated')
     await f.page.getByText('安全设置已更新，请重新登录。').waitFor()
+    await f.page.unroute('**/auth-remote/password')
     await loginWithBackup(f.page, f.origin, changedPassword, originalCodes[2]!)
     await openSecurity(f.page)
     assert.equal(await f.page.getByRole('button', { name: '关闭 TOTP' }).count(), 0)
@@ -658,6 +681,10 @@ test('security settings reverify password changes and TOTP rebinding', async () 
     await enSettings
       .getByLabel('Six-digit code from the new authenticator')
       .fill(totpCode(replacementSecret, Math.floor(Date.now() / 30_000)))
+    const backupCodesPoll = f.page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/auth-remote/me' && response.status() === 401,
+    )
     await enSettings.getByRole('button', { name: 'Confirm setup' }).click()
     await f.page.getByRole('heading', { name: 'Save your backup codes' }).waitFor()
     const codes = await f.page
@@ -665,6 +692,9 @@ test('security settings reverify password changes and TOTP rebinding', async () 
       .allTextContents()
     assert.equal(codes.length, 10)
     assert.equal(await f.context.cookies().then((cookies) => cookies.length), 0)
+    await backupCodesPoll
+    assert.equal(await f.page.evaluate(async () => (await fetch('/api/settings')).status), 401)
+    await expect(f.page.getByRole('heading', { name: 'Save your backup codes' })).toBeVisible()
     await f.page.getByRole('button', { name: 'I saved them; sign in again' }).click()
     await f.page.getByRole('heading', { name: '登录 DSH' }).waitFor()
   } finally {
