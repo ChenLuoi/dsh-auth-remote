@@ -28,6 +28,7 @@ test('DSH loader peer range and runtime gate admit upgrades, including prereleas
     '0.1.7-rc.1',
     '0.1.7-rc.2',
     '0.2.0-rc.1',
+    '0.2.0-rc.2',
     '0.2.0',
     '0.2.1-rc.1',
     '0.3.0-rc.1',

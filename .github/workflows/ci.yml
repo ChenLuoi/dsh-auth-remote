@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dsh: [0.1.7-rc.1, 0.1.7-rc.2, 0.2.0-rc.1]
+        dsh: [0.1.7-rc.1, 0.1.7-rc.2, 0.2.0-rc.1, 0.2.0-rc.2]
     env:
       DSH_TEST_VERSION: ${{ matrix.dsh }}
     runs-on: ubuntu-latest
@@ -51,7 +51,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dsh: [0.1.7-rc.1, 0.1.7-rc.2, 0.2.0-rc.1]
+        dsh: [0.1.7-rc.1, 0.1.7-rc.2, 0.2.0-rc.1, 0.2.0-rc.2]
     env:
       DSH_TEST_VERSION: ${{ matrix.dsh }}
     runs-on: ubuntu-latest
