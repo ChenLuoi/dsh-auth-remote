@@ -1,6 +1,6 @@
 {
   "name": "dsh-auth-remote",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Single-user remote authentication for DeepSeek Harness: password, TOTP and revocable sessions.",
   "license": "MIT",
   "repository": {
