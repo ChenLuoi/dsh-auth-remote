@@ -11,6 +11,7 @@ import { totpCode } from '../../src/auth/totp.js'
 import {
   archive,
   clickThroughDshPrompts,
+  completeApiKeyPrompt,
   dsh,
   launchBrowser,
   selectDshTheme,
@@ -761,6 +762,8 @@ test('official plugin settings persist through the guarded remote browser', asyn
     await notice.waitFor()
     await notice.getByRole('button', { name: '继续' }).click()
     await notice.waitFor({ state: 'hidden' })
+    await completeApiKeyPrompt(f.page, 5000)
+    await f.page.waitForSelector('[class*="frame"]')
     await clickThroughDshPrompts(f.page, f.page.getByRole('button', { name: '选择工作区' }))
     const directory = f.page.getByRole('dialog', { name: '选择工作区目录' })
     const addWorkspace = f.page.getByText('添加工作区…', { exact: true })

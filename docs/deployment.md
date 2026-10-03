@@ -4,7 +4,7 @@
 
 This guide describes a new installation with the verified DSH `0.2.1-alpha.1` runtime and its default `~/.dsh` data directory. It does not depend on a particular public hostname, proxy network, service manager, or existing account database.
 
-The npm steps below use plugin `0.1.4`. Before upgrading an existing installation, review [compatibility](../README.md#dsh-compatibility); for source builds, see the [development guide](development.md).
+The npm steps below use plugin `0.1.5`. Before upgrading an existing installation, review [compatibility](../README.md#dsh-compatibility); for source builds, see the [development guide](development.md).
 
 ## Minimal installation from npm
 
@@ -12,11 +12,11 @@ Install the published package into the default `web` profile:
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.1.4
+dsh plugin --profile web add dsh-auth-remote@0.1.5
 dsh plugin --profile web list
 ```
 
-Verify that `dsh --version` prints `0.2.1-alpha.1` and the list includes `dsh-auth-remote@0.1.4`. The bundle supplies an auth listener with `allowedOrigins: []`, which admits only literal loopback hosts. No profile patch is needed for this setup. Start DSH in one terminal:
+Verify that `dsh --version` prints `0.2.1-alpha.1` and the list includes `dsh-auth-remote@0.1.5`. The bundle supplies an auth listener with `allowedOrigins: []`, which admits only literal loopback hosts. No profile patch is needed for this setup. Start DSH in one terminal:
 
 ```sh
 dsh web --no-open --port 13090
