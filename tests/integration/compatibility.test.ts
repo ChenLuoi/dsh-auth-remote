@@ -7,6 +7,7 @@ import { test } from 'node:test'
 import { Context } from '@deepseek-ai/cordis'
 import type { HostConnectionHandle } from '@deepseek-ai/dsh-client-connection'
 import semver from 'semver'
+import { testedDshVersions } from '../../scripts/runtime.mjs'
 import {
   assertConnectionCompatibility,
   assertWebServerCompatibility,
@@ -14,6 +15,14 @@ import {
 } from '../../src/adapters/dsh/compatibility.js'
 
 const require = createRequire(import.meta.url)
+
+test('declared compatible DSH releases match the verified runtime targets', () => {
+  const manifest = require('../../package.json')
+  assert.deepEqual(
+    manifest.dsh.compatibility.dshReleases,
+    Object.fromEntries(testedDshVersions.map((version) => [version, 'compatible'])),
+  )
+})
 
 test('DSH loader peer range and runtime gate admit upgrades, including prereleases', () => {
   const manifest = require('../../package.json')
@@ -30,6 +39,7 @@ test('DSH loader peer range and runtime gate admit upgrades, including prereleas
     '0.2.0-rc.1',
     '0.2.0-rc.2',
     '0.2.0',
+    '0.2.1-alpha.1',
     '0.2.1-rc.1',
     '0.3.0-rc.1',
     '1.0.0',

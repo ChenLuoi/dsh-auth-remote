@@ -6,17 +6,17 @@ Single-user remote sign-in for DeepSeek Harness (DSH), with password, TOTP, one-
 
 ## Requirements
 
-- Linux with `/proc`, Node.js 24 or newer, and a tested DSH runtime: **0.1.7-rc.1**, **0.1.7-rc.2**, **0.2.0-rc.1**, or **0.2.0-rc.2** (default). pnpm 12.5.1 is needed only when building from source.
+- Linux with `/proc`, Node.js 24 or newer, and a tested DSH runtime: **0.1.7-rc.1**, **0.1.7-rc.2**, **0.2.0-rc.1**, **0.2.0-rc.2**, or **0.2.1-alpha.1** (default). pnpm 12.5.1 is needed only when building from source.
 - DSH's default `~/.dsh` data directory and a `web` profile. The account state belongs to that profile; it is not shared with another profile.
 - For source browser tests, install Playwright Chromium with `pnpm exec playwright install chromium`. The tests use that managed browser and a dedicated, self-signed TLS fixture.
 
 ## DSH compatibility
 
-Plugin 0.1.3 is tested against DSH **0.1.7-rc.1**, **0.1.7-rc.2**, **0.2.0-rc.1**, and **0.2.0-rc.2**. The default supported runtime is **0.2.0-rc.2**. The host peer declaration and runtime version check both use `>=0.1.7-rc.1`, with no upper bound. DSH's loader includes prereleases, so 0.2 and later releases are admitted without a per-version exemption or a plugin update solely to widen the range.
+Plugin 0.1.4 is tested against DSH **0.1.7-rc.1**, **0.1.7-rc.2**, **0.2.0-rc.1**, **0.2.0-rc.2**, and **0.2.1-alpha.1**. The default supported runtime is **0.2.1-alpha.1**. These exact releases are declared in `dsh.compatibility.dshReleases`. The host peer declaration and runtime version check both use `>=0.1.7-rc.1`, with no upper bound. DSH's loader includes prereleases, so 0.2 and later releases are admitted without a per-version exemption or a plugin update solely to widen the range.
 
-Later versions are forward-admitted, not claimed as tested. The plugin still verifies the required WebServer/Connection APIs, shared host package identity, and native authentication exchange. If those contracts change, authentication stays unavailable with a diagnostic; removing the version ceiling cannot guarantee compatibility with unknown API changes. CI runs CLI, installation smoke, and browser regressions on all four tested versions.
+Later versions are forward-admitted, not claimed as tested. The plugin still verifies the required WebServer/Connection APIs, shared host package identity, and native authentication exchange. If those contracts change, authentication stays unavailable with a diagnostic; removing the version ceiling cannot guarantee compatibility with unknown API changes. CI runs CLI, installation smoke, and browser regressions on all five tested versions.
 
-Plugin **0.1.3** makes DSH 0.2.0-rc.2 the default verified runtime. The open-ended compatibility range and theme integration were introduced in **0.1.2**. For source builds, see the [development guide](docs/development.md).
+Plugin **0.1.4** makes DSH 0.2.1-alpha.1 the default verified runtime. The existing **0.1.3** authentication implementation also passes the CLI and browser suites on this runtime. The open-ended compatibility range and theme integration were introduced in **0.1.2**. For source builds, see the [development guide](docs/development.md).
 
 ## Install from npm
 
@@ -24,11 +24,11 @@ With DSH installed, verify its version and install the published plugin into the
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.1.3
+dsh plugin --profile web add dsh-auth-remote@0.1.4
 dsh plugin --profile web list
 ```
 
-Check that `dsh --version` prints `0.2.0-rc.2` (or another tested version listed above) and the plugin list includes `dsh-auth-remote@0.1.3`. These commands use DSH's default data directory. For source builds and an isolated development runtime, see the [development guide](docs/development.md).
+Check that `dsh --version` prints `0.2.1-alpha.1` (or another tested version listed above) and the plugin list includes `dsh-auth-remote@0.1.4`. These commands use DSH's default data directory. For source builds and an isolated development runtime, see the [development guide](docs/development.md).
 
 ## Configure the web profile
 

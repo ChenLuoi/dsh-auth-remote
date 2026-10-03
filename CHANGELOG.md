@@ -8,6 +8,11 @@ This file records user-visible changes to the released package. Version numbers 
 
 No changes recorded yet.
 
+## 0.1.4 - 2026-10-03
+
+- Verify DSH 0.2.1-alpha.1 with the existing authentication implementation and add it to the CLI, installation smoke, and browser CI matrix, retaining all previously tested versions.
+- Declare all verified releases in `dsh.compatibility.dshReleases` and use DSH 0.2.1-alpha.1 as the default development, test, and release runtime; update pinned dependencies and bilingual guides.
+
 ## 0.1.3 - 2026-09-30
 
 - Verify DSH 0.2.0-rc.2 and add it to the CLI, installation smoke, and browser CI matrix, retaining all previously tested versions.
