@@ -8,6 +8,11 @@ This file records user-visible changes to the released package. Version numbers 
 
 No changes recorded yet.
 
+## 0.1.7 - 2026-10-10
+
+- Automatically declare the finalized native bridge authority in Connection's trusted hosts, fixing downstream plugin POST rejection when a concrete listener address was not explicitly trusted. Use the actual bound port and retain the legacy loopback bridge.
+- Merge and deduplicate explicit CLI trusted hosts and public authorities required by preserved paths, while retaining the outer public-origin and session checks.
+
 ## 0.1.6 - 2026-10-10
 
 - Use DSH 0.2.1-alpha.2 for development and default verification, repair native WebServer/Connection composition, and retain all six declared releases in the CLI, smoke and browser CI matrix.

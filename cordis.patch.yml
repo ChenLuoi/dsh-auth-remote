@@ -24,12 +24,12 @@
         sessionHours: 168
         preserveOriginPaths: []
 
-# Connection starts after the authenticated listener and receives public
-# authorities only when a preserved path needs the original browser Host.
+# Connection starts after the authenticated listener and receives its finalized
+# bridge authority, plus public authorities needed by preserved paths and CLI trust.
 - id: connection
   inject: [webStartup, webServer]
   config:
-    trustedHosts: !!js '[...ctx.webStartup.trustedHosts, ...ctx.webServer.connectionTrustedHosts]'
+    trustedHosts: !!js '[...new Set([...ctx.webStartup.trustedHosts, ...ctx.webServer.connectionTrustedHosts])]'
 
 # Reuse the official browser directory picker.
 - id: directory-picker

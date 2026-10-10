@@ -10,7 +10,7 @@
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.1.6
+dsh plugin --profile web add dsh-auth-remote@0.1.7
 dsh plugin --profile web list
 dsh web --no-open --port 13090
 ```
@@ -115,7 +115,7 @@ alpha.2 的 IPv6 回环 HTTPS 可合并以下完整认证条目，使用自己�
 
 插件 Cookie 跟随已验证外部来源，限主机、HttpOnly、SameSite，HTTPS 设置 Secure。原生桥接凭据仅保留服务端，跟随原生监听协议；公开 HTTP 代理接入原生 HTTPS 时，其原生 Cookie audience/Secure 仍按 HTTPS。浏览器 Cookie 不通过端口隔离。
 
-标准 `/api` 路由在 `preserveOriginPaths: []` 下即可工作，无需列 `/api`。仅在下游需要原始公网 Host 时加入前缀；Origin 仅在请求已有时透传，保留路径预检所选公开 authority。无需单独 Connection 条目或额外 trusted-host 参数。alpha.2 普通路径使用归一化原生 bind authority，旧 Connection 保留内部 HTTP 回环桥接；两类路径均需完整会话。撤销、Connection 丢失或存储故障会关闭活跃上传、流和升级连接，撤回业务准入。ready 不表示账号已初始化。
+标准 `/api` 路由在 `preserveOriginPaths: []` 下即可工作，无需列 `/api`。插件始终将定稿的原生桥接 authority 登记到 Connection 的 `trustedHosts`，使用实际绑定端口（包含 `--port 0`），读取该列表的下游插件无需额外 trusted-host 参数即可识别桥接地址。显式 CLI trusted hosts 合并去重，不扩大外层公开来源策略。仅在下游需要原始公网 Host 时加入前缀；Origin 仅在请求已有时透传，保留路径预检并登记所选公开 authority。无需单独 Connection 条目。alpha.2 普通路径使用归一化原生 bind authority，旧 Connection 保留内部 HTTP 回环桥接；两类路径均需完整会话。撤销、Connection 丢失或存储故障会关闭活跃上传、流和升级连接，撤回业务准入。ready 不表示账号已初始化。
 
 ## 启动并验证公开入口
 

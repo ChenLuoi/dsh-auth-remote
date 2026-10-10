@@ -8,6 +8,11 @@
 
 暂无记录。
 
+## 0.1.7 - 2026-10-10
+
+- 自动将定稿的原生桥接 authority 登记到 Connection 的 trusted hosts，修复具体监听地址未显式登记时下游插件 POST 被拒绝的问题；使用实际绑定端口，并保留旧版回环桥接。
+- 合并去重显式 CLI trusted hosts 与保留路径所需的公开 authority，外层公开来源和会话校验继续生效。
+
 ## 0.1.6 - 2026-10-10
 
 - 开发与默认验证运行时升级为 DSH 0.2.1-alpha.2，修复原生 WebServer/Connection 组合，CLI、smoke 和浏览器 CI 矩阵保留六个声明版本。

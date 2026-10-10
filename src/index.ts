@@ -179,10 +179,12 @@ export class AuthRemoteWebServer extends GuardedWebServer {
     return this.authService
   }
 
-  /** Public authorities needed by native Connection for preserved routes. */
+  /** Declare the finalized bridge and any public authorities used by preserved routes. */
   get connectionTrustedHosts(): readonly string[] {
-    if (this.resolved.preserveOriginPaths.length === 0) return []
-    return this.resolved.originPolicy.registeredOrigins.map((entry) => entry.host)
+    const hosts = [this.resolved.nativeAuthority]
+    if (this.resolved.preserveOriginPaths.length > 0)
+      hosts.push(...this.resolved.originPolicy.registeredOrigins.map((entry) => entry.host))
+    return [...new Set(hosts)]
   }
 }
 
