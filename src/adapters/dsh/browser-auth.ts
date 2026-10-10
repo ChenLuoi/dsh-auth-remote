@@ -1,4 +1,5 @@
 import type { HostConnectionHandle } from '@deepseek-ai/dsh-client-connection'
+import type { OriginProtocol } from '../../http/origin-policy.js'
 
 interface NativeCookie {
   readonly pair: string
@@ -8,6 +9,8 @@ interface NativeCookie {
 /** Host-only bridge to the public Connection token exchange. */
 export class NativeBrowserAuth {
   private readonly cookies = new WeakMap<HostConnectionHandle, Map<string, NativeCookie>>()
+
+  constructor(private readonly protocol: OriginProtocol = 'http:') {}
 
   cookieFor(
     connection: HostConnectionHandle,
@@ -22,7 +25,7 @@ export class NativeBrowserAuth {
     }
     let cookie = byAuthority.get(authority)
     if (cookie === undefined || now >= cookie.expiresAt - 60_000) {
-      cookie = exchange(connection, authority, now)
+      cookie = exchange(connection, authority, this.protocol, now)
       byAuthority.set(authority, cookie)
     }
     const rejection = connection.requestRejection({
@@ -42,10 +45,17 @@ export class NativeBrowserAuth {
   }
 }
 
-function exchange(connection: HostConnectionHandle, authority: string, now: number): NativeCookie {
-  const tokenUrl = new URL(connection.authenticatedUrl(`http://${authority}/`))
-  const normalizedAuthority = new URL(`http://${authority}/`).host
+function exchange(
+  connection: HostConnectionHandle,
+  authority: string,
+  protocol: OriginProtocol,
+  now: number,
+): NativeCookie {
+  const baseUrl = new URL(`${protocol}//${authority}/`)
+  const tokenUrl = new URL(connection.authenticatedUrl(baseUrl.href))
+  const normalizedAuthority = baseUrl.host
   if (
+    tokenUrl.protocol !== protocol ||
     tokenUrl.host !== normalizedAuthority ||
     tokenUrl.pathname !== '/' ||
     tokenUrl.searchParams.getAll('token').length !== 1
@@ -79,6 +89,8 @@ function exchange(connection: HostConnectionHandle, authority: string, now: numb
     throw new Error('auth-remote: native Connection token exchange failed')
   }
   const [pair, ...attributes] = setCookie.split(';').map((part) => part.trim())
+  if (attributes.some((attribute) => /^secure$/iu.test(attribute)) !== (protocol === 'https:'))
+    throw new Error('auth-remote: native Connection returned a Cookie for the wrong protocol')
   if (pair === undefined || !/^[^=;\s]+=([^;\s]*)$/u.test(pair)) {
     throw new Error('auth-remote: native Connection returned an invalid Cookie')
   }

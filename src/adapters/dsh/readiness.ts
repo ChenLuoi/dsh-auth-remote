@@ -7,15 +7,17 @@ import type { GuardedWebServer } from './webserver.js'
 
 /** Connection availability and the native authorities used by the bridge. */
 export class DshReadiness {
-  private readonly native = new NativeBrowserAuth()
+  private readonly native: NativeBrowserAuth
   private connection: HostConnectionHandle | undefined
   private isReady = false
 
   constructor(
-    private readonly server: GuardedWebServer,
+    _server: GuardedWebServer,
     private readonly config: ResolvedAuthConfig,
     private readonly onUnavailable: () => void = () => {},
-  ) {}
+  ) {
+    this.native = new NativeBrowserAuth(config.protocol)
+  }
 
   ready(): boolean {
     return this.isReady
@@ -28,9 +30,8 @@ export class DshReadiness {
   attach(connection: HostConnectionHandle, profileAnchor?: string): void {
     this.detach()
     assertConnectionCompatibility(connection, profileAnchor)
-    const localAuthority = `127.0.0.1:${String(this.server.port)}`
     try {
-      this.native.cookieFor(connection, localAuthority, `http://${localAuthority}`)
+      this.native.cookieFor(connection, this.config.nativeAuthority, this.config.nativeOrigin)
       if (this.config.preserveOriginPaths.length > 0)
         for (const entry of this.config.originPolicy.registeredOrigins)
           this.native.cookieFor(connection, entry.host, entry.origin)
@@ -65,12 +66,18 @@ export function watchConnection(
   ctx: Context,
   readiness: DshReadiness,
   onReady: () => void = () => {},
+  onFailure: (error: unknown) => Promise<void> = async () => {},
 ): void {
   ctx.inject(['connection'], (connectionCtx) => {
     const connection = connectionCtx.get('connection') as HostConnectionHandle
     const profile = ctx.get('profileContext') as { installAnchor?: string } | undefined
     connectionCtx.effect(() => {
-      readiness.attach(connection, profile?.installAnchor)
+      try {
+        readiness.attach(connection, profile?.installAnchor)
+      } catch (error) {
+        void onFailure(error).catch((reason: unknown) => connectionCtx.logger.error(reason))
+        throw error
+      }
       onReady()
       return () => {
         readiness.detach(connection)

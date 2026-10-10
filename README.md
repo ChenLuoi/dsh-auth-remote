@@ -6,17 +6,23 @@ Single-user remote sign-in for DeepSeek Harness (DSH), with password, TOTP, one-
 
 ## Requirements
 
-- Linux with `/proc`, Node.js 24 or newer, and a tested DSH runtime: **0.1.7-rc.1**, **0.1.7-rc.2**, **0.2.0-rc.1**, **0.2.0-rc.2**, or **0.2.1-alpha.1** (default). pnpm 12.5.1 is needed only when building from source.
+- Linux with `/proc`, Node.js 24 or newer, and DSH **0.1.7-rc.1**, **0.1.7-rc.2**, **0.2.0-rc.1**, **0.2.0-rc.2**, **0.2.1-alpha.1**, or **0.2.1-alpha.2** (default). pnpm 12.5.1 is needed only when building from source.
 - DSH's default `~/.dsh` data directory and a `web` profile. The account state belongs to that profile; it is not shared with another profile.
 - For source browser tests, install Playwright Chromium with `pnpm exec playwright install chromium`. The tests use that managed browser and a dedicated, self-signed TLS fixture.
 
 ## DSH compatibility
 
-Plugin 0.1.5 is tested against DSH **0.1.7-rc.1**, **0.1.7-rc.2**, **0.2.0-rc.1**, **0.2.0-rc.2**, and **0.2.1-alpha.1**. The default supported runtime is **0.2.1-alpha.1**. These exact releases are declared in `dsh.compatibility.dshReleases`. The host peer declaration and runtime version check both use `>=0.1.7-rc.1`, with no upper bound. DSH's loader includes prereleases, so 0.2 and later releases are admitted without a per-version exemption or a plugin update solely to widen the range.
+Compatibility is declared for the six releases above in `dsh.compatibility.dshReleases`; development defaults to **0.2.1-alpha.2**. The host peer declaration and runtime version check both use `>=0.1.7-rc.1`, with no upper bound, including prereleases.
 
-Later versions are forward-admitted, not claimed as tested. The plugin still verifies the required WebServer/Connection APIs, shared host package identity, and native authentication exchange. If those contracts change, authentication stays unavailable with a diagnostic; removing the version ceiling cannot guarantee compatibility with unknown API changes. CI runs CLI, installation smoke, and browser regressions on all five tested versions.
+| DSH releases                     | Concrete IPv4 HTTP | Native public URL CLI, Web prompt and `DSH_WEB_URL`                               | Native IPv6 / HTTPS                |
+| -------------------------------- | ------------------ | --------------------------------------------------------------------------------- | ---------------------------------- |
+| 0.1.7-rc.1/rc.2, 0.2.0-rc.1/rc.2 | Yes                | No `--public-url`; native model-side URL remains `http://127.0.0.1:<actual-port>` | Unsupported                        |
+| 0.2.1-alpha.1                    | Yes                | Yes; uses the plugin's final public root                                          | Unsupported                        |
+| 0.2.1-alpha.2                    | Yes                | Yes; uses the plugin's final public root                                          | Yes, through the official listener |
 
-Plugin **0.1.5** makes DSH 0.2.1-alpha.1 the default verified runtime. The existing **0.1.3** authentication implementation also passes the CLI and browser suites on this runtime. The open-ended compatibility range and theme integration were introduced in **0.1.2**. For source builds, see the [development guide](docs/development.md).
+Later versions are forward-admitted, not claimed as tested. The plugin still verifies the required WebServer/Connection APIs, shared host package identity, and native authentication exchange. Missing capabilities leave authentication unavailable with a diagnostic. CI covers CLI, installation smoke and browsers on all six declared versions.
+
+The plugin's single-entry configuration works on all six releases. Native IPv6/TLS needs alpha.2; an external HTTPS proxy can serve older HTTP listeners. For source builds, see the [development guide](docs/development.md).
 
 ## Install from npm
 
@@ -24,19 +30,19 @@ With DSH installed, verify its version and install the published plugin into the
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.1.5
+dsh plugin --profile web add dsh-auth-remote@0.1.6
 dsh plugin --profile web list
 ```
 
-Check that `dsh --version` prints `0.2.1-alpha.1` (or another tested version listed above) and the plugin list includes `dsh-auth-remote@0.1.5`. These commands use DSH's default data directory. For source builds and an isolated development runtime, see the [development guide](docs/development.md).
+Check that `dsh --version` prints `0.2.1-alpha.2` (or another compatible release above) and the plugin list includes `dsh-auth-remote@0.1.6`. These commands use DSH's default data directory. For source builds and an isolated development runtime, see the [development guide](docs/development.md).
 
 ## Configure the web profile
 
-The installed bundle supplies the auth listener with `allowedOrigins: []`, so only literal loopback hosts are admitted. The minimal setup needs no profile patch. Start with `dsh web --no-open --port 13090` and use the printed `http://127.0.0.1:13090` URL; unauthenticated browser navigation redirects to sign-in. Check `/auth-remote/ready` before relying on the listener. Startup prints the listener and configured public origins without a native `?token=` URL.
+The minimal setup needs no profile patch. Start with `dsh web --no-open --port 13090` and use the printed `http://127.0.0.1:13090/` root. Without an explicit `publicUrl`, the plugin derives one root from the actual listener protocol, address and bound port, including `--port 0`. Unauthenticated navigation redirects to sign-in. Check `/auth-remote/ready` before relying on the service. Startup prints the listener and one distinct public root, without a native `?token=` URL.
 
-For a public HTTPS origin, use the complete [profile configuration and deployment steps](docs/deployment.md). Its reusable [profile example](examples/web-profile-auth-remote.patch.yml) registers `https://dsh.example.com` and recommends an independent native-listener disable. Replace the example hostname and port consistently before opening a proxy.
+For a public HTTPS entry, use the [deployment guide](docs/deployment.md) and [profile example](examples/web-profile-auth-remote.patch.yml), with top-level `publicUrl: https://dsh.example.com/`, `host` and `port`. Alpha.2 also supports concrete IPv6 and paired top-level `tlsCert`/`tlsKey`. The URL must be an HTTP(S) root, with no credentials, child path, query or fragment. One public origin plus literal loopback is admitted. Setting a URL does not configure proxy routing or TLS.
 
-If a downstream route needs the original public Host, add its path to `preserveOriginPaths`. The bundle configures native Connection trust from `allowedOrigins`; no separate Connection profile row is needed.
+If a downstream route needs the original public Host, add its path to `preserveOriginPaths`. Native Connection trust follows the final public origin; no extra `--trusted-host` or Connection row is needed. CLI host/port and public URL override file values; TLS overrides as one complete pair. See the [migration and path rules](docs/deployment.md#configuration-priority-and-path-bases) before upgrading `allowedOrigins`: zero or one item is migrated in memory with a warning, multiple items and any explicit coexistence with `publicUrl` fail.
 
 ## Initialize the account
 
@@ -65,7 +71,7 @@ The embedded Security page follows DSH's language setting. The standalone login 
 
 ## Put a proxy in front
 
-Use the [reverse proxy guide](docs/reverse-proxy.md) with the [Nginx](examples/nginx.conf) or [Traefik](examples/traefik-dsh.yml) example. Preserve the browser's Host and Origin, WebSocket upgrades, and streaming responses. TLS can terminate at the proxy; register its exact HTTPS origin in `allowedOrigins`. Keep the DSH listener private and do not cache authentication responses.
+Use the [reverse proxy guide](docs/reverse-proxy.md) with the [Nginx](examples/nginx.conf) or [Traefik](examples/traefik-dsh.yml) example. Preserve the browser's Host and Origin, WebSocket upgrades, and streaming responses. TLS can terminate at the proxy; set its exact HTTPS root as `publicUrl`. Keep the DSH listener private and do not cache authentication responses.
 
 ## Project and maintenance
 

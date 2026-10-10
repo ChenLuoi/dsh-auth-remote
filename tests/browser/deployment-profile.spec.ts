@@ -68,7 +68,7 @@ for (const scenario of [
     preserve: false,
   },
   {
-    name: 'preserved API path and two public origins without a Connection row',
+    name: 'preserved API path and a unique public root without a Connection row',
     host: '127.0.0.2',
     full: true,
     preserve: true,
@@ -101,8 +101,8 @@ for (const scenario of [
         if (scenario.preserve)
           isolated = isolated
             .replace(
-              `allowedOrigins: [http://${scenario.host}:${port}]`,
-              `allowedOrigins: [http://${scenario.host}:${port}, https://second.example]`,
+              `publicUrl: http://${scenario.host}:${port}/`,
+              `publicUrl: http://public.example:${port}/`,
             )
             .replace('preserveOriginPaths: []', 'preserveOriginPaths: [/api]')
         await writeFile(join(home, 'profiles/web/cordis.patch.yml'), isolated)
@@ -150,7 +150,7 @@ for (const scenario of [
           '/auth-remote/ready',
           undefined,
           scenario.host,
-          'second.example',
+          `public.example:${port}`,
         )
         assert.equal(second.status, 200, second.body)
         assert.equal(JSON.parse(second.body).ready, true)
@@ -158,8 +158,8 @@ for (const scenario of [
       for (let attempt = 0; attempt < 50 && !stdout.includes('dsh web start at'); attempt++)
         await new Promise((resolve) => setTimeout(resolve, 100))
       assert.ok(stdout.includes(`dsh web start at\n  http://${scenario.host}:${port}`))
-      if (scenario.full)
-        assert.ok(stdout.includes(`public access at\n  http://${scenario.host}:${port}`))
+      if (scenario.preserve)
+        assert.ok(stdout.includes(`public access at\n  http://public.example:${port}`))
       else assert.equal(stdout.includes('public access at'), false)
       assert.equal(stdout.includes('/auth-remote/login'), false, 'startup prints root URLs')
       assert.equal(stdout.includes('dsh web:'), false, 'native DSH URL must be suppressed')

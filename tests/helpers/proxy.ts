@@ -1,7 +1,8 @@
 import { request as httpRequest, createServer as createHttpServer } from 'node:http'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { createServer as createHttpsServer } from 'node:https'
+import { createServer as createHttpsServer, request as httpsRequest } from 'node:https'
 import { connect as netConnect, type Socket } from 'node:net'
+import { connect as tlsConnect } from 'node:tls'
 
 export interface Forwarder {
   close(): Promise<void>
@@ -10,19 +11,22 @@ export interface Forwarder {
 interface ForwarderOptions {
   listenPort: number
   upstreamPort: number
+  upstreamHost?: string
+  upstreamTls?: { ca: Buffer }
   tls?: { key: Buffer; cert: Buffer }
 }
 
 export async function startForwarder(options: ForwarderOptions): Promise<Forwarder> {
   const sockets = new Set<Socket>()
   const handler = (req: IncomingMessage, res: ServerResponse) => {
-    const upstream = httpRequest(
+    const upstream = (options.upstreamTls ? httpsRequest : httpRequest)(
       {
-        hostname: '127.0.0.1',
+        hostname: options.upstreamHost ?? '127.0.0.1',
         port: options.upstreamPort,
         path: req.url,
         method: req.method,
         headers: req.headers,
+        ...options.upstreamTls,
       },
       (answer) => {
         res.writeHead(answer.statusCode ?? 502, answer.headers)
@@ -52,7 +56,14 @@ export async function startForwarder(options: ForwarderOptions): Promise<Forward
     socket.on('close', () => sockets.delete(socket))
   })
   server.on('upgrade', (req, socket, head) => {
-    const upstream = netConnect(options.upstreamPort, '127.0.0.1', () => {
+    const upstream = options.upstreamTls
+      ? tlsConnect({
+          host: options.upstreamHost ?? '127.0.0.1',
+          port: options.upstreamPort,
+          ...options.upstreamTls,
+        })
+      : netConnect(options.upstreamPort, options.upstreamHost ?? '127.0.0.1')
+    upstream.once(options.upstreamTls ? 'secureConnect' : 'connect', () => {
       const headers: string[] = []
       for (let i = 0; i < req.rawHeaders.length; i += 2) {
         headers.push(`${req.rawHeaders[i]}: ${req.rawHeaders[i + 1]}`)

@@ -14,11 +14,13 @@ function cookies(req) {
   }
 }
 
-function handler(expectPublic) {
+function handler(expectPublic, server) {
   return async (req, res) => {
     const origin = String(req.headers.origin ?? '')
     const host = String(req.headers.host ?? '')
-    const expected = expectPublic ? String(process.env.STRICT_PUBLIC_ORIGIN) : `http://${host}`
+    const expected = expectPublic
+      ? (process.env.STRICT_PUBLIC_ORIGIN ?? new URL(server.publicUrl).origin)
+      : `${server.protocol ?? 'http:'}//${host}`
     if (origin !== expected) {
       res.writeHead(403, { 'content-type': 'application/json' })
       res.end(JSON.stringify({ error: 'downstream_origin_mismatch' }))
@@ -49,19 +51,19 @@ export function apply(ctx) {
       ctx.webServer.register({
         kind: 'exact',
         path: '/plugins/strict/echo',
-        handler: handler(false),
+        handler: handler(false, ctx.webServer),
       }),
       ctx.webServer.register({
         kind: 'exact',
         path: '/plugins/public/echo',
-        handler: handler(true),
+        handler: handler(true, ctx.webServer),
       }),
       ctx.webServer.register({
         kind: 'exact',
         path: '/plugins/strict/stream',
         handler(req, res) {
           const host = String(req.headers.host ?? '')
-          if (req.headers.origin !== `http://${host}`) {
+          if (req.headers.origin !== `${ctx.webServer.protocol ?? 'http:'}//${host}`) {
             res.writeHead(403)
             res.end()
             return
@@ -79,7 +81,10 @@ export function apply(ctx) {
         path: '/plugins/strict/socket',
         handler(req, socket) {
           const host = String(req.headers.host ?? '')
-          if (req.headers.origin !== `http://${host}` || !cookies(req).hasNative) {
+          if (
+            req.headers.origin !== `${ctx.webServer.protocol ?? 'http:'}//${host}` ||
+            !cookies(req).hasNative
+          ) {
             socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n')
             return
           }

@@ -8,19 +8,18 @@
 # Keep the native Web surface and trust settings, but replace its token URL
 # announcement and browser handoff with auth-remote startup URLs.
 - id: web-runtime
-  inject: [webStartup]
+  inject: [webStartup, webServer]
   config:
     openBrowser: false
     printUrl: false
+    publicUrl: !!js ctx.webServer.publicUrl
     surfaceContext: true
-    trustedHosts: !!js ctx.webStartup.trustedHosts
 
 - insert:
     - id: auth-remote
       name: dsh-auth-remote
       inject: [webStartup]
       config:
-        allowedOrigins: []
         requireTotp: true
         sessionHours: 168
         preserveOriginPaths: []
@@ -28,9 +27,9 @@
 # Connection starts after the authenticated listener and receives public
 # authorities only when a preserved path needs the original browser Host.
 - id: connection
-  inject: [webRuntime, webServer]
+  inject: [webStartup, webServer]
   config:
-    trustedHosts: !!js '[...ctx.webRuntime.trustedHosts, ...ctx.webServer.connectionTrustedHosts]'
+    trustedHosts: !!js '[...ctx.webStartup.trustedHosts, ...ctx.webServer.connectionTrustedHosts]'
 
 # Reuse the official browser directory picker.
 - id: directory-picker

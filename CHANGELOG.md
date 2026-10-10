@@ -8,6 +8,14 @@ This file records user-visible changes to the released package. Version numbers 
 
 No changes recorded yet.
 
+## 0.1.6 - 2026-10-10
+
+- Use DSH 0.2.1-alpha.2 for development and default verification, repair native WebServer/Connection composition, and retain all six declared releases in the CLI, smoke and browser CI matrix.
+- Select one top-level `publicUrl`; resolve CLI/file listener settings before startup and derive missing URLs only after the actual port binds. Alpha.1/2 native Web prompts and `DSH_WEB_URL` use that final root; older runtimes keep their own model-side projection.
+- Support alpha.2 native concrete IPv6 and HTTPS through the official listener, with whole-pair `tlsCert`/`tlsKey` overrides and explicit profile-versus-cwd path rules. Native cookies follow the listener protocol, while browser cookies follow the effective external origin. Preserve guarded uploads, streams, upgrades and revocation through both proxy protocol directions.
+- Migrate legacy zero/single `allowedOrigins` inputs in memory with one warning per activation. Multiple entries and explicit coexistence with file/CLI `publicUrl` fail; existing multi-entry profiles must choose one root. Account state and profile files are not rewritten.
+- Document the six-version capability matrix, native TLS/IPv6 setup and migration in both languages. Add a single Chinese legacy inventory with separate runtime and plugin-contract retirement rules; keep task files, test keys and runtime data outside the npm archive.
+
 ## 0.1.5 - 2026-10-03
 
 - Verify DSH 0.2.1-alpha.1 with the existing authentication implementation and add it to the CLI, installation smoke, and browser CI matrix, retaining all previously tested versions.

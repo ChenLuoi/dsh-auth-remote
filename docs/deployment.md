@@ -2,9 +2,7 @@
 
 [简体中文](deployment.zh-CN.md)
 
-This guide describes a new installation with the verified DSH `0.2.1-alpha.1` runtime and its default `~/.dsh` data directory. It does not depend on a particular public hostname, proxy network, service manager, or existing account database.
-
-The npm steps below use plugin `0.1.5`. Before upgrading an existing installation, review [compatibility](../README.md#dsh-compatibility); for source builds, see the [development guide](development.md).
+This guide uses DSH `0.2.1-alpha.2` and its default `~/.dsh` data directory. See the [compatibility matrix](../README.md#dsh-compatibility) for the other five releases and the [development guide](development.md) for isolated source builds. Choose your own hostname, proxy network and service manager.
 
 ## Minimal installation from npm
 
@@ -12,28 +10,23 @@ Install the published package into the default `web` profile:
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.1.5
+dsh plugin --profile web add dsh-auth-remote@0.1.6
 dsh plugin --profile web list
-```
-
-Verify that `dsh --version` prints `0.2.1-alpha.1` and the list includes `dsh-auth-remote@0.1.5`. The bundle supplies an auth listener with `allowedOrigins: []`, which admits only literal loopback hosts. No profile patch is needed for this setup. Start DSH in one terminal:
-
-```sh
 dsh web --no-open --port 13090
 ```
 
-In another terminal, require `/auth-remote/ready` to return `"plugin":"dsh-auth-remote"`, `"protocolVersion":1`, and `"ready":true`, then initialize the account:
+Verify the selected DSH version and plugin list. No profile patch is needed for the default IPv4 HTTP loopback listener. In another terminal, require `/auth-remote/ready` to return `"plugin":"dsh-auth-remote"`, `"protocolVersion":1`, and `"ready":true`, then initialize the account:
 
 ```sh
 curl -fsS http://127.0.0.1:13090/auth-remote/ready
 dsh plugin --profile web exec dsh-auth-remote init --lang en
 ```
 
-The minimal setup is local only. After initialization, use the `http://127.0.0.1:13090` URL printed at startup; unauthenticated browser navigation redirects to sign-in. The bundle suppresses the native token URL and browser handoff. Keep development and test homes separate from this default profile.
+Open the printed root `http://127.0.0.1:13090/`. Anonymous navigation redirects to sign-in; anonymous business APIs are denied. The bundle suppresses native token URLs and automatic browser opening. Keep development and test homes separate from this account profile.
 
-## Complete public-origin configuration
+## Complete public-entry configuration
 
-For an HTTPS entry such as `https://dsh.example.com`, merge the following rows into `~/.dsh/profiles/web/cordis.patch.yml`. They also appear in the reusable [profile example](../examples/web-profile-auth-remote.patch.yml). Keep unrelated model and plugin rows. The `webserver` row is recommended for an independent native-listener disable; it is optional while the auth bundle is active:
+For an HTTPS proxy entry, merge the following rows into `~/.dsh/profiles/web/cordis.patch.yml`, keeping unrelated model and plugin rows. The reusable [profile example](../examples/web-profile-auth-remote.patch.yml) has the same configuration:
 
 ```yaml
 - id: webserver
@@ -41,50 +34,102 @@ For an HTTPS entry such as `https://dsh.example.com`, merge the following rows i
 
 - id: auth-remote
   config:
-    allowedOrigins: [https://dsh.example.com]
+    publicUrl: https://dsh.example.com/
+    host: 127.0.0.1
+    port: 13090
     requireTotp: true
     sessionHours: 168
     preserveOriginPaths: []
 ```
 
-Replace the hostname and exact origin in the profile and proxy configuration, and choose the private port with `dsh web --port`. The plugin reads that port from DSH web startup. DSH replaces an entire plugin `config` when a later row supplies one. If a home-level patch also defines `auth-remote`, inspect the final composition with `dsh --profile web --dump-config` before opening the proxy. Remove the optional `webserver` row if uninstalling this plugin and returning to DSH's native listener.
+Replace the public hostname consistently in the profile and proxy. This example keeps a private HTTP listener behind external TLS. `publicUrl` selects the browser entry; it does not configure a proxy, certificate or listener protocol. The independent `webserver` disable is recommended; the auth bundle already disables that row while active. Remove the independent disable when uninstalling the plugin and returning to the native listener.
 
-## Profile and origin contract
+DSH replaces the entire plugin `config` when a later patch row supplies one. Preserve the full intended authentication configuration in that row. If a home-level patch also defines `auth-remote`, inspect the final composition with `dsh --profile web --dump-config` before opening access.
 
-| Setting               | Required relationship                                                                                                                                                                                                              |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `webserver: disabled` | Recommended in the profile for an independent native-listener disable; the auth bundle disables it while active.                                                                                                                   |
-| `dsh web --port`      | Sets the authenticated listener port; the example uses `127.0.0.1:13090`. The plugin reads DSH web startup, so no listener setting is repeated in its config.                                                                      |
-| `allowedOrigins`      | List exact HTTP(S) origins, including nondefault ports. The example has `https://dsh.example.com`. An empty list allows only literal loopback. No wildcard, inferred forwarded host, or CORS fallback exists.                      |
-| `requireTotp`         | Defaults to `true`. With `false`, an account without TOTP can skip setup; an already bound account still needs its second factor.                                                                                                  |
-| `sessionHours`        | Defaults to a fixed 168-hour lifetime. Reducing it tightens existing sessions; increasing it does not resurrect expired ones.                                                                                                      |
-| `preserveOriginPaths` | Optional segment-prefix paths whose validated public Host and existing Origin are passed to DSH. The default `[]` rewrites authenticated requests to the internal authority. The bundle configures Connection for preserved paths. |
+## Configuration priority and path bases
 
-Registered HTTP and HTTPS entries must have unambiguous authorities. A request must have one valid Host; mutations and WebSocket upgrades require a matching Origin. A Host from one registered entry and an Origin from another do not form a same-origin request. When Fetch Metadata is present, cross-site or mismatched modes are rejected. Direct canonical loopback requests remain available even with a public entry; an unregistered LAN or public Host is rejected. Neither `Forwarded` nor `X-Forwarded-*` decides admission or the Secure flag. The external TLS origin controls Secure cookies while the private upstream can remain HTTP. Cookies are host-only, HttpOnly, and SameSite; ports do not isolate cookies.
+All plugin fields below belong directly in `auth-remote.config`; there are no aliases or nested TLS objects.
 
-The plugin guards DSH pages, RPC, streams, WebSockets, and the official workspace browser and preview. A healthy `/auth-remote/ready` preflights the internal authority; it also preflights configured public authorities when `preserveOriginPaths` is nonempty. It does not mean an account has been initialized.
+| Field                 | Effective value                                                                                                                                                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `publicUrl`           | CLI `--public-url` replaces the whole file URL on alpha.1/2; otherwise file URL, migrated legacy single item, then actual listener root. Accept only absolute HTTP(S) roots with optional final slash, no credentials/path/query/fragment. |
+| `host`                | CLI `--host`, then file, then `127.0.0.1`. Require a concrete IPv4 literal; alpha.2 also accepts concrete IPv6, including mapped forms. No DNS names or wildcard binds.                                                                    |
+| `port`                | CLI `--port`, then file, then `3080`, independently of host. `0` derives the entry only after the actual nonzero port is bound.                                                                                                            |
+| `tlsCert`, `tlsKey`   | Alpha.2 only. Supply both file fields, or both CLI `--tls-cert`/`--tls-key`. A CLI pair replaces the whole file pair; sources are never mixed and unused file certificate paths are not read. Omit TLS for HTTP.                           |
+| `requireTotp`         | Defaults to `true`. With `false`, an unbound account may skip setup; an already bound account still needs its second factor.                                                                                                               |
+| `sessionHours`        | Fixed default lifetime of 168 hours. Reducing it tightens existing sessions; increasing it does not revive expired sessions.                                                                                                               |
+| `preserveOriginPaths` | Optional canonical segment-prefix paths; default `[]`. Matching routes keep the validated public Host and existing Origin after authentication. The final public origin configures native Connection trust automatically.                  |
 
-The standard DSH `/api` routes work with `preserveOriginPaths: []`; there is no need to list `/api`. If a downstream route requires the original public Host after authentication, add only that path prefix. When a path matches, the plugin preserves the validated public Host and forwards the original Origin if the request supplied one; it does not create an Origin for requests without one. The bundle adds the authorities from `allowedOrigins` to native Connection automatically when `preserveOriginPaths` is nonempty. No profile-level Connection configuration is needed. The auth gate still checks the original Host, Origin and session before forwarding.
+**Pay particular attention to TLS paths:** relative file values resolve from the selected profile directory, where its `cordis.patch.yml` lives. Relative CLI paths resolve from the process's launch working directory. Neither uses the bundle or another overlay's directory. Absolute paths stay absolute.
 
-### Bind directly to a private interface
+For an alpha.2 override example, `dsh web --no-open --host ::1 --port 0 --public-url https://dsh.example.com/` replaces file host, port and URL independently. The listener binds an actual free port; the explicit public root stays unchanged. Configure any proxy to reach that actual port. Omit `--host` to keep the file host when overriding only the port.
 
-For a proxy on another machine, an example command is `dsh web --no-open --host 192.0.2.10 --port 13090`. Replace the documentation address `192.0.2.10` with an IPv4 address assigned to the DSH host before running it. The plugin reads the listener address from DSH web startup. Startup prints `dsh web start at` with the HTTP listener URL, then `public access at` with each configured `allowedOrigins` root URL. The listener URL is a browser entry only if its origin is admitted. DSH rejects `--host 0.0.0.0` before plugins activate.
+For example, file `tlsCert: ./tls/dsh.crt` means `~/.dsh/profiles/web/tls/dsh.crt` even if you launch from a different directory. The following command uses `./launch-workdir/tls/dsh.crt` and the matching key instead:
 
-Binding to an interface does not restrict client source addresses. Apply any required source restrictions through a firewall or private network policy. Register the browser or proxy's exact HTTP(S) origin in `allowedOrigins`; this checks browser authority, not the client's IP address.
+```sh
+cd ./launch-workdir
+dsh web --no-open --tls-cert ./tls/dsh.crt --tls-key ./tls/dsh.key
+```
+
+Supplying only one CLI flag fails even if the file contains the other half. Missing, unreadable, empty, malformed or mismatched certificate/key material fails startup without an HTTP fallback, and releases listener/admin/storage resources. Choose a certificate valid for the browser hostname; the plugin delegates TLS to the official listener.
+
+CLI public URL overrides are available only on alpha.1/2. Older DSH rejects that unknown flag; use the plugin file field. Older versions also reject native IPv6/TLS rather than pretending to support them. Their Web prompt and `DSH_WEB_URL` keep the native fixed IPv4 loopback URL with the actual port, while the plugin's admission and printed public root still follow its effective configuration.
+
+## Native HTTPS and IPv6
+
+On alpha.2, merge this complete auth row for direct IPv6 loopback HTTPS, using your own certificate and key:
+
+```yaml
+- id: auth-remote
+  config:
+    host: ::1
+    port: 8443
+    tlsCert: ./tls/dsh.crt
+    tlsKey: ./tls/dsh.key
+    requireTotp: true
+    sessionHours: 168
+    preserveOriginPaths: []
+```
+
+Start with `dsh web --no-open`; the derived root is `https://[::1]:8443/`. IPv6 URL authorities need brackets. HTTP IPv6 is also available with `dsh web --no-open --host ::1 --port 13090` and no TLS fields. Concrete non-loopback documentation addresses such as `192.0.2.10` or `2001:db8::10` must be replaced with addresses actually assigned to your host; binding does not limit client source IPs. Apply source restrictions through your network policy.
+
+Do not use `0.0.0.0`, `::`, or mapped IPv4 wildcard binds. A scope/zone selects an interface for a bind and cannot appear in a portable public URL. Redundant loopback scope is normalized; a non-loopback scoped bind requires an explicit portable `publicUrl` such as `https://dsh.example.com/`.
+
+## Migrate old allowedOrigins
+
+The old field remains a plugin migration contract, independently of DSH version support. Each activation warns once and converts in memory, without rewriting the profile or account state.
+
+| Old input                                                                                        | Upgrade behavior                                                               |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Field absent                                                                                     | Derive one root from the actual listener unless `publicUrl` is supplied.       |
+| `allowedOrigins: []`                                                                             | Warn and derive the actual listener root.                                      |
+| One root URL                                                                                     | Warn and use that root as `publicUrl`.                                         |
+| Two or more items, even duplicates                                                               | Fail; manually choose one public entry and replace the array with `publicUrl`. |
+| Any explicit `allowedOrigins` plus file or CLI `publicUrl`, even an empty array or identical URL | Fail; remove the legacy field before using the new one.                        |
+
+Back up the old patch before upgrading. Replace a single item with `publicUrl: https://dsh.example.com/`; remove an empty array to keep derived behavior. An installation with several public origins needs a deliberate choice of one canonical entry. Route alternate browser hostnames to that entry before they reach the protected upstream. To roll back to 0.1.5, restore its compatible old configuration backup; the new fields are not a 0.1.5 contract.
+
+## Source and bridge contract
+
+Admission is the one effective public origin plus literal loopback authorities. The URL's root path has no deployment prefix. Requests need one valid Host; mutations and WebSocket upgrades require a matching Origin, and cross-site or mismatched Fetch Metadata is rejected. An old public origin is no longer registered after replacement. `Forwarded` and `X-Forwarded-*` never decide admission or Cookie Secure. CLI `--trusted-host` configures native Connection only and does not enlarge this outer policy.
+
+Plugin cookies follow the validated external origin and are host-only, HttpOnly and SameSite; HTTPS sets Secure. Native bridge credentials stay server-side and follow the native listener protocol, including HTTPS cookie audience/Secure when a public HTTP proxy fronts native HTTPS. Ports do not isolate browser cookies.
+
+Standard `/api` routes work with `preserveOriginPaths: []`; there is no need to list `/api`. Add a prefix only when a downstream route needs the original public Host. The plugin forwards an Origin only when the request supplied one, and preflights the selected public authority for preserved paths. No separate Connection row or extra trusted-host flag is needed. Ordinary alpha.2 routes use the normalized native bind authority; older Connection retains its internal HTTP loopback bridge. Both paths still require a full session. Revocation, Connection loss or storage failure closes active uploads, streams and upgrades and withdraws business admission. Readiness does not mean the account is initialized.
 
 ## Start and verify the public entry
 
-1. Verify Linux, Node.js 24+, and the installed DSH version. Install the npm package with the minimal commands above. Keep any test or development runtime separate from the default account profile.
-2. Merge the public-origin profile configuration above. The independent `webserver` disable is recommended. A proxy should reach only the private listener through a transport you control; see the [proxy guide](reverse-proxy.md).
-3. Start with `dsh web --no-open --port 13090`. Before opening external access, inspect `curl -fsS -H 'Host: dsh.example.com' http://127.0.0.1:13090/auth-remote/ready` and require JSON containing `"plugin":"dsh-auth-remote"`, `"protocolVersion":1`, and `"ready":true`.
-4. Confirm an anonymous HTML request redirects to `/auth-remote/login`, and an anonymous API request such as `/api/settings` is denied. Initialize through the local CLI if needed, then sign in, bind TOTP, save backup codes and exercise official settings, workspace, preview, uploads and streams through the chosen browser origin.
+1. Verify Linux, Node.js 24+, the exact compatible DSH version, and the intended profile/package. Keep test and development data separate.
+2. Merge one complete profile configuration and configure a private reachable proxy upstream if needed; see the [proxy guide](reverse-proxy.md).
+3. Start DSH. For the HTTP upstream example, inspect `curl -fsS -H 'Host: dsh.example.com' http://127.0.0.1:13090/auth-remote/ready` and require the expected plugin/protocol and `ready: true`.
+4. Confirm anonymous HTML redirect and API denial, then initialize locally, sign in, bind TOTP and save backup codes. Exercise official settings, workspace, preview, uploads, SSE/WebSocket and revocation through the selected entry.
 
-The listener must remain private until the readiness and anonymous denial checks succeed. A failed plugin load, corrupt state, or unavailable native Connection should fail closed; investigate it before exposing an upstream. This repository does not install a reverse proxy or service manager configuration for you.
+Startup prints the actual protocol/address/port and one distinct public root, deduplicating identical URLs. It prints no token or login path. Keep access private until readiness and anonymous denial checks pass; failed plugin, TLS, state or Connection initialization must leave business unavailable.
 
 ## Backup, recovery and changes
 
-Stop DSH and verify it has released the profile lock before copying `~/.dsh/profiles/web/auth-remote/auth-state.json`. Store the copy in a private directory (0700) with file mode 0600. That file includes password hashes, the TOTP secret, backup code hashes and session state. Do not copy an in-progress temporary file, overwrite a live locked state file, or commit any copy to Git. Keep a separate copy of the profile patch and package/lock files used at the same time.
+Stop DSH and verify it released the profile lock before copying `~/.dsh/profiles/web/auth-remote/auth-state.json`. Keep the copy in a private directory (0700) with file mode 0600. It contains password hashes, the TOTP secret, backup-code hashes and sessions. Do not copy an in-progress temporary file, overwrite live locked state or commit it. Back up the corresponding profile patch and package/lock files.
 
-For recovery, stop DSH, verify the target uses the same state schema and compatible package, restore the saved file with private ownership/mode, then start and check readiness and CLI `status --json`. CLI `reset-password`, `reset-totp`, and `revoke-sessions` are the supported local recovery actions; they revoke sessions. A lost management response has an uncertain outcome, so inspect status before another mutation.
+For recovery, stop DSH, check schema/package compatibility, restore with private ownership/mode, then check readiness and CLI `status --json`. Local `reset-password`, `reset-totp` and `revoke-sessions` revoke sessions. A lost management response has an uncertain outcome; inspect status before another mutation.
 
-When changing an external origin, add the new exact URL to `allowedOrigins`, update the proxy to preserve Host/Origin, and check both entries before removing the old one. The bundle updates Connection trust from `allowedOrigins` when the profile restarts. Restart DSH after profile changes. Validate HTTPS cookies, redirects, WebSocket and streaming through every entry.
+To change the external entry, replace the one `publicUrl`, update the proxy and restart DSH. Verify the new entry and rejection of the former non-loopback entry, including cookies, redirects, uploads and long connections. Do not temporarily configure both origins in this plugin.

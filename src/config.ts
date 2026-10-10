@@ -1,22 +1,36 @@
-import type { Config as WebServerConfig } from '@deepseek-ai/dsh-host-webserver'
 import z from '@deepseek-ai/schemastery'
 import { isIP } from 'node:net'
-import { createOriginPolicy, type OriginPolicy } from './http/origin-policy.js'
+import { resolve } from 'node:path'
+import { listenerPublicUrl, parsePublicUrl, type RootPublicUrl } from './adapters/dsh/public-url.js'
+import {
+  getRuntimeCapabilities,
+  listenerTransport,
+  validateListenerConfig,
+  type RuntimeCapabilities,
+  type NativeListenerConfig,
+} from './adapters/dsh/runtime-capabilities.js'
+import { createOriginPolicy, type OriginPolicy, type OriginProtocol } from './http/origin-policy.js'
 
 export interface AuthConfig {
-  allowedOrigins?: string[]
+  publicUrl?: string
+  host?: string
+  port?: number
+  tlsCert?: string
+  tlsKey?: string
+  allowedOrigins?: string[] | undefined
   requireTotp?: boolean
   sessionHours?: number
   preserveOriginPaths?: string[]
 }
 
-export interface ResolvedAuthConfig extends Omit<WebServerConfig, 'host'> {
-  host: string
-  allowedOrigins: readonly string[]
-  originPolicy: OriginPolicy
-  requireTotp: boolean
-  sessionHours: number
-  preserveOriginPaths: readonly string[]
+export interface ResolvedAuthConfig extends Omit<PendingAuthConfig, 'publicUrl'> {
+  readonly publicUrl: string
+  readonly listenerUrl: string
+  readonly protocol: OriginProtocol
+  readonly nativeAuthority: string
+  readonly nativeOrigin: string
+  readonly allowedOrigins: readonly string[]
+  readonly originPolicy: OriginPolicy
 }
 
 export const DEFAULT_REQUIRE_TOTP = true
@@ -30,64 +44,161 @@ const AUTH_CONFIG_KEYS = new Set([
   'preserveOriginPaths',
 ])
 
-export interface WebListenerConfig extends Omit<WebServerConfig, 'host'> {
-  host: string
-}
-
 // The Loader resolves defaults before apply(). Programmatic activation is
 // checked here as well because it need not pass through the Loader.
 export const Config: z<AuthConfig> = z.object({
-  allowedOrigins: z.array(z.string()).default([]),
+  publicUrl: z.string(),
+  host: z.string(),
+  port: z.number().step(1).min(0).max(65535),
+  tlsCert: z.string(),
+  tlsKey: z.string(),
+  allowedOrigins: z.union([z.array(z.string()), z.const(undefined)]).default(undefined),
   requireTotp: z.boolean().default(DEFAULT_REQUIRE_TOTP),
   sessionHours: z.number().step(1).min(1).default(DEFAULT_SESSION_HOURS),
   preserveOriginPaths: z.array(z.string()).default([]),
 })
 
-export function resolveAuthConfig(
+export interface WebStartupConfig {
+  host?: string
+  port?: number
+  publicUrl?: string
+  tls?: { certFile?: string; keyFile?: string }
+}
+
+export interface PendingAuthConfig extends NativeListenerConfig {
+  readonly capabilities: RuntimeCapabilities
+  readonly publicUrl: RootPublicUrl | undefined
+  readonly publicUrlSource: 'cli' | 'file' | 'legacy' | 'derived'
+  readonly tlsSource: 'cli' | 'file' | undefined
+  readonly legacyWarning: boolean
+  readonly requireTotp: boolean
+  readonly sessionHours: number
+  readonly preserveOriginPaths: readonly string[]
+}
+
+/** Resolve effective inputs without reading certificates or constructing a source policy. */
+export function resolveStartupConfig(
   input: AuthConfig,
-  listener: WebListenerConfig,
-): ResolvedAuthConfig {
-  if (typeof input !== 'object' || input === null)
+  startup: WebStartupConfig,
+  context: { version: string; profileDir: string; cwd: string },
+): PendingAuthConfig {
+  if (typeof input !== 'object' || input === null || Array.isArray(input))
     throw new Error('auth-remote: config is required')
+  const keys = new Set([...AUTH_CONFIG_KEYS, 'publicUrl', 'host', 'port', 'tlsCert', 'tlsKey'])
   for (const key of Object.keys(input))
-    if (!AUTH_CONFIG_KEYS.has(key))
-      throw new Error(`auth-remote: unknown config key ${JSON.stringify(key)}`)
+    if (!keys.has(key)) throw new Error(`auth-remote: unknown config key ${JSON.stringify(key)}`)
+  // Object schema keeps explicitly supplied keys even when null resolves to
+  // undefined. Presence must survive that Loader normalization.
+  const legacyWarning = Object.hasOwn(input, 'allowedOrigins')
+  const explicitUrl = startup.publicUrl !== undefined || Object.hasOwn(input, 'publicUrl')
+  if (legacyWarning && explicitUrl)
+    throw new Error('auth-remote: publicUrl and allowedOrigins cannot be supplied together')
   const config = Config(input)
-  if (isIP(listener.host) !== 4) throw new Error('auth-remote: DSH web startup host must be IPv4')
-  if (listener.host === '0.0.0.0')
-    throw new Error('auth-remote: DSH does not support --host 0.0.0.0')
-  if (!Number.isInteger(listener.port) || listener.port < 0 || listener.port > 65535)
-    throw new Error('auth-remote: invalid DSH web startup port')
-  const originPolicy = createOriginPolicy(config.allowedOrigins ?? [])
+  const capabilities = getRuntimeCapabilities(context.version)
+  let publicUrl: RootPublicUrl | undefined
+  let publicUrlSource: PendingAuthConfig['publicUrlSource'] = 'derived'
+  if (explicitUrl) {
+    publicUrlSource = startup.publicUrl !== undefined ? 'cli' : 'file'
+    publicUrl = parsePublicUrl(startup.publicUrl ?? config.publicUrl!)
+  } else if (legacyWarning) {
+    const origins = config.allowedOrigins!
+    if (!Array.isArray(origins)) throw new Error('auth-remote: allowedOrigins must be an array')
+    if (origins.length > 1)
+      throw new Error('auth-remote: allowedOrigins must select one unique publicUrl')
+    if (origins.length === 1) {
+      publicUrlSource = 'legacy'
+      publicUrl = parsePublicUrl(origins[0]!)
+    }
+  }
+  let tls: NativeListenerConfig['tls']
+  let tlsSource: PendingAuthConfig['tlsSource']
+  if (startup.tls !== undefined) {
+    const { certFile, keyFile } = startup.tls
+    if (!certFile || !keyFile)
+      throw new Error('auth-remote: --tls-cert and --tls-key must be supplied together')
+    tlsSource = 'cli'
+    tls = { certFile: resolve(context.cwd, certFile), keyFile: resolve(context.cwd, keyFile) }
+  } else if (Object.hasOwn(input, 'tlsCert') || Object.hasOwn(input, 'tlsKey')) {
+    if (!config.tlsCert || !config.tlsKey)
+      throw new Error('auth-remote: TLS requires both tlsCert and tlsKey')
+    tlsSource = 'file'
+    tls = {
+      certFile: resolve(context.profileDir, config.tlsCert),
+      keyFile: resolve(context.profileDir, config.tlsKey),
+    }
+  }
+  const listener = validateListenerConfig(capabilities, {
+    host: startup.host ?? (Object.hasOwn(input, 'host') ? config.host! : DEFAULT_WEB_HOST),
+    port: startup.port ?? (Object.hasOwn(input, 'port') ? config.port! : DEFAULT_WEB_PORT),
+    ...(tls ? { tls } : {}),
+    compression: 'none',
+  })
   const sessionHours = config.sessionHours ?? DEFAULT_SESSION_HOURS
   if (
     !Number.isSafeInteger(sessionHours) ||
     !Number.isSafeInteger(Date.now() + sessionHours * 3_600_000)
-  ) {
+  )
     throw new Error('auth-remote: sessionHours exceeds the safe timestamp range')
-  }
   const paths = config.preserveOriginPaths ?? []
   const seen = new Set<string>()
   for (const path of paths) {
-    if (!isCanonicalPathPrefix(path)) {
+    if (!isCanonicalPathPrefix(path))
       throw new Error(`auth-remote: invalid preserveOriginPaths entry ${JSON.stringify(path)}`)
-    }
     if (seen.has(path))
       throw new Error(`auth-remote: duplicate preserveOriginPaths entry ${JSON.stringify(path)}`)
     seen.add(path)
   }
   return {
-    host: listener.host,
-    port: listener.port,
-    compression: listener.compression ?? 'none',
-    compressionLevel: listener.compressionLevel ?? 1,
-    compressionThresholdBytes: listener.compressionThresholdBytes ?? 1024,
-    allowedOrigins: Object.freeze(originPolicy.registeredOrigins.map((entry) => entry.origin)),
-    originPolicy,
+    ...listener,
+    capabilities,
+    publicUrl,
+    publicUrlSource,
+    tlsSource,
+    legacyWarning,
     requireTotp: config.requireTotp ?? DEFAULT_REQUIRE_TOTP,
     sessionHours,
-    preserveOriginPaths: paths,
+    preserveOriginPaths: Object.freeze([...paths]),
   }
+}
+
+/** Finalize exactly one source policy after the official listener reports its bound port. */
+export function finalizeAuthConfig(
+  pending: PendingAuthConfig,
+  actual: { host: string; port: number; protocol: OriginProtocol },
+): ResolvedAuthConfig {
+  if (
+    !Number.isInteger(actual.port) ||
+    actual.port < 1 ||
+    actual.port > 65535 ||
+    isIP(actual.host) === 0
+  )
+    throw new Error('auth-remote: invalid actual listener host or port')
+  const transport = listenerTransport(actual, pending.capabilities)
+  let listenerUrl: string
+  if (actual.host.includes('%')) {
+    // A scoped bind is not a portable URL authority. Keep its listener display,
+    // and require an explicit portable public root (loopback scope is redundant).
+    if (transport.loopback) listenerUrl = `${transport.origin}/`
+    else {
+      if (!pending.publicUrl)
+        throw new Error('auth-remote: scoped listener requires explicit publicUrl')
+      listenerUrl = `${actual.protocol}//[${actual.host}]:${actual.port}/`
+    }
+  } else listenerUrl = listenerPublicUrl(actual.host, actual.port, actual.protocol)
+  const publicUrl = pending.publicUrl ?? parsePublicUrl(listenerUrl)
+  const originPolicy = createOriginPolicy([publicUrl.origin])
+  return Object.freeze({
+    ...pending,
+    host: actual.host,
+    port: actual.port,
+    protocol: actual.protocol,
+    nativeAuthority: transport.authority,
+    nativeOrigin: transport.origin,
+    publicUrl: publicUrl.url,
+    listenerUrl,
+    originPolicy,
+    allowedOrigins: Object.freeze([publicUrl.origin]),
+  })
 }
 
 function isCanonicalPathPrefix(path: string): boolean {

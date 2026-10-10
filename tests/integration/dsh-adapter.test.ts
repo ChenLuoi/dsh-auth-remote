@@ -17,40 +17,65 @@ import {
 import { DshReadiness, watchConnection } from '../../src/adapters/dsh/readiness.js'
 import { startupLines } from '../../src/adapters/dsh/startup-urls.js'
 import { GuardedWebServer, READY_PATH, type WebGate } from '../../src/adapters/dsh/webserver.js'
-import { resolveAuthConfig } from '../../src/config.js'
+import { resolveStartupConfig, finalizeAuthConfig, type AuthConfig } from '../../src/config.js'
 import { AuthRemoteWebServer } from '../../src/index.js'
 
 const origin = 'http://auth-remote.test:13090'
 const listener = { host: '127.0.0.1', port: 0 }
-const config = resolveAuthConfig({ allowedOrigins: [origin] }, listener)
 const require = createRequire(import.meta.url)
+// Carrier-only tests use a fixed public authority over an ephemeral backend.
+// Final source rules still come exclusively from the production parser.
+function carrierConfig(
+  input: AuthConfig,
+  listener: {
+    host: string
+    port: number
+    compression?: 'none' | 'gzip'
+    compressionLevel?: number
+    compressionThresholdBytes?: number
+  },
+) {
+  const pending = resolveStartupConfig(input, listener, {
+    version: require('@deepseek-ai/dsh-host-webserver/package.json').version,
+    profileDir: '/tmp/auth-remote-adapter',
+    cwd: process.cwd(),
+  })
+  const config = finalizeAuthConfig(pending, {
+    host: listener.host,
+    port: listener.port || 13090,
+    protocol: 'http:',
+  })
+  return {
+    ...config,
+    port: listener.port,
+    compression: listener.compression ?? 'none',
+    compressionLevel: listener.compressionLevel ?? 1,
+    compressionThresholdBytes: listener.compressionThresholdBytes ?? 1024,
+  }
+}
+const config = carrierConfig({ publicUrl: origin }, listener)
 
-test('startup output groups the profile listener and each public origin without a token or login path', () => {
-  const remote = resolveAuthConfig(
-    { allowedOrigins: ['https://dsh.example.com:442', 'https://second.example'] },
+test('startup output shows the listener and one distinct public root, deduplicating equal entries', () => {
+  const remote = carrierConfig(
+    { allowedOrigins: ['https://dsh.example.com:442'] },
     { host: '192.0.2.10', port: 13090 },
   )
-  assert.deepEqual(startupLines('web', remote, 13090), [
+  assert.deepEqual(startupLines('web', remote), [
     'dsh web start at',
     '  http://192.0.2.10:13090',
     '',
     'public access at',
     '  https://dsh.example.com:442',
-    '  https://second.example',
   ])
-  const loopback = resolveAuthConfig(
-    { allowedOrigins: ['http://127.0.0.1:13090', 'https://dsh.example.com'] },
+  const loopback = carrierConfig(
+    { allowedOrigins: ['http://127.0.0.1:13090'] },
     { host: '127.0.0.1', port: 13090 },
   )
-  assert.deepEqual(startupLines('private', loopback, 13090), [
+  assert.deepEqual(startupLines('private', loopback), [
     'dsh private start at',
     '  http://127.0.0.1:13090',
-    '',
-    'public access at',
-    '  http://127.0.0.1:13090',
-    '  https://dsh.example.com',
   ])
-  assert.deepEqual(startupLines('web', resolveAuthConfig({}, listener), 13090), [
+  assert.deepEqual(startupLines('web', carrierConfig({}, listener)), [
     'dsh web start at',
     '  http://127.0.0.1:13090',
   ])
@@ -58,14 +83,14 @@ test('startup output groups the profile listener and each public origin without 
 
 test('configuration refuses unsafe origins, path prefixes and session lifetimes before listening', () => {
   const base = { allowedOrigins: [origin] }
-  assert.equal(resolveAuthConfig(base, { host: '127.0.0.1', port: 13091 }).port, 13091)
-  assert.equal(resolveAuthConfig(base, listener).compression, 'none')
-  assert.equal(resolveAuthConfig(base, { host: '127.0.0.2', port: 0 }).host, '127.0.0.2')
-  for (const host of ['localhost', '192.0.2.999', '::1', '', '0.0.0.0']) {
-    assert.throws(() => resolveAuthConfig(base, { host, port: 0 }), /host/u)
+  assert.equal(carrierConfig(base, { host: '127.0.0.1', port: 13091 }).port, 13091)
+  assert.equal(carrierConfig(base, listener).compression, 'none')
+  assert.equal(carrierConfig(base, { host: '127.0.0.2', port: 0 }).host, '127.0.0.2')
+  for (const host of ['localhost', '192.0.2.999', '', '0.0.0.0']) {
+    assert.throws(() => carrierConfig(base, { host, port: 0 }), /host/u)
   }
   assert.throws(
-    () => resolveAuthConfig({ ...base, unexpected: true } as never, listener),
+    () => carrierConfig({ ...base, unexpected: true } as never, listener),
     /unknown config key/u,
   )
   for (const entry of [
@@ -75,14 +100,11 @@ test('configuration refuses unsafe origins, path prefixes and session lifetimes 
     'https://example.com/#hash',
     'file:///tmp',
   ]) {
-    assert.throws(
-      () => resolveAuthConfig({ ...base, allowedOrigins: [entry] }, listener),
-      /allowedOrigins/u,
-    )
+    assert.throws(() => carrierConfig({ ...base, allowedOrigins: [entry] }, listener), /publicUrl/u)
   }
-  assert.deepEqual(resolveAuthConfig({}, listener).allowedOrigins, [])
+  assert.deepEqual(carrierConfig({}, listener).allowedOrigins, ['http://127.0.0.1:13090'])
   assert.deepEqual(
-    resolveAuthConfig({ ...base, allowedOrigins: ['HTTPS://EXAMPLE.COM:443'] }, listener)
+    carrierConfig({ ...base, allowedOrigins: ['HTTPS://EXAMPLE.COM:443'] }, listener)
       .allowedOrigins,
     ['https://example.com'],
   )
@@ -97,24 +119,24 @@ test('configuration refuses unsafe origins, path prefixes and session lifetimes 
     '//evil',
   ]) {
     assert.throws(
-      () => resolveAuthConfig({ ...base, preserveOriginPaths: [path] }, listener),
+      () => carrierConfig({ ...base, preserveOriginPaths: [path] }, listener),
       /preserveOriginPaths/u,
     )
   }
   assert.throws(
-    () => resolveAuthConfig({ ...base, preserveOriginPaths: ['/api', '/api'] }, listener),
+    () => carrierConfig({ ...base, preserveOriginPaths: ['/api', '/api'] }, listener),
     /duplicate/u,
   )
   assert.throws(
-    () => resolveAuthConfig({ ...base, sessionHours: 0 }, listener),
+    () => carrierConfig({ ...base, sessionHours: 0 }, listener),
     /sessionHours|positive|number/u,
   )
   assert.throws(
-    () => resolveAuthConfig({ ...base, sessionHours: Number.MAX_SAFE_INTEGER }, listener),
+    () => carrierConfig({ ...base, sessionHours: Number.MAX_SAFE_INTEGER }, listener),
     /sessionHours/u,
   )
   assert.deepEqual(
-    resolveAuthConfig({ ...base, preserveOriginPaths: ['/api', '/plugins/%E4%B8%AD'] }, listener)
+    carrierConfig({ ...base, preserveOriginPaths: ['/api', '/plugins/%E4%B8%AD'] }, listener)
       .preserveOriginPaths,
     ['/api', '/plugins/%E4%B8%AD'],
   )
@@ -298,7 +320,7 @@ test('official WebServer dispatches every registered handler through the gate', 
 
 test('official gzip configuration remains effective through the guarded service', async () => {
   const ctx = new Context()
-  const gzipConfig = resolveAuthConfig(
+  const gzipConfig = carrierConfig(
     { allowedOrigins: [origin] },
     { ...listener, compression: 'gzip', compressionLevel: 1, compressionThresholdBytes: 16 },
   )
@@ -506,13 +528,10 @@ test('Connection activation, loss and replacement drive ready without a startup 
 
 test('public origins need native trust only when a path preserves their authority', async () => {
   const ctx = new Context()
-  const defaultConfig = resolveAuthConfig(
-    { allowedOrigins: [origin, 'https://second.example'] },
-    listener,
-  )
-  const preservingConfig = resolveAuthConfig(
+  const defaultConfig = carrierConfig({ publicUrl: origin }, listener)
+  const preservingConfig = carrierConfig(
     {
-      allowedOrigins: [origin, 'https://second.example'],
+      publicUrl: origin,
       preserveOriginPaths: ['/plugins/public'],
     },
     listener,
