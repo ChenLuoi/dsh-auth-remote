@@ -5,14 +5,16 @@ import { assertWebServerCompatibility } from './adapters/dsh/compatibility.js'
 import { installAuthenticatedHostCapability } from './adapters/dsh/browser-capability.js'
 import { DshReadiness, watchConnection } from './adapters/dsh/readiness.js'
 import { startupLines } from './adapters/dsh/startup-urls.js'
+import { listenerProtocol } from './adapters/dsh/runtime-capabilities.js'
 import { DenyGate, GuardedWebServer, SwitchGate } from './adapters/dsh/webserver.js'
 import { AuthService } from './auth/service.js'
 import {
-  resolveAuthConfig,
+  resolveStartupConfig,
+  finalizeAuthConfig,
   Config,
-  DEFAULT_WEB_HOST,
-  DEFAULT_WEB_PORT,
   type AuthConfig,
+  type WebStartupConfig,
+  type PendingAuthConfig,
   type ResolvedAuthConfig,
 } from './config.js'
 import { AuthConnections } from './http/connections.js'
@@ -23,7 +25,7 @@ import { AuthStateStore } from './storage/store.js'
 
 export type { AuthConfig } from './config.js'
 export { Config, DEFAULT_REQUIRE_TOTP, DEFAULT_SESSION_HOURS } from './config.js'
-export { resolveAuthConfig } from './config.js'
+export { resolveStartupConfig, finalizeAuthConfig } from './config.js'
 export { installAuthenticatedHostCapability } from './adapters/dsh/browser-capability.js'
 export { GuardedWebServer, READY_PATH, READY_PROTOCOL_VERSION } from './adapters/dsh/webserver.js'
 export { DshReadiness, watchConnection } from './adapters/dsh/readiness.js'
@@ -39,23 +41,27 @@ export class AuthRemoteWebServer extends GuardedWebServer {
   static override Config = Config as unknown as typeof GuardedWebServer.Config
   private stateStore: AuthStateStore | undefined
   private authService: AuthService | undefined
-  private readonly resolved: ResolvedAuthConfig
+  private readonly pending: PendingAuthConfig
+  private resolvedConfig: ResolvedAuthConfig | undefined
   private readonly switchGate: SwitchGate
 
   constructor(ctx: Context, input: AuthConfig) {
-    const startup = ctx.get('webStartup') as { host?: string; port?: number } | undefined
+    const startup = ctx.get('webStartup') as WebStartupConfig | undefined
     if (!startup) throw new Error('auth-remote: webStartup service is required')
-    const config = resolveAuthConfig(input, {
-      host: startup.host ?? DEFAULT_WEB_HOST,
-      port: startup.port ?? DEFAULT_WEB_PORT,
-      compression: 'none',
+    const profile = ctx.get('profileContext') as { dir?: string } | undefined
+    if (!profile?.dir) throw new Error('dsh-auth-remote: profileContext is required for storage')
+    const config = resolveStartupConfig(input, startup, {
+      version: assertWebServerCompatibility(ctx),
+      profileDir: profile.dir,
+      cwd: process.cwd(),
     })
-    assertWebServerCompatibility(ctx)
     const gate = new SwitchGate()
     super(ctx, config, gate)
-    this.resolved = config
+    this.pending = config
     this.switchGate = gate
     installAuthenticatedHostCapability(ctx)
+    if (config.legacyWarning)
+      console.warn('auth-remote: allowedOrigins is deprecated; use publicUrl with one root URL')
   }
 
   override async [Service.init](): Promise<void> {
@@ -74,19 +80,26 @@ export class AuthRemoteWebServer extends GuardedWebServer {
     })
     try {
       const auth = new AuthService(store, {
-        requireTotp: this.resolved.requireTotp,
-        sessionHours: this.resolved.sessionHours,
+        requireTotp: this.pending.requireTotp,
+        sessionHours: this.pending.sessionHours,
       })
       await auth.enforceCurrentPolicy()
       this.stateStore = store
       this.authService = auth
+      // Keep the listener behind DenyGate until its actual address has one
+      // finalized policy. Its official effect is owned by this service fiber.
+      await super[Service.init]()
+      this.resolvedConfig = finalizeAuthConfig(this.pending, {
+        host: this.host,
+        port: this.port,
+        protocol: listenerProtocol(this, this.pending.capabilities),
+      })
+      this.setOriginPolicy(this.resolved.originPolicy)
       connections = new AuthConnections(store, auth)
       readiness = new DshReadiness(this, this.resolved, () => {
         if (connections) void connections.closeAll()
       })
-      this.switchGate.set(
-        new AuthGate(() => this.port, this.resolved, store, auth, readiness, connections),
-      )
+      this.switchGate.set(new AuthGate(this.resolved, store, auth, readiness, connections))
       new AuthRoutes(auth, profileName).install(this)
       admin = new AdminSocket(
         profile.dir,
@@ -113,19 +126,29 @@ export class AuthRemoteWebServer extends GuardedWebServer {
         },
         'auth-remote.storage-and-gate',
       )
-      await super[Service.init]()
       let announced = false
-      watchConnection(this.ctx, readiness, () => {
-        const loader = this.ctx.get('loader') as { await(): Promise<unknown> } | undefined
-        const settled = loader?.await() ?? Promise.resolve()
-        void settled
-          .then(() => {
-            if (announced || !activeReadiness.ready()) return
-            announced = true
-            console.log(startupLines(profileName, this.resolved, this.port).join('\n'))
-          })
-          .catch(() => {})
-      })
+      watchConnection(
+        this.ctx,
+        readiness,
+        () => {
+          const loader = this.ctx.get('loader') as { await(): Promise<unknown> } | undefined
+          const settled = loader?.await() ?? Promise.resolve()
+          void settled
+            .then(() => {
+              if (announced || !activeReadiness.ready()) return
+              announced = true
+              console.log(startupLines(profileName, this.resolved).join('\n'))
+            })
+            .catch(() => {})
+        },
+        async () => {
+          this.switchGate.set(new DenyGate())
+          activeReadiness.detach()
+          // The failed readiness effect is not awaited by this callback;
+          // official parent-fiber disposal owns every listener/admin resource.
+          await this.ctx.fiber.dispose()
+        },
+      )
     } catch (error) {
       this.switchGate.set(new DenyGate())
       await admin?.dispose()
@@ -134,6 +157,16 @@ export class AuthRemoteWebServer extends GuardedWebServer {
       await store.close()
       throw error
     }
+  }
+
+  private get resolved(): ResolvedAuthConfig {
+    if (!this.resolvedConfig) throw new Error('auth-remote: listener entry is not finalized')
+    return this.resolvedConfig
+  }
+
+  /** Native WebApp evaluates this only after the authenticated service initializes. */
+  get publicUrl(): string {
+    return this.resolved.publicUrl
   }
 
   get storage(): AuthStateStore {

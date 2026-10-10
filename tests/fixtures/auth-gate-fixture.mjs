@@ -4,9 +4,12 @@ import {
   DshReadiness,
   GuardedWebServer,
   installAuthenticatedHostCapability,
-  resolveAuthConfig,
+  resolveStartupConfig,
+  finalizeAuthConfig,
   watchConnection,
 } from 'dsh-auth-remote'
+import { Service } from '@deepseek-ai/cordis'
+import { createRequire } from 'node:module'
 
 export const inject = ['webStartup']
 
@@ -15,14 +18,19 @@ export default class AuthGateFixtureServer extends GuardedWebServer {
 
   constructor(ctx, input) {
     const startup = ctx.get('webStartup')
-    const config = resolveAuthConfig(input, {
-      host: startup.host ?? '127.0.0.1',
-      port: startup.port ?? 3080,
+    const pending = resolveStartupConfig(input, startup, {
+      version: createRequire(import.meta.url)('@deepseek-ai/dsh-host-webserver/package.json')
+        .version,
+      profileDir: ctx.get('profileContext').dir,
+      cwd: process.cwd(),
+    })
+    const config = {
+      ...pending,
       compression: 'gzip',
       compressionLevel: 1,
       compressionThresholdBytes: 1024,
-    })
-    const entry = config.originPolicy.registeredOrigins[0]
+    }
+    const entry = config.publicUrl && new URL(config.publicUrl.url)
     if (!entry) throw new Error('auth gate fixture requires one registered origin')
     const expectedHost = entry.host
     const testCookie = process.env.DSH_GATE_TEST_COOKIE
@@ -63,8 +71,26 @@ export default class AuthGateFixtureServer extends GuardedWebServer {
       },
     }
     super(ctx, config, gate)
-    readiness = new DshReadiness(this, config)
-    watchConnection(ctx, readiness)
+    this.pending = pending
+    this.initializeReadiness = () => {
+      readiness = new DshReadiness(this, this.finalized)
+      watchConnection(ctx, readiness)
+    }
     installAuthenticatedHostCapability(ctx)
+  }
+
+  async [Service.init]() {
+    await super[Service.init]()
+    this.finalized = finalizeAuthConfig(this.pending, {
+      host: this.host,
+      port: this.port,
+      protocol: this.protocol ?? 'http:',
+    })
+    this.setOriginPolicy(this.finalized.originPolicy)
+    this.initializeReadiness()
+  }
+
+  get publicUrl() {
+    return this.finalized.publicUrl
   }
 }

@@ -776,7 +776,7 @@ test('official plugin settings persist through the guarded remote browser', asyn
     await directory.getByRole('button', { name: '取消' }).click()
     await directory.waitFor({ state: 'hidden' })
     await f.page.getByRole('button', { name: '插件', exact: true }).click()
-    await f.page.getByRole('button', { name: /终端/u }).click()
+    await f.page.getByRole('button', { name: /^(?:查看 )?终端$/u }).click()
     const timeout = f.page.getByLabel('命令超时（毫秒）')
     const original = Number(await timeout.inputValue())
     const updated = Math.max(original || 0, 60000) + 1000
@@ -791,7 +791,7 @@ test('official plugin settings persist through the guarded remote browser', asyn
     await f.page.reload()
     await f.page.waitForSelector('[class*="frame"]')
     await f.page.getByRole('button', { name: '插件', exact: true }).click()
-    await f.page.getByRole('button', { name: /终端/u }).click()
+    await f.page.getByRole('button', { name: /^(?:查看 )?终端$/u }).click()
     assert.equal(await f.page.getByLabel('命令超时（毫秒）').inputValue(), String(updated))
     await f.page.getByRole('button', { name: '设置', exact: true }).click()
     const settings = f.page.getByRole('dialog', { name: '设置' })

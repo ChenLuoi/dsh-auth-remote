@@ -2,13 +2,13 @@
 
 [English](reverse-proxy.md)
 
-DSH Auth Remote 会先验证浏览器 authority，再为 DSH 改写已认证流量。先选定精确公网 URL，再把相同的协议、主机和端口写入 `allowedOrigins`。默认的内部 authority 桥接无需配置 Connection `trustedHosts`。TLS 可以在代理终止，DSH 继续监听私有 HTTP。
+DSH Auth Remote 会先验证浏览器 authority，再为 DSH 改写已认证流量。选择唯一 HTTP(S) 根地址，设置为 `publicUrl`，例如 `https://dsh.example.com/`。它配置准入和公布入口，不改变代理路由或 TLS。桥接无需额外 Connection 条目或 `--trusted-host`。TLS 可以在代理终止，DSH 继续监听私有 HTTP。
 
 ## 回环直连
 
-按 [profile 示例](../examples/web-profile-auth-remote.patch.yml)，DSH 绑定 `127.0.0.1:13090`。同机浏览器可以使用 `http://127.0.0.1:13090`。字面量 `localhost`、规范的 `127.0.0.0/8` 地址和带方括号的 `::1` 可作为隐式回环 authority，但实际监听仍须可达；示例不宣称提供 IPv6 监听。认证 bundle 会禁用原生 `webserver` 条目；示例还建议在 profile 中独立禁用。
+按 [profile 示例](../examples/web-profile-auth-remote.patch.yml)，DSH 绑定 `127.0.0.1:13090`。同机浏览器可以使用 `http://127.0.0.1:13090/`。字面 `localhost`、规范 `127.0.0.0/8` 和方括号 `::1` 隐式准入，实际监听须可达。IPv4-mapped IPv6 回环来源只有作为生效 `publicUrl` 时才准入，可以显式配置，也可以从监听地址派生。alpha.2 的 IPv6 HTTP/HTTPS 监听见[原生传输配置](deployment.zh-CN.md#原生-https-与-ipv6)。认证 bundle 禁用原生 `webserver`，并建议 profile 独立禁用。
 
-`allowedOrigins` 为空时，仅允许这些字面回环 authority。其他 LAN 与公网名称必须显式登记。规范 authority 不冲突时，可以并存已登记的 HTTP 与 HTTPS 入口。两个入口不会互相授权：修改请求和 WebSocket 升级的 Origin 必须匹配自身 Host 入口。严格规则下某些无 Origin 的 GET 可进入，但协议不明时不能写入或清除认证 Cookie。
+准入为唯一生效公开来源加字面回环；未设置公开 URL 时，根据实际监听协议、地址、端口派生唯一根地址。只支持根路径，拒绝子路径、查询、片段、凭据。修改请求和 WebSocket 升级的 Origin 须匹配 Host，额外 CLI 原生 trusted hosts 不扩大策略。无 Origin 且协议不明的 GET 不能写入或清除认证 Cookie。变更旧数组前参阅[旧字段迁移](deployment.zh-CN.md#迁移旧-allowedorigins)。
 
 ## Nginx 外部 TLS
 
@@ -16,12 +16,14 @@ DSH Auth Remote 会先验证浏览器 authority，再为 DSH 改写已认证流�
 
 用 `$http_host` 保留含非默认端口的原始 Host，用 `$http_origin` 转交真实 Origin。Nginx 必须显式转交 WebSocket 的 `Upgrade` 和映射后的 `Connection`。上游 HTTP/1.1、关闭响应缓冲/缓存与请求缓冲、加长读写超时，保障事件流、上传和长连接。不要把 Origin 改成上游 URL，也不要删除浏览器修改请求的 Origin。代理不应缓存登录、状态或已认证响应。
 
-示例对应的 profile 登记 `https://dsh.example.com`。公网若使用 `:8443`，需登记 `https://dsh.example.com:8443`，并在转发的 Host 保留该端口。Secure Cookie 跟随已验证的外部 HTTPS 来源，而非私有 HTTP socket 或转发协议提示。若下游路由需要原始公网 Host，把其路径加入 `preserveOriginPaths`；认证 bundle 会自动从 `allowedOrigins` 配置 Connection 信任地址。
+示例设置 `publicUrl: https://dsh.example.com/`；公网 `:8443` 则使用 `https://dsh.example.com:8443/`，转发 Host 保留端口。插件 Secure Cookie 跟随已验证外部 HTTPS 来源，不取私有 HTTP socket 或转发协议提示。仅在路径需要原始公网 Host 时加入 `preserveOriginPaths`，原生 Connection 信任自动取最终来源。
 
 ## Traefik 外部 TLS
 
 [Traefik file-provider 示例](../examples/traefik-dsh.yml)定义一个 Host router、可替换的 TLS resolver 和上游 URL、`passHostHeader: true` 及即时响应刷新。根据实际 Traefik 网络提供私有可达上游。示例刻意不配置删除 Origin、改写 Host 或缓存响应的 middleware；外围代理栈应保留 WebSocket 与流的转发。
 
-多个公网入口需在 `allowedOrigins` 中逐一列出精确来源。profile 变更后重启 DSH，再逐个入口验证匿名跳转/API 拒绝、密码加 TOTP 登录、Secure Cookie、设置修改、WebSocket、SSE、上传和预览。`/auth-remote/ready` 对已配置 authority 返回预期插件/协议与 `ready: true` 前，不开放代理。
+使用唯一规范公开入口，在请求到达受保护上游前，把其他主机名导向该入口。入口变更后替换 `publicUrl` 并重启，核对新根地址以及旧非回环来源被拒绝。检查匿名跳转/API 拒绝、密码加 TOTP、Cookie、设置、WebSocket、SSE、上传、预览及撤销。`/auth-remote/ready` 返回预期插件/协议与 `ready: true` 前保持访问私有。
+
+alpha.2 原生 HTTPS 上游也可位于公开 HTTP 或 HTTPS 代理后。使用 HTTPS 上游 URL，配置代理的上游证书验证和与证书对应的 hostname/SNI。插件 Cookie 按外部入口协议，服务端原生 Cookie 按监听的 HTTPS audience/Secure；两个协议不同时仍保留 Host/Origin。文件和 CLI 相对证书路径基准不同，见[路径规则](deployment.zh-CN.md#配置优先级与路径基准)。
 
 认证门禁不会用 `Forwarded` 或 `X-Forwarded-*` 作信任判断，避免把客户端可伪造提示当成 TLS 或主机证明。源码检出的浏览器套件使用自有 Node HTTP/HTTPS 转发器测试这些规则，不运行 Nginx 或 Traefik 二进制。

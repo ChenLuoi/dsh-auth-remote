@@ -42,7 +42,6 @@ function downstreamCookie(original: string | undefined, native: string): string 
 /** Validates the public request before rewriting only the admitted business carrier. */
 export class AuthGate implements WebGate {
   constructor(
-    private readonly serverPort: () => number,
     private readonly config: ResolvedAuthConfig,
     private readonly store: AuthStateStore,
     private readonly auth: AuthService,
@@ -138,10 +137,8 @@ export class AuthGate implements WebGate {
 
   private bridge(req: IncomingMessage, context: RequestOriginContext): void {
     const preserve = preservePublicOrigin(context.pathname, this.config.preserveOriginPaths)
-    const authority = preserve
-      ? context.downstreamAuthority
-      : `127.0.0.1:${String(this.serverPort())}`
-    const origin = preserve ? context.origin : `http://${authority}`
+    const authority = preserve ? context.downstreamAuthority : this.config.nativeAuthority
+    const origin = preserve ? context.origin : this.config.nativeOrigin
     const native = this.readiness.nativeCookie(authority, origin)
     req.headers.cookie = downstreamCookie(req.headers.cookie, native)
     req.headers.host = authority

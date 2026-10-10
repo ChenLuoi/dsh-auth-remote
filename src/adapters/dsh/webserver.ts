@@ -6,8 +6,8 @@ import WebServer, {
   type WebRoute,
   type WebUpgradeRoute,
 } from '@deepseek-ai/dsh-host-webserver'
-import type { ResolvedAuthConfig } from '../../config.js'
-import { evaluateRequestOrigin } from '../../http/origin-policy.js'
+import type { NativeListenerConfig } from './runtime-capabilities.js'
+import { evaluateRequestOrigin, type OriginPolicy } from '../../http/origin-policy.js'
 
 export const READY_PATH = '/auth-remote/ready'
 export const READY_PROTOCOL_VERSION = 1
@@ -68,20 +68,28 @@ export class SwitchGate implements WebGate {
 
 /** Wrap only public WebServer registration methods; its routing and IO stay official. */
 export class GuardedWebServer extends WebServer {
+  private originPolicy: OriginPolicy | undefined
+
   constructor(
     ctx: Context,
-    config: ResolvedAuthConfig,
+    config: NativeListenerConfig & { originPolicy?: OriginPolicy },
     private readonly gate: WebGate = new DenyGate(),
   ) {
-    // The native runtime passes host directly to server.listen(); its public
-    // config type lists only two literals. The auth plugin validates IPv4 first.
+    // Production resolves capabilities and explicitly validates the native
+    // schema before calling this constructor, including on old IPv4 runtimes.
     super(ctx, config as WebServerConfig)
+    this.originPolicy = config.originPolicy
     super.register({
       kind: 'exact',
       path: READY_PATH,
       handler: (req, res) => {
+        if (!this.originPolicy) {
+          res.writeHead(503, { 'cache-control': 'no-store' })
+          res.end()
+          return
+        }
         if (
-          !evaluateRequestOrigin(config.originPolicy, {
+          !evaluateRequestOrigin(this.originPolicy, {
             rawHeaders: req.rawHeaders,
             method: req.method,
             target: req.url,
@@ -110,6 +118,11 @@ export class GuardedWebServer extends WebServer {
         )
       },
     })
+  }
+
+  /** Ready and the authenticated gate consume the same listener-finalized policy. */
+  protected setOriginPolicy(policy: OriginPolicy): void {
+    this.originPolicy = policy
   }
 
   override register(route: WebRoute): () => void {

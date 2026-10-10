@@ -66,7 +66,7 @@ async function request(
 
 async function fixture(
   requireTotp = false,
-  allowedOrigins: string[] = [origin],
+  publicUrl: string = origin,
   startupHost = '127.0.0.1',
   preserveOriginPaths: string[] = ['/api', '/plugins/example'],
 ) {
@@ -86,14 +86,12 @@ async function fixture(
     },
   } as never)
   await ctx.plugin(AuthRemoteWebServer, {
-    allowedOrigins,
+    publicUrl,
     requireTotp,
     preserveOriginPaths,
   })
   const connectionFiber = await ctx.plugin(Connection, {
-    trustedHosts: preserveOriginPaths.length
-      ? allowedOrigins.map((entry) => new URL(entry).host)
-      : [],
+    trustedHosts: [...(ctx.webServer as AuthRemoteWebServer).connectionTrustedHosts],
   })
   await ctx.fiber.await()
   const server = ctx.webServer as AuthRemoteWebServer
@@ -110,7 +108,7 @@ async function fixture(
 }
 
 test('authenticated listener can bind a specific IPv4 address without a relay', async () => {
-  const f = await fixture(false, [origin], '127.0.0.2')
+  const f = await fixture(false, origin, '127.0.0.2')
   try {
     assert.equal(f.server.host, '127.0.0.2')
     const response = await fetch(`http://127.0.0.2:${f.port}/auth-remote/ready`)
@@ -136,7 +134,7 @@ async function login(port: number): Promise<string> {
 }
 
 test('HTTPS public origin reaches native API through the internal bridge without trustedHosts', async () => {
-  const f = await fixture(false, [origin], '127.0.0.1', [])
+  const f = await fixture(false, origin, '127.0.0.1', [])
   try {
     await f.server.authentication.initialize('alice', password)
     f.server.register({
@@ -236,239 +234,234 @@ test('real listener rejects anonymous and cross-site requests, then serves exact
   }
 })
 
-test('parallel HTTPS, HTTP and implicit loopback entries keep one strict gate and correct cookies', async () => {
+test('independent HTTPS, HTTP and implicit loopback entries retain strict gates and correct cookies', async () => {
   const plainOrigin = 'http://plain.example:13090'
   const defaultPlainOrigin = 'http://plain-default.example'
   const defaultSecureOrigin = 'https://default.example'
   const lanOrigin = 'http://192.0.2.20:13090'
-  const f = await fixture(false, [
-    origin,
-    plainOrigin,
-    defaultPlainOrigin,
-    defaultSecureOrigin,
-    lanOrigin,
-  ])
-  try {
-    const native = new NativeBrowserAuth()
-    for (const [authority, entryOrigin] of [
-      [host, origin],
-      ['plain.example:13090', plainOrigin],
-      ['plain-default.example', defaultPlainOrigin],
-      ['default.example', defaultSecureOrigin],
-      ['192.0.2.20:13090', lanOrigin],
-    ]) {
-      try {
-        native.cookieFor(f.ctx.connection, authority!, entryOrigin!)
-      } catch (error) {
-        throw new Error(`native preflight failed for ${authority}: ${String(error)}`)
+  for (const selected of [
+    { host, origin, secure: true },
+    { host: 'plain.example:13090', origin: plainOrigin, secure: false },
+    { host: 'plain-default.example:80', origin: defaultPlainOrigin, secure: false },
+    { host: 'default.example:443', origin: defaultSecureOrigin, secure: true },
+    { host: '192.0.2.20:13090', origin: lanOrigin, secure: false },
+  ]) {
+    const f = await fixture(false, selected.origin)
+    try {
+      const native = new NativeBrowserAuth()
+      native.cookieFor(f.ctx.connection, new URL(selected.origin).host, selected.origin)
+      await f.server.authentication.initialize('alice', password)
+      const seen: {
+        host: string | undefined
+        origin: string | undefined
+        cookie: string | undefined
+      }[] = []
+      for (const path of ['/api/entry', '/private/entry', '/plugins/dsh-openai-codex/fast-mode']) {
+        f.server.register({
+          kind: 'exact',
+          path,
+          handler: (req, res) => {
+            seen.push({
+              host: req.headers.host,
+              origin: req.headers.origin,
+              cookie: req.headers.cookie,
+            })
+            res.end('ok')
+          },
+        })
       }
-    }
-    await f.server.authentication.initialize('alice', password)
-    const seen: {
-      host: string | undefined
-      origin: string | undefined
-      cookie: string | undefined
-    }[] = []
-    for (const path of ['/api/entry', '/private/entry', '/plugins/dsh-openai-codex/fast-mode']) {
-      f.server.register({
-        kind: 'exact',
-        path,
-        handler: (req, res) => {
-          seen.push({
-            host: req.headers.host,
-            origin: req.headers.origin,
-            cookie: req.headers.cookie,
-          })
-          res.end('ok')
+      f.server.registerUpgrade({
+        path: '/entry-socket',
+        handler: (_req, socket) => {
+          socket.write(
+            'HTTP/1.1 101 Switching Protocols\r\nUpgrade: test\r\nConnection: Upgrade\r\n\r\n',
+          )
         },
       })
-    }
-    f.server.registerUpgrade({
-      path: '/entry-socket',
-      handler: (_req, socket) => {
-        socket.write(
-          'HTTP/1.1 101 Switching Protocols\r\nUpgrade: test\r\nConnection: Upgrade\r\n\r\n',
+      for (const entry of [selected]) {
+        assert.equal((await request(f.port, '/auth-remote/ready', entry)).status, 200, entry.origin)
+        assert.equal((await request(f.port, '/api/entry', entry)).status, 401)
+        const authenticated = await request(f.port, '/auth-remote/login', {
+          ...entry,
+          method: 'POST',
+          body: JSON.stringify({ username: 'alice', password }),
+          headers: { 'sec-fetch-site': 'same-origin', 'x-forwarded-proto': 'http' },
+        })
+        assert.equal(authenticated.status, 200, authenticated.body)
+        const setCookie = authenticated.headers['set-cookie']
+        assert.ok(Array.isArray(setCookie))
+        assert.equal(setCookie[0]?.includes('; Secure'), entry.secure)
+        const cookie = setCookie[0]!.split(';')[0]!
+        assert.equal((await request(f.port, '/auth-remote/me', { ...entry, cookie })).status, 200)
+        assert.equal((await request(f.port, '/api/entry', { ...entry, cookie })).status, 200)
+        assert.equal(seen.at(-1)?.host, new URL(entry.origin).host)
+        assert.equal(seen.at(-1)?.origin, entry.origin)
+        assert.ok(seen.at(-1)?.cookie && !seen.at(-1)?.cookie.includes('dsh_auth_remote='))
+        assert.equal((await request(f.port, '/private/entry', { ...entry, cookie })).status, 200)
+        assert.equal(seen.at(-1)?.host, `127.0.0.1:${f.port}`)
+        assert.equal(seen.at(-1)?.origin, `http://127.0.0.1:${f.port}`)
+        assert.equal(
+          (
+            await request(f.port, '/plugins/dsh-openai-codex/fast-mode', {
+              ...entry,
+              cookie,
+              method: 'POST',
+              origin: null,
+            })
+          ).status,
+          403,
         )
-      },
-    })
-    for (const entry of [
-      { host, origin, secure: true },
-      { host: 'plain.example:13090', origin: plainOrigin, secure: false },
-      { host: 'plain-default.example:80', origin: defaultPlainOrigin, secure: false },
-      { host: 'default.example:443', origin: defaultSecureOrigin, secure: true },
-      { host: '192.0.2.20:13090', origin: lanOrigin, secure: false },
-    ]) {
-      assert.equal((await request(f.port, '/auth-remote/ready', entry)).status, 200, entry.origin)
-      assert.equal((await request(f.port, '/api/entry', entry)).status, 401)
-      const authenticated = await request(f.port, '/auth-remote/login', {
-        ...entry,
-        method: 'POST',
-        body: JSON.stringify({ username: 'alice', password }),
-        headers: { 'sec-fetch-site': 'same-origin', 'x-forwarded-proto': 'http' },
-      })
-      assert.equal(authenticated.status, 200, authenticated.body)
-      const setCookie = authenticated.headers['set-cookie']
-      assert.ok(Array.isArray(setCookie))
-      assert.equal(setCookie[0]?.includes('; Secure'), entry.secure)
-      const cookie = setCookie[0]!.split(';')[0]!
-      assert.equal((await request(f.port, '/auth-remote/me', { ...entry, cookie })).status, 200)
-      assert.equal((await request(f.port, '/api/entry', { ...entry, cookie })).status, 200)
-      assert.equal(seen.at(-1)?.host, new URL(entry.origin).host)
-      assert.equal(seen.at(-1)?.origin, entry.origin)
-      assert.ok(seen.at(-1)?.cookie && !seen.at(-1)?.cookie.includes('dsh_auth_remote='))
-      assert.equal((await request(f.port, '/private/entry', { ...entry, cookie })).status, 200)
-      assert.equal(seen.at(-1)?.host, `127.0.0.1:${f.port}`)
-      assert.equal(seen.at(-1)?.origin, `http://127.0.0.1:${f.port}`)
+        assert.equal(
+          (
+            await request(f.port, '/plugins/dsh-openai-codex/fast-mode', {
+              ...entry,
+              cookie,
+              method: 'POST',
+            })
+          ).status,
+          200,
+        )
+        assert.equal(seen.at(-1)?.host, `127.0.0.1:${f.port}`)
+        assert.equal(seen.at(-1)?.origin, `http://127.0.0.1:${f.port}`)
+        const socket = connect(f.port, '127.0.0.1')
+        await once(socket, 'connect')
+        const opened = once(socket, 'data')
+        socket.write(
+          `GET /entry-socket HTTP/1.1\r\nHost: ${entry.host}\r\nOrigin: ${entry.origin}\r\nCookie: ${cookie}\r\nConnection: Upgrade\r\nUpgrade: test\r\n\r\n`,
+        )
+        const responseLine = String((await opened)[0])
+        socket.destroy()
+        assert.match(responseLine, /101 Switching Protocols/u)
+        const signedOut = await request(f.port, '/auth-remote/logout', {
+          ...entry,
+          method: 'POST',
+          cookie,
+        })
+        assert.equal(signedOut.status, 200)
+        assert.equal(
+          (signedOut.headers['set-cookie'] as string[] | undefined)?.[0]?.includes('; Secure'),
+          entry.secure,
+        )
+        assert.equal((await request(f.port, '/auth-remote/me', { ...entry, cookie })).status, 401)
+      }
+
+      assert.equal(
+        (await request(f.port, '/auth-remote/ready', { host: 'plain.example:13090', origin }))
+          .status,
+        403,
+      )
       assert.equal(
         (
-          await request(f.port, '/plugins/dsh-openai-codex/fast-mode', {
-            ...entry,
-            cookie,
+          await request(f.port, '/auth-remote/login', {
             method: 'POST',
+            host,
+            origin: plainOrigin,
+            body: JSON.stringify({ username: 'alice', password }),
+          })
+        ).status,
+        403,
+      )
+      const crossSocket = connect(f.port, '127.0.0.1')
+      await once(crossSocket, 'connect')
+      const rejectedUpgrade = once(crossSocket, 'data')
+      crossSocket.write(
+        `GET /entry-socket HTTP/1.1\r\nHost: ${host}\r\nOrigin: ${plainOrigin}\r\nConnection: Upgrade\r\nUpgrade: test\r\n\r\n`,
+      )
+      const deniedLine = String((await rejectedUpgrade)[0])
+      crossSocket.destroy()
+      assert.match(deniedLine, /403 Forbidden/u)
+      assert.equal(
+        (
+          await request(f.port, '/auth-remote/ready', {
+            host: '192.0.2.21:13090',
             origin: null,
+            headers: { 'x-forwarded-host': host, 'x-forwarded-proto': 'https' },
+          })
+        ).status,
+        403,
+      )
+
+      for (const loopbackHost of [
+        `127.0.0.1:${f.port}`,
+        `localhost:${f.port}`,
+        `[::1]:${f.port}`,
+      ]) {
+        const state = await request(f.port, '/auth-remote/state', {
+          host: loopbackHost,
+          origin: null,
+        })
+        assert.equal(state.status, 200, loopbackHost)
+        assert.equal(state.headers['set-cookie'], undefined)
+      }
+      const loopbackHost = `127.0.0.1:${f.port}`
+      const loopbackOrigin = `http://${loopbackHost}`
+      assert.equal(
+        (
+          await request(f.port, '/auth-remote/login', {
+            host: loopbackHost,
+            origin: null,
+            method: 'POST',
+            body: JSON.stringify({ username: 'alice', password }),
+          })
+        ).status,
+        403,
+      )
+      const loopbackLogin = await request(f.port, '/auth-remote/login', {
+        host: loopbackHost,
+        origin: loopbackOrigin,
+        method: 'POST',
+        body: JSON.stringify({ username: 'alice', password }),
+      })
+      assert.equal(loopbackLogin.status, 200, loopbackLogin.body)
+      const loopbackCookie = (loopbackLogin.headers['set-cookie'] as string[])[0]!.split(';')[0]!
+      assert.equal(
+        (loopbackLogin.headers['set-cookie'] as string[])[0]!.includes('; Secure'),
+        false,
+      )
+      const loopbackMe = await request(f.port, '/auth-remote/me', {
+        host: loopbackHost,
+        origin: null,
+        cookie: loopbackCookie,
+      })
+      assert.equal(loopbackMe.status, 200)
+      assert.equal(loopbackMe.headers['set-cookie'], undefined)
+      assert.equal(
+        (
+          await request(f.port, '/auth-remote/logout', {
+            host: loopbackHost,
+            origin: null,
+            method: 'POST',
+            cookie: loopbackCookie,
           })
         ).status,
         403,
       )
       assert.equal(
         (
-          await request(f.port, '/plugins/dsh-openai-codex/fast-mode', {
-            ...entry,
-            cookie,
+          await request(f.port, '/auth-remote/logout', {
+            host: loopbackHost,
+            origin: loopbackOrigin,
             method: 'POST',
+            cookie: loopbackCookie,
+            headers: { 'sec-fetch-site': 'same-site' },
           })
         ).status,
-        200,
+        403,
       )
-      assert.equal(seen.at(-1)?.host, `127.0.0.1:${f.port}`)
-      assert.equal(seen.at(-1)?.origin, `http://127.0.0.1:${f.port}`)
-      const socket = connect(f.port, '127.0.0.1')
-      await once(socket, 'connect')
-      const opened = once(socket, 'data')
-      socket.write(
-        `GET /entry-socket HTTP/1.1\r\nHost: ${entry.host}\r\nOrigin: ${entry.origin}\r\nCookie: ${cookie}\r\nConnection: Upgrade\r\nUpgrade: test\r\n\r\n`,
-      )
-      const responseLine = String((await opened)[0])
-      socket.destroy()
-      assert.match(responseLine, /101 Switching Protocols/u)
-      const signedOut = await request(f.port, '/auth-remote/logout', {
-        ...entry,
-        method: 'POST',
-        cookie,
-      })
-      assert.equal(signedOut.status, 200)
-      assert.equal(
-        (signedOut.headers['set-cookie'] as string[] | undefined)?.[0]?.includes('; Secure'),
-        entry.secure,
-      )
-      assert.equal((await request(f.port, '/auth-remote/me', { ...entry, cookie })).status, 401)
-    }
-
-    assert.equal(
-      (await request(f.port, '/auth-remote/ready', { host: 'plain.example:13090', origin })).status,
-      403,
-    )
-    assert.equal(
-      (
-        await request(f.port, '/auth-remote/login', {
-          method: 'POST',
-          host,
-          origin: plainOrigin,
-          body: JSON.stringify({ username: 'alice', password }),
-        })
-      ).status,
-      403,
-    )
-    const crossSocket = connect(f.port, '127.0.0.1')
-    await once(crossSocket, 'connect')
-    const rejectedUpgrade = once(crossSocket, 'data')
-    crossSocket.write(
-      `GET /entry-socket HTTP/1.1\r\nHost: ${host}\r\nOrigin: ${plainOrigin}\r\nConnection: Upgrade\r\nUpgrade: test\r\n\r\n`,
-    )
-    const deniedLine = String((await rejectedUpgrade)[0])
-    crossSocket.destroy()
-    assert.match(deniedLine, /403 Forbidden/u)
-    assert.equal(
-      (
-        await request(f.port, '/auth-remote/ready', {
-          host: '192.0.2.21:13090',
-          origin: null,
-          headers: { 'x-forwarded-host': host, 'x-forwarded-proto': 'https' },
-        })
-      ).status,
-      403,
-    )
-
-    for (const loopbackHost of [`127.0.0.1:${f.port}`, `localhost:${f.port}`, `[::1]:${f.port}`]) {
-      const state = await request(f.port, '/auth-remote/state', {
+      const loopbackLogout = await request(f.port, '/auth-remote/logout', {
         host: loopbackHost,
-        origin: null,
+        origin: loopbackOrigin,
+        method: 'POST',
+        cookie: loopbackCookie,
       })
-      assert.equal(state.status, 200, loopbackHost)
-      assert.equal(state.headers['set-cookie'], undefined)
+      assert.equal(loopbackLogout.status, 200)
+      assert.equal(
+        (loopbackLogout.headers['set-cookie'] as string[])[0]!.includes('; Secure'),
+        false,
+      )
+    } finally {
+      await f.cleanup()
     }
-    const loopbackHost = `127.0.0.1:${f.port}`
-    const loopbackOrigin = `http://${loopbackHost}`
-    assert.equal(
-      (
-        await request(f.port, '/auth-remote/login', {
-          host: loopbackHost,
-          origin: null,
-          method: 'POST',
-          body: JSON.stringify({ username: 'alice', password }),
-        })
-      ).status,
-      403,
-    )
-    const loopbackLogin = await request(f.port, '/auth-remote/login', {
-      host: loopbackHost,
-      origin: loopbackOrigin,
-      method: 'POST',
-      body: JSON.stringify({ username: 'alice', password }),
-    })
-    assert.equal(loopbackLogin.status, 200, loopbackLogin.body)
-    const loopbackCookie = (loopbackLogin.headers['set-cookie'] as string[])[0]!.split(';')[0]!
-    assert.equal((loopbackLogin.headers['set-cookie'] as string[])[0]!.includes('; Secure'), false)
-    const loopbackMe = await request(f.port, '/auth-remote/me', {
-      host: loopbackHost,
-      origin: null,
-      cookie: loopbackCookie,
-    })
-    assert.equal(loopbackMe.status, 200)
-    assert.equal(loopbackMe.headers['set-cookie'], undefined)
-    assert.equal(
-      (
-        await request(f.port, '/auth-remote/logout', {
-          host: loopbackHost,
-          origin: null,
-          method: 'POST',
-          cookie: loopbackCookie,
-        })
-      ).status,
-      403,
-    )
-    assert.equal(
-      (
-        await request(f.port, '/auth-remote/logout', {
-          host: loopbackHost,
-          origin: loopbackOrigin,
-          method: 'POST',
-          cookie: loopbackCookie,
-          headers: { 'sec-fetch-site': 'same-site' },
-        })
-      ).status,
-      403,
-    )
-    const loopbackLogout = await request(f.port, '/auth-remote/logout', {
-      host: loopbackHost,
-      origin: loopbackOrigin,
-      method: 'POST',
-      cookie: loopbackCookie,
-    })
-    assert.equal(loopbackLogout.status, 200)
-    assert.equal((loopbackLogout.headers['set-cookie'] as string[])[0]!.includes('; Secure'), false)
-  } finally {
-    await f.cleanup()
   }
 })
 

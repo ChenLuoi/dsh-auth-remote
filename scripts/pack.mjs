@@ -35,6 +35,7 @@ const fixedFiles = [
   'package/docs/reverse-proxy.zh-CN.md',
   'package/docs/releasing.md',
   'package/docs/releasing.zh-CN.md',
+  'package/docs/legacy-compatibility.md',
   'package/examples/web-profile-auth-remote.patch.yml',
   'package/examples/traefik-dsh.yml',
   'package/examples/nginx.conf',

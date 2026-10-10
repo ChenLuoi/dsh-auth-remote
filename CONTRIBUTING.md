@@ -16,6 +16,8 @@ pnpm check
 
 The [development guide](docs/development.md) explains the isolated DSH runtime and the full test boundaries. Run `pnpm pack:local` when a change affects packaging, and `pnpm smoke` when it affects installation or startup. Tests use temporary profiles; keep real account files and credentials out of the repository.
 
+Before changing supported versions, consult the [legacy compatibility inventory](docs/legacy-compatibility.md) (maintained in Chinese). Review manifest peers and compatibility declarations, runtime admission, test targets, CI matrices, and user claims together. Retire runtime adaptations in the same change only when none of their applicable DSH versions remain supported; retire old plugin configuration under its own migration policy. Keep shared security checks and update the inventory when compatibility code changes.
+
 ## Open a pull request
 
 Create a focused branch from `master`. Include the reason for the change, its user-facing effect, tests run, and any migration or deployment steps. Update English and Chinese guides together when behavior changes. Add a short entry to the Unreleased section of both changelogs. Keep generated `dist/`, `artifacts/`, runtime data, secrets, and local profiles out of commits.

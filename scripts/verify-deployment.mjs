@@ -26,7 +26,9 @@ assert.deepEqual(
 const row = (id) => rows.find((item) => item.id === id)
 assert.equal(row('webserver').disabled, true)
 assert.deepEqual(row('auth-remote').config, {
-  allowedOrigins: ['https://dsh.example.com'],
+  publicUrl: 'https://dsh.example.com/',
+  host: '127.0.0.1',
+  port: 13090,
   requireTotp: true,
   sessionHours: 168,
   preserveOriginPaths: [],

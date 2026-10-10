@@ -6,17 +6,23 @@ DeepSeek Harness（DSH）的单用户远程登录插件，提供密码、TOTP、
 
 ## 前置条件
 
-- Linux（含 `/proc`）、Node.js 24 或更高版本，以及已测试的 DSH **0.1.7-rc.1**、**0.1.7-rc.2**、**0.2.0-rc.1**、**0.2.0-rc.2** 或 **0.2.1-alpha.1**（默认）运行时。仅从源码构建时需要 pnpm 12.5.1。
+- Linux（含 `/proc`）、Node.js 24 或更高版本，以及 DSH **0.1.7-rc.1**、**0.1.7-rc.2**、**0.2.0-rc.1**、**0.2.0-rc.2**、**0.2.1-alpha.1** 或 **0.2.1-alpha.2**（默认）。仅从源码构建时需要 pnpm 12.5.1。
 - DSH 默认的 `~/.dsh` 数据目录和 `web` profile。账号状态属于该 profile，不与其他 profile 共用。
 - 源码浏览器测试先执行 `pnpm exec playwright install chromium`。测试使用 Playwright 管理的浏览器和专用自签 TLS 夹具。
 
 ## DSH 兼容性
 
-插件 0.1.5 已测试 DSH **0.1.7-rc.1**、**0.1.7-rc.2**、**0.2.0-rc.1**、**0.2.0-rc.2** 和 **0.2.1-alpha.1**，默认支持运行时为 **0.2.1-alpha.1**。这些精确版本均在 `dsh.compatibility.dshReleases` 中声明。宿主 peer 声明和运行时版本检查统一使用 `>=0.1.7-rc.1`，不设版本上限。DSH 的加载器检查包含预发布版本，因此 0.2 及后续版本无需逐版豁免，也无需仅为放宽版本范围而更新插件。
+`dsh.compatibility.dshReleases` 声明上述六个版本，开发默认使用 **0.2.1-alpha.2**。宿主 peer 声明和运行时版本检查统一使用 `>=0.1.7-rc.1`，不设上限且包含预发布版本。
 
-后续版本属于向前准入，并不宣称已经逐版测试。插件仍检查必需的 WebServer／Connection 接口、宿主包实例一致性和原生认证交换。若这些约定改变，认证入口会保持不可用并给出诊断；取消版本上限不能保证未知接口变更后的兼容性。CI 在上述五个版本上运行 CLI、安装冒烟和浏览器回归。
+| DSH 版本                         | 具体 IPv4 HTTP | 原生公开 URL CLI、Web 提示与 `DSH_WEB_URL`                           | 原生 IPv6 / HTTPS |
+| -------------------------------- | -------------- | -------------------------------------------------------------------- | ----------------- |
+| 0.1.7-rc.1/rc.2、0.2.0-rc.1/rc.2 | 支持           | 无 `--public-url`；原生模型侧 URL 保持 `http://127.0.0.1:<实际端口>` | 不支持            |
+| 0.2.1-alpha.1                    | 支持           | 支持；使用插件最终公开根地址                                         | 不支持            |
+| 0.2.1-alpha.2                    | 支持           | 支持；使用插件最终公开根地址                                         | 通过官方监听支持  |
 
-插件 **0.1.5** 将 DSH 0.2.1-alpha.1 设为默认已验证运行时。现有 **0.1.3** 的认证实现也已在该运行时通过 CLI 和浏览器测试。无版本上限的兼容范围和主题集成从插件 **0.1.2** 开始提供。源码构建参见[开发指南](docs/development.zh-CN.md)。
+后续版本属于向前准入，并不宣称已经逐版测试。插件仍检查必需的 WebServer／Connection 接口、宿主包实例一致性和原生认证交换。缺少能力时认证入口保持不可用并给出诊断。CI 在六个声明版本上运行 CLI、安装冒烟和浏览器回归。
+
+六版均使用插件的单入口配置。原生 IPv6/TLS 需要 alpha.2；旧版 HTTP 监听可由外部 HTTPS 代理提供入口。源码构建参见[开发指南](docs/development.zh-CN.md)。
 
 ## 从 npm 安装
 
@@ -24,19 +30,19 @@ DeepSeek Harness（DSH）的单用户远程登录插件，提供密码、TOTP、
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.1.5
+dsh plugin --profile web add dsh-auth-remote@0.1.6
 dsh plugin --profile web list
 ```
 
-确认 `dsh --version` 输出 `0.2.1-alpha.1`（或上文列出的其他已测试版本），且插件列表中有 `dsh-auth-remote@0.1.5`。这些命令使用 DSH 默认数据目录。源码构建及隔离开发运行时参见[开发指南](docs/development.zh-CN.md)。
+确认 `dsh --version` 输出 `0.2.1-alpha.2`（或上文其他兼容版本），且插件列表中有 `dsh-auth-remote@0.1.6`。这些命令使用 DSH 默认数据目录。源码构建及隔离开发运行时参见[开发指南](docs/development.zh-CN.md)。
 
 ## 配置 web profile
 
-安装后的 bundle 提供认证监听，默认 `allowedOrigins: []`，因此只准入字面回环主机。最小安装无需修改 profile 补丁。用 `dsh web --no-open --port 13090` 启动，使用终端打印的 `http://127.0.0.1:13090` 地址；未登录的浏览器访问会跳转到登录页。使用监听前检查 `/auth-remote/ready`。启动输出包含监听地址和已配置的公网来源，不含原生 `?token=` 地址。
+最小安装无需修改 profile 补丁。用 `dsh web --no-open --port 13090` 启动，使用终端打印的 `http://127.0.0.1:13090/` 根地址。未显式设置 `publicUrl` 时，插件根据监听的实际协议、地址和绑定端口生成唯一根地址，包含 `--port 0` 的实际结果。未登录导航跳转登录页；使用服务前检查 `/auth-remote/ready`。启动输出包含监听地址和一个不同的公开根地址，不含原生 `?token=` URL。
 
-公网 HTTPS 入口请使用[部署指南](docs/deployment.zh-CN.md)的完整 profile 配置及步骤。可复用的 [profile 示例](examples/web-profile-auth-remote.patch.yml)登记 `https://dsh.example.com`，并建议在 profile 中独立禁用原生监听。开放代理前须一致地替换示例主机名和端口。
+公网 HTTPS 入口请使用[部署指南](docs/deployment.zh-CN.md)和 [profile 示例](examples/web-profile-auth-remote.patch.yml)，设置顶层 `publicUrl: https://dsh.example.com/`、`host`、`port`。alpha.2 还支持具体 IPv6 和成对的顶层 `tlsCert`/`tlsKey`。URL 必须是 HTTP(S) 根地址，不能带凭据、子路径、查询或片段。准入范围是唯一公开来源加字面回环。配置 URL 不会配置代理路由或 TLS。
 
-下游路由若需要原始公网 Host，可把其路径加入 `preserveOriginPaths`。bundle 会根据 `allowedOrigins` 自动配置原生 Connection 的信任地址，无需在 profile 中另写 Connection 条目。
+下游路由若需要原始公网 Host，可把路径加入 `preserveOriginPaths`。原生 Connection 信任来自最终公开来源，无需额外 `--trusted-host` 或 Connection 条目。CLI 的 host/port 和公开 URL 覆盖文件值；TLS 按完整一对覆盖。升级 `allowedOrigins` 前阅读[迁移和路径规则](docs/deployment.zh-CN.md#配置优先级与路径基准)：零项或单项在内存迁移并告警，多项及任意显式新旧字段共存报错。
 
 ## 初始化账号
 
@@ -65,7 +71,7 @@ dsh plugin --profile web exec dsh-auth-remote revoke-sessions --lang zh
 
 ## 接入反向代理
 
-参见[反向代理指南](docs/reverse-proxy.zh-CN.md)以及 [Nginx](examples/nginx.conf) 或 [Traefik](examples/traefik-dsh.yml) 示例。保留浏览器原始 Host、Origin、WebSocket 升级和流式响应。TLS 可在代理终止，但 `allowedOrigins` 必须登记精确的 HTTPS 来源。保持 DSH 监听私有，且不要缓存认证响应。
+参见[反向代理指南](docs/reverse-proxy.zh-CN.md)以及 [Nginx](examples/nginx.conf) 或 [Traefik](examples/traefik-dsh.yml) 示例。保留浏览器原始 Host、Origin、WebSocket 升级和流式响应。TLS 可在代理终止；把其精确 HTTPS 根地址设置为 `publicUrl`。保持 DSH 监听私有，且不要缓存认证响应。
 
 ## 项目与维护
 

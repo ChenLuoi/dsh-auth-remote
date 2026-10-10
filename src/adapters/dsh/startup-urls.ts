@@ -1,11 +1,9 @@
 import type { ResolvedAuthConfig } from '../../config.js'
 
-/** Startup URLs for the listener and configured public browser entries. */
-export function startupLines(profile: string, config: ResolvedAuthConfig, port: number): string[] {
-  const lines = [`dsh ${profile} start at`, `  http://${config.host}:${String(port)}`]
-  if (config.allowedOrigins.length > 0) {
-    lines.push('', 'public access at')
-    for (const origin of config.allowedOrigins) lines.push(`  ${origin}`)
-  }
+/** The listener and one distinct public root, with no native token or login path. */
+export function startupLines(profile: string, config: ResolvedAuthConfig): string[] {
+  const lines = [`dsh ${profile} start at`, `  ${config.listenerUrl.replace(/\/$/u, '')}`]
+  if (config.publicUrl !== config.listenerUrl)
+    lines.push('', 'public access at', `  ${config.publicUrl.replace(/\/$/u, '')}`)
   return lines
 }

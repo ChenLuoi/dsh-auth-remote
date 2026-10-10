@@ -8,6 +8,14 @@
 
 暂无记录。
 
+## 0.1.6 - 2026-10-10
+
+- 开发与默认验证运行时升级为 DSH 0.2.1-alpha.2，修复原生 WebServer/Connection 组合，CLI、smoke 和浏览器 CI 矩阵保留六个声明版本。
+- 使用唯一顶层 `publicUrl`；启动前解析 CLI/文件监听参数，缺省 URL 在实际端口绑定后派生。alpha.1/2 原生 Web 提示和 `DSH_WEB_URL` 使用最终根地址，旧运行时保留自身模型侧投影。
+- 通过官方监听支持 alpha.2 原生具体 IPv6 和 HTTPS；`tlsCert`/`tlsKey` 整组覆盖，明确 profile 与 cwd 路径基准。原生 Cookie 跟随监听协议，浏览器 Cookie 跟随生效外部来源，两种代理协议方向均保留上传、流、升级及撤销门禁。
+- 旧 `allowedOrigins` 零项/单项在内存迁移，每次激活告警一次。多项及任意与文件/CLI `publicUrl` 显式共存报错；旧多入口 profile 须选择唯一根地址。不改写账号状态或 profile 文件。
+- 双语说明六版能力矩阵、原生 TLS/IPv6 配置和迁移；新增单一中文 legacy 清单，区分 runtime 与插件契约退役规则；任务文件、测试密钥和运行数据不入 npm 包。
+
 ## 0.1.5 - 2026-10-03
 
 - 验证现有认证实现可直接支持 DSH 0.2.1-alpha.1，将其加入 CLI、安装冒烟和浏览器 CI 矩阵，并保留之前已测试的所有版本。
