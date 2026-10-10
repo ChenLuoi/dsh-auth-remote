@@ -60,6 +60,23 @@ export function apply(ctx) {
       }),
       ctx.webServer.register({
         kind: 'exact',
+        path: '/plugins/strict/trusted-host',
+        handler(req, res) {
+          // Third-party routes can use Connection's declared authorities
+          // without inheriting its implicit loopback or bind-address rules.
+          const connection = ctx.get('connection')
+          const host = String(req.headers.host ?? '')
+          const trustedHosts = connection?.trustedHosts ?? []
+          const rejection = trustedHosts.includes(host) ? connection.requestRejection(req) : 403
+          res.writeHead(rejection ?? 200, {
+            'content-type': 'application/json',
+            'cache-control': 'no-store',
+          })
+          res.end(JSON.stringify({ host, origin: req.headers.origin, trustedHosts }))
+        },
+      }),
+      ctx.webServer.register({
+        kind: 'exact',
         path: '/plugins/strict/stream',
         handler(req, res) {
           const host = String(req.headers.host ?? '')

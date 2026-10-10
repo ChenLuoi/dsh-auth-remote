@@ -67,7 +67,10 @@ test('CLI public URL replaces file authority everywhere while retaining authenti
   )
   try {
     assert.equal(f.server.publicUrl, 'http://final.example:8080/')
-    assert.deepEqual(f.server.connectionTrustedHosts, ['final.example:8080'])
+    assert.deepEqual(f.server.connectionTrustedHosts, [
+      `127.0.0.1:${f.server.port}`,
+      'final.example:8080',
+    ])
     assert.equal(await request(f.server.port, 'final.example:8080'), 200)
     assert.equal(await request(f.server.port, 'old.example'), 403)
     assert.equal(await request(f.server.port, `127.0.0.1:${f.server.port}`), 200)
@@ -83,11 +86,11 @@ test('CLI public URL replaces file authority everywhere while retaining authenti
 })
 
 test('omitted entry derives an admitted root from the actual ephemeral IPv4 port', async () => {
-  const f = await fixture({ host: '127.0.0.2', port: 0 }, {})
+  const f = await fixture({ host: '127.0.0.2', port: 0, preserveOriginPaths: ['/api'] }, {})
   try {
     assert.ok(f.server.port > 0)
     assert.equal(f.server.publicUrl, `http://127.0.0.2:${f.server.port}/`)
-    assert.deepEqual(f.server.connectionTrustedHosts, [])
+    assert.deepEqual(f.server.connectionTrustedHosts, [`127.0.0.2:${f.server.port}`])
     const response = await fetch(f.server.publicUrl + 'auth-remote/ready')
     assert.equal(response.status, 200)
     assert.equal((await response.json()).ready, true)

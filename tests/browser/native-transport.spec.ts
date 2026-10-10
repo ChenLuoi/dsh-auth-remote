@@ -15,6 +15,7 @@ import {
   nativeKeyPath,
   nativeHttp,
   nativeStream,
+  type NativeRequestOptions,
 } from '../helpers/native-http.js'
 import { packedAdmin, packedCommand, packedProfile } from '../helpers/packed-runtime.js'
 import { clickThroughDshPrompts, dsh, launchBrowser } from '../helpers/runtime.js'
@@ -25,16 +26,120 @@ const pin = createHash('sha256')
   .digest('base64')
 const nativeTransport = getRuntimeCapabilities(dshVersion).nativeTransport
 
+for (const bindKind of ['loopback', 'interface'] as const)
+  test(
+    `packed DSH ${dshVersion} ${bindKind} declares the finalized bridge authority and retains CLI trust without widening public admission`,
+    { timeout: 30_000 },
+    async () => {
+      const publicOrigin = 'https://secure.example:442'
+      const extraAuthority = 'extra.example:8443'
+      const bindHost =
+        bindKind === 'loopback'
+          ? '127.0.0.2'
+          : Object.values(networkInterfaces())
+              .flat()
+              .find((value) => value?.family === 'IPv4' && !value.internal)?.address
+      assert.ok(bindHost, 'concrete non-loopback IPv4 is required')
+      const f = await packedProfile(
+        { host: '127.0.0.1', port: 0, publicUrl: publicOrigin, requireTotp: false },
+        true,
+      )
+      let server: ReturnType<typeof packedCommand> | undefined
+      try {
+        await packedAdmin(f.home, 'init', [
+          ['用户名: ', 'alice'],
+          ['密码: ', password],
+          ['再次输入密码: ', password],
+        ])
+        server = packedCommand(
+          f.home,
+          [
+            'web',
+            '--no-open',
+            '--host',
+            bindHost,
+            '--port',
+            '0',
+            '--trusted-host',
+            extraAuthority,
+            extraAuthority,
+          ],
+          f.cwd,
+        )
+        const active = server
+        const options = { host: new URL(publicOrigin).host, origin: publicOrigin }
+        const target = await waitReady(
+          active,
+          () => {
+            const match = [
+              ...active.output().stdout.matchAll(/http:\/\/([0-9.]+):([0-9]+)/gu),
+            ].find((value) => value[1] === bindHost)
+            return match ? `http://${bindHost}:${match[2]}/` : undefined
+          },
+          options,
+        )
+        const path = '/plugins/strict/trusted-host'
+        assert.equal((await nativeHttp(target, path, { ...options, method: 'POST' })).status, 401)
+        const login = await nativeHttp(target, '/auth-remote/login', {
+          ...options,
+          method: 'POST',
+          body: JSON.stringify({ username: 'alice', password }),
+        })
+        assert.equal(login.status, 200, login.body)
+        const cookie = login.headers['set-cookie']![0]!.split(';')[0]!
+        const admitted = await nativeHttp(target, path, { ...options, method: 'POST', cookie })
+        assert.equal(admitted.status, 200, admitted.body)
+        const seen = JSON.parse(admitted.body)
+        const port = new URL(target).port
+        const nativeAuthority = `${nativeTransport ? bindHost : '127.0.0.1'}:${port}`
+        assert.equal(seen.host, nativeAuthority)
+        assert.equal(seen.origin, `http://${nativeAuthority}`)
+        assert.deepEqual(seen.trustedHosts, [extraAuthority, nativeAuthority])
+        assert.equal(seen.trustedHosts.includes(new URL(publicOrigin).host), false)
+        assert.equal(
+          seen.trustedHosts.some((value: string) => value.endsWith(':0')),
+          false,
+        )
+        assert.equal(
+          (
+            await nativeHttp(target, path, {
+              host: extraAuthority,
+              origin: `https://${extraAuthority}`,
+              method: 'POST',
+              cookie,
+            })
+          ).status,
+          403,
+        )
+        assert.equal(
+          (
+            await nativeHttp(target, path, {
+              ...options,
+              origin: 'https://evil.example',
+              method: 'POST',
+              cookie,
+            })
+          ).status,
+          403,
+        )
+      } finally {
+        await server?.stop()
+        await f.cleanup()
+      }
+    },
+  )
+
 async function waitReady(
   server: ReturnType<typeof packedCommand>,
   target: () => string | undefined,
+  options: NativeRequestOptions = {},
 ) {
   for (let attempt = 0; attempt < 150; attempt++) {
     if (server.child.exitCode !== null) break
     const url = target()
     if (url) {
       try {
-        if ((await nativeHttp(url, '/auth-remote/ready')).status === 200) return url
+        if ((await nativeHttp(url, '/auth-remote/ready', options)).status === 200) return url
       } catch {
         /* real native startup */
       }
@@ -187,6 +292,15 @@ if (nativeTransport) {
           assert.equal(result.origin, `${secure ? 'https:' : 'http:'}//${authority}`)
           assert.equal(result.bytes, bytes.length)
           assert.equal(result.sha256, createHash('sha256').update(bytes).digest('hex'))
+          const trusted = await nativeHttp(target, '/plugins/strict/trusted-host', {
+            method: 'POST',
+            cookie,
+          })
+          assert.equal(trusted.status, 200, trusted.body)
+          const declared = JSON.parse(trusted.body).trustedHosts as string[]
+          assert.equal(declared.includes(authority), true)
+          assert.equal(declared.includes(new URL(publicOrigin).host), true)
+          assert.equal(new Set(declared).size, declared.length)
           assert.equal(result.hasNative, true)
           assert.equal(result.hasPlugin, false)
           const preserved = await nativeHttp(target, '/plugins/public/echo', { cookie })

@@ -10,7 +10,7 @@ Install the published package into the default `web` profile:
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.1.6
+dsh plugin --profile web add dsh-auth-remote@0.1.7
 dsh plugin --profile web list
 dsh web --no-open --port 13090
 ```
@@ -115,7 +115,7 @@ Admission is the one effective public origin plus literal loopback authorities. 
 
 Plugin cookies follow the validated external origin and are host-only, HttpOnly and SameSite; HTTPS sets Secure. Native bridge credentials stay server-side and follow the native listener protocol, including HTTPS cookie audience/Secure when a public HTTP proxy fronts native HTTPS. Ports do not isolate browser cookies.
 
-Standard `/api` routes work with `preserveOriginPaths: []`; there is no need to list `/api`. Add a prefix only when a downstream route needs the original public Host. The plugin forwards an Origin only when the request supplied one, and preflights the selected public authority for preserved paths. No separate Connection row or extra trusted-host flag is needed. Ordinary alpha.2 routes use the normalized native bind authority; older Connection retains its internal HTTP loopback bridge. Both paths still require a full session. Revocation, Connection loss or storage failure closes active uploads, streams and upgrades and withdraws business admission. Readiness does not mean the account is initialized.
+Standard `/api` routes work with `preserveOriginPaths: []`; there is no need to list `/api`. The plugin always declares its finalized native bridge authority in Connection's `trustedHosts`, using the actual bound port (including `--port 0`), so downstream plugins that read this list can recognize the bridge without an extra trusted-host flag. Explicit CLI trusted hosts are merged and deduplicated; they do not expand the outer public-origin policy. Add a prefix only when a downstream route needs the original public Host. The plugin forwards an Origin only when the request supplied one, and preflights and declares the selected public authority for preserved paths. No separate Connection row is needed. Ordinary alpha.2 routes use the normalized native bind authority; older Connection retains its internal HTTP loopback bridge. Both paths still require a full session. Revocation, Connection loss or storage failure closes active uploads, streams and upgrades and withdraws business admission. Readiness does not mean the account is initialized.
 
 ## Start and verify the public entry
 

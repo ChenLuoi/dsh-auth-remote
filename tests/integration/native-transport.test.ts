@@ -445,7 +445,7 @@ for (const secure of [false, true])
     const origin = `${secure ? 'https:' : 'http:'}//${authority}`
     const target = f.target
     try {
-      assert.deepEqual(f.server.connectionTrustedHosts, [])
+      assert.deepEqual(f.server.connectionTrustedHosts, [authority])
       assert.equal((await nativeHttp(target, '/auth-remote/ready', options)).status, 200)
       assert.equal((await nativeHttp(target, '/api/native-probe', options)).status, 401)
       const cookie = await mfaLogin(f, options)

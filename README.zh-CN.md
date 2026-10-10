@@ -30,11 +30,11 @@ DeepSeek Harness（DSH）的单用户远程登录插件，提供密码、TOTP、
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.1.6
+dsh plugin --profile web add dsh-auth-remote@0.1.7
 dsh plugin --profile web list
 ```
 
-确认 `dsh --version` 输出 `0.2.1-alpha.2`（或上文其他兼容版本），且插件列表中有 `dsh-auth-remote@0.1.6`。这些命令使用 DSH 默认数据目录。源码构建及隔离开发运行时参见[开发指南](docs/development.zh-CN.md)。
+确认 `dsh --version` 输出 `0.2.1-alpha.2`（或上文其他兼容版本），且插件列表中有 `dsh-auth-remote@0.1.7`。这些命令使用 DSH 默认数据目录。源码构建及隔离开发运行时参见[开发指南](docs/development.zh-CN.md)。
 
 ## 配置 web profile
 
@@ -42,7 +42,7 @@ dsh plugin --profile web list
 
 公网 HTTPS 入口请使用[部署指南](docs/deployment.zh-CN.md)和 [profile 示例](examples/web-profile-auth-remote.patch.yml)，设置顶层 `publicUrl: https://dsh.example.com/`、`host`、`port`。alpha.2 还支持具体 IPv6 和成对的顶层 `tlsCert`/`tlsKey`。URL 必须是 HTTP(S) 根地址，不能带凭据、子路径、查询或片段。准入范围是唯一公开来源加字面回环。配置 URL 不会配置代理路由或 TLS。
 
-下游路由若需要原始公网 Host，可把路径加入 `preserveOriginPaths`。原生 Connection 信任来自最终公开来源，无需额外 `--trusted-host` 或 Connection 条目。CLI 的 host/port 和公开 URL 覆盖文件值；TLS 按完整一对覆盖。升级 `allowedOrigins` 前阅读[迁移和路径规则](docs/deployment.zh-CN.md#配置优先级与路径基准)：零项或单项在内存迁移并告警，多项及任意显式新旧字段共存报错。
+插件自动将定稿的原生桥接 authority 登记到 Connection 的 `trustedHosts`，下游插件无需额外 `--trusted-host` 即可识别具体监听地址。下游路由若需要原始公网 Host，可把路径加入 `preserveOriginPaths`，此时也自动登记最终公开 authority。显式 CLI trusted hosts 继续保留，外层公开来源与登录校验仍然生效。CLI 的 host/port 和公开 URL 覆盖文件值；TLS 按完整一对覆盖。升级 `allowedOrigins` 前阅读[迁移和路径规则](docs/deployment.zh-CN.md#配置优先级与路径基准)：零项或单项在内存迁移并告警，多项及任意显式新旧字段共存报错。
 
 ## 初始化账号
 

@@ -30,11 +30,11 @@ With DSH installed, verify its version and install the published plugin into the
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.1.6
+dsh plugin --profile web add dsh-auth-remote@0.1.7
 dsh plugin --profile web list
 ```
 
-Check that `dsh --version` prints `0.2.1-alpha.2` (or another compatible release above) and the plugin list includes `dsh-auth-remote@0.1.6`. These commands use DSH's default data directory. For source builds and an isolated development runtime, see the [development guide](docs/development.md).
+Check that `dsh --version` prints `0.2.1-alpha.2` (or another compatible release above) and the plugin list includes `dsh-auth-remote@0.1.7`. These commands use DSH's default data directory. For source builds and an isolated development runtime, see the [development guide](docs/development.md).
 
 ## Configure the web profile
 
@@ -42,7 +42,7 @@ The minimal setup needs no profile patch. Start with `dsh web --no-open --port 1
 
 For a public HTTPS entry, use the [deployment guide](docs/deployment.md) and [profile example](examples/web-profile-auth-remote.patch.yml), with top-level `publicUrl: https://dsh.example.com/`, `host` and `port`. Alpha.2 also supports concrete IPv6 and paired top-level `tlsCert`/`tlsKey`. The URL must be an HTTP(S) root, with no credentials, child path, query or fragment. One public origin plus literal loopback is admitted. Setting a URL does not configure proxy routing or TLS.
 
-If a downstream route needs the original public Host, add its path to `preserveOriginPaths`. Native Connection trust follows the final public origin; no extra `--trusted-host` or Connection row is needed. CLI host/port and public URL override file values; TLS overrides as one complete pair. See the [migration and path rules](docs/deployment.md#configuration-priority-and-path-bases) before upgrading `allowedOrigins`: zero or one item is migrated in memory with a warning, multiple items and any explicit coexistence with `publicUrl` fail.
+The plugin automatically declares its finalized native bridge authority in Connection's `trustedHosts`, so downstream plugins can recognize a concrete listener without an extra `--trusted-host`. If a downstream route needs the original public Host, add its path to `preserveOriginPaths`; the final public authority is then declared as well. Explicit CLI trusted hosts are retained, while the outer public-origin and sign-in checks still apply. CLI host/port and public URL override file values; TLS overrides as one complete pair. See the [migration and path rules](docs/deployment.md#configuration-priority-and-path-bases) before upgrading `allowedOrigins`: zero or one item is migrated in memory with a warning, multiple items and any explicit coexistence with `publicUrl` fail.
 
 ## Initialize the account
 
