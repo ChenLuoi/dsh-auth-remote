@@ -10,6 +10,7 @@ import { AuthStateStore } from '../storage/store.js'
 import { AuthConnections } from './connections.js'
 import { preservePublicOrigin, stripRootToken } from './origin.js'
 import { evaluateRequestOrigin, type RequestOriginContext } from './origin-policy.js'
+import { isPublicPwaAsset } from './public-assets.js'
 import { setRequestContext } from './request-context.js'
 import { currentSessionToken, routePermission } from './routes.js'
 
@@ -62,6 +63,7 @@ export class AuthGate implements WebGate {
     if (!raw) return rejectHttp(res, 403, 'invalid_origin')
     if (!this.ready()) return rejectHttp(res, 503, 'service_unavailable')
     setRequestContext(req, raw)
+    if (isPublicPwaAsset(req.method, raw.pathname)) return next()
     const permission = routePermission(req.method, raw.pathname)
     if (permission === 'public' || permission === 'logout') return next()
     const token = currentSessionToken(req)

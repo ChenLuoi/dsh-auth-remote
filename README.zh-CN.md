@@ -30,11 +30,11 @@ DeepSeek Harness（DSH）的单用户远程登录插件，提供密码、TOTP、
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.1.7
+dsh plugin --profile web add dsh-auth-remote@0.1.8
 dsh plugin --profile web list
 ```
 
-确认 `dsh --version` 输出 `0.2.1-alpha.2`（或上文其他兼容版本），且插件列表中有 `dsh-auth-remote@0.1.7`。这些命令使用 DSH 默认数据目录。源码构建及隔离开发运行时参见[开发指南](docs/development.zh-CN.md)。
+确认 `dsh --version` 输出 `0.2.1-alpha.2`（或上文其他兼容版本），且插件列表中有 `dsh-auth-remote@0.1.8`。这些命令使用 DSH 默认数据目录。源码构建及隔离开发运行时参见[开发指南](docs/development.zh-CN.md)。
 
 ## 配置 web profile
 
@@ -57,6 +57,8 @@ dsh plugin --profile web exec dsh-auth-remote init --lang zh
 ## 登录与账号管理
 
 最小化安装时访问本机回环地址；配置公网入口后访问 `https://dsh.example.com/auth-remote/login`。DSH 内的安全设置可以修改密码、绑定 TOTP、在策略允许时关闭 TOTP，以及撤销会话。密码或第二因素变更会撤销已有会话。会话默认固定有效 168 小时，服务重启后仍保留。
+
+登录页引用 DSH 的 PWA manifest，manifest 与 favicon 在登录前即可读取；业务页面和 API 仍需认证。具体范围见[公开资源规则](docs/deployment.zh-CN.md#来源与桥接契约)。
 
 ```sh
 dsh plugin --profile web exec dsh-auth-remote status --json

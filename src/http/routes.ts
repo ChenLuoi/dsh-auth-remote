@@ -229,12 +229,12 @@ export class AuthRoutes {
             'cache-control': 'no-store',
             'content-type': 'text/html; charset=utf-8',
             'content-security-policy':
-              "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'",
+              "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; frame-ancestors 'none'",
             'x-content-type-options': 'nosniff',
             'referrer-policy': 'no-referrer',
           })
           res.end(
-            '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in to DSH</title><link rel="stylesheet" href="/auth-remote/login.css"><script defer src="/auth-remote/login.js"></script></head><body><main id="login-root" aria-live="polite">Checking sign-in status…</main></body></html>',
+            '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in to DSH</title><link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/auth-remote/login.css"><script defer src="/auth-remote/login.js"></script></head><body><main id="login-root" aria-live="polite">Checking sign-in status…</main></body></html>',
           )
           return
         }

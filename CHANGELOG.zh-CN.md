@@ -8,6 +8,10 @@
 
 暂无记录。
 
+## 0.1.8 - 2026-10-12
+
+- 允许匿名 GET/HEAD 访问精确的 PWA manifest 与 favicon 路径，登录页引用 manifest 并补齐 CSP 权限；继续保留来源校验和业务鉴权。
+
 ## 0.1.7 - 2026-10-10
 
 - 自动将定稿的原生桥接 authority 登记到 Connection 的 trusted hosts，修复具体监听地址未显式登记时下游插件 POST 被拒绝的问题；使用实际绑定端口，并保留旧版回环桥接。

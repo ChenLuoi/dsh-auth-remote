@@ -1,3 +1,5 @@
+import { isPublicPwaAsset } from './public-assets.js'
+
 export type OriginProtocol = 'http:' | 'https:'
 
 export interface RegisteredOrigin {
@@ -211,7 +213,8 @@ export function evaluateRequestOrigin(
   const target = request.target ? parseTarget(request.target) : null
   const method = request.method
   if (!authority || !target || !method || !/^[A-Z!#$%&'*+.^_`|~-]+$/u.test(method)) return null
-  const needsOrigin = request.upgrade === true || method !== 'GET'
+  const needsOrigin =
+    request.upgrade === true || (method !== 'GET' && !isPublicPwaAsset(method, target.pathname))
   if (needsOrigin && origins.length !== 1) return null
   const site = fetchSites[0]?.toLowerCase()
   if (

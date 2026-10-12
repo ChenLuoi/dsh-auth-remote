@@ -10,7 +10,7 @@ Install the published package into the default `web` profile:
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.1.7
+dsh plugin --profile web add dsh-auth-remote@0.1.8
 dsh plugin --profile web list
 dsh web --no-open --port 13090
 ```
@@ -112,6 +112,8 @@ Back up the old patch before upgrading. Replace a single item with `publicUrl: h
 ## Source and bridge contract
 
 Admission is the one effective public origin plus literal loopback authorities. The URL's root path has no deployment prefix. Requests need one valid Host; mutations and WebSocket upgrades require a matching Origin, and cross-site or mismatched Fetch Metadata is rejected. An old public origin is no longer registered after replacement. `Forwarded` and `X-Forwarded-*` never decide admission or Cookie Secure. CLI `--trusted-host` configures native Connection only and does not enlarge this outer policy.
+
+Anonymous GET/HEAD requests to exactly `/manifest.webmanifest`, `/favicon.svg`, and `/favicon-dark.svg` pass through to DSH's static server without a session. These PWA metadata and icons retain the same Host, Origin, Fetch Metadata, and readiness checks; HEAD on these paths accepts an absent Origin just like GET. The sign-in page links the manifest and allows it in CSP, so browsers can read application metadata before sign-in. Business pages, APIs, other assets, other methods, and WebSocket upgrades remain protected. Browser installation also depends on the upstream manifest and the browser's own requirements.
 
 Plugin cookies follow the validated external origin and are host-only, HttpOnly and SameSite; HTTPS sets Secure. Native bridge credentials stay server-side and follow the native listener protocol, including HTTPS cookie audience/Secure when a public HTTP proxy fronts native HTTPS. Ports do not isolate browser cookies.
 
