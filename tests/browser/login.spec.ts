@@ -6,7 +6,7 @@ import { request as httpRequest } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { chromium, expect, type BrowserContext, type Page } from '@playwright/test'
+import { chromium, expect, type BrowserContext, type Page, type Request } from '@playwright/test'
 import { totpCode } from '../../src/auth/totp.js'
 import {
   archive,
@@ -224,6 +224,70 @@ async function loginWithBackup(
   })
   await page.waitForSelector('[class*="frame"]')
 }
+
+test('anonymous sign-in exposes the native PWA manifest and icons without business access', async () => {
+  const f = await fixture(false, 13114)
+  try {
+    const manifestRequests: Request[] = []
+    f.page.on('request', (request) => {
+      if (new URL(request.url()).pathname === '/manifest.webmanifest')
+        manifestRequests.push(request)
+    })
+    const response = await f.page.goto(`${f.origin}/`)
+    assert.equal(new URL(f.page.url()).pathname, '/auth-remote/login')
+    assert.match(response!.headers()['content-security-policy']!, /manifest-src 'self'/u)
+    assert.equal(
+      await f.page.locator('link[rel="manifest"]').getAttribute('href'),
+      '/manifest.webmanifest',
+    )
+    const cdp = await f.context.newCDPSession(f.page)
+    const manifest = await cdp.send('Page.getAppManifest')
+    assert.equal(manifest.url, `${f.origin}/manifest.webmanifest`)
+    assert.deepEqual(manifest.errors, [])
+    const metadata = JSON.parse(manifest.data!)
+    assert.equal(metadata.name, 'DeepSeek Harness')
+    assert.equal(new URL(metadata.start_url, manifest.url).href, `${f.origin}/`)
+    assert.equal(manifestRequests.length > 0, true)
+    const manifestHeaders = await Promise.all(
+      manifestRequests.map((request) => request.allHeaders()),
+    )
+    assert.equal(
+      manifestHeaders.every((headers) => headers.cookie === undefined),
+      true,
+    )
+    const paths = ['/manifest.webmanifest', '/favicon.svg', '/favicon-dark.svg']
+    const assets = await f.page.evaluate(async (paths) => {
+      const results = []
+      for (const path of paths) {
+        for (const method of ['GET', 'HEAD']) {
+          const response = await fetch(path, { method, credentials: 'omit' })
+          results.push({
+            path,
+            method,
+            status: response.status,
+            type: response.headers.get('content-type'),
+            body: await response.text(),
+          })
+        }
+      }
+      return results
+    }, paths)
+    for (const asset of assets) {
+      assert.equal(asset.status, 200, `${asset.method} ${asset.path}`)
+      assert.match(
+        asset.type!,
+        asset.path.endsWith('.svg') ? /image\/svg\+xml/u : /application\/manifest\+json/u,
+      )
+      if (asset.method === 'HEAD') assert.equal(asset.body, '')
+      else if (asset.path.endsWith('.svg')) assert.match(asset.body, /<svg/u)
+    }
+    assert.deepEqual(await f.context.cookies(), [])
+    assert.equal(await f.page.evaluate(async () => (await fetch('/api/settings')).status), 401)
+    await cdp.detach()
+  } finally {
+    await f.cleanup()
+  }
+})
 
 test('login and security settings follow DSH themes and fit narrow screens', async () => {
   const f = await fixture(false, 13113)

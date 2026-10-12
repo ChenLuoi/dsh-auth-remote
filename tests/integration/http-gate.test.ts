@@ -234,6 +234,91 @@ test('real listener rejects anonymous and cross-site requests, then serves exact
   }
 })
 
+test('only exact PWA reads bypass sessions while retaining origin and upgrade gates', async () => {
+  const f = await fixture()
+  const paths = ['/manifest.webmanifest', '/favicon.svg', '/favicon-dark.svg']
+  const served: string[] = []
+  try {
+    f.server.registerFallback((req, res) => {
+      served.push(req.url!)
+      res.writeHead(200, { 'content-type': 'text/plain' })
+      res.end('native static asset')
+    })
+    for (const path of paths) {
+      const get = await request(f.port, `${path}?v=1`, { origin: null })
+      assert.equal(get.status, 200)
+      assert.equal(get.body, 'native static asset')
+      assert.equal(get.headers['set-cookie'], undefined)
+      const head = await request(f.port, path, { method: 'HEAD', origin: null })
+      assert.equal(head.status, 200)
+      assert.equal(head.body, '')
+      for (const method of ['GET', 'HEAD']) {
+        for (const rejected of [
+          { host: 'forged.example' },
+          { origin: 'https://evil.example' },
+          { origin: null, headers: { 'sec-fetch-site': 'cross-site' } },
+          { origin: null, headers: { 'sec-fetch-site': 'same-site' } },
+        ]) {
+          assert.equal((await request(f.port, path, { method, ...rejected })).status, 403)
+        }
+      }
+      for (const method of ['POST', 'PUT', 'DELETE', 'OPTIONS']) {
+        assert.equal((await request(f.port, path, { method })).status, 401)
+      }
+      assert.equal((await request(f.port, `${path}/extra`)).status, 401)
+      assert.equal((await request(f.port, `${path}.bak`)).status, 401)
+    }
+    assert.equal(served.length, paths.length * 2)
+    for (const path of ['/assets/index.js', '/api/private', '/%6danifest.webmanifest']) {
+      assert.equal((await request(f.port, path, { origin: null })).status, 401)
+    }
+    assert.equal(
+      (await request(f.port, '/api/private', { method: 'HEAD', origin: null })).status,
+      403,
+    )
+    const page = await request(f.port, '/', { accept: 'text/html', origin: null })
+    assert.equal(page.status, 302)
+    const loginPage = await request(f.port, '/auth-remote/login', { origin: null })
+    assert.match(loginPage.body, /<link rel="manifest" href="\/manifest\.webmanifest">/u)
+    assert.match(String(loginPage.headers['content-security-policy']), /manifest-src 'self'/u)
+
+    f.server.registerUpgrade({
+      path: '/manifest.webmanifest',
+      handler: (_req, socket) => {
+        socket.end('HTTP/1.1 101 Switching Protocols\r\n\r\n')
+      },
+    })
+    for (const requestOrigin of [null, origin]) {
+      const socket = connect(f.port, '127.0.0.1')
+      await once(socket, 'connect')
+      const answer = once(socket, 'data')
+      socket.write(
+        `GET /manifest.webmanifest HTTP/1.1\r\nHost: ${host}\r\n${requestOrigin ? `Origin: ${requestOrigin}\r\n` : ''}Connection: Upgrade\r\nUpgrade: test\r\n\r\n`,
+      )
+      assert.match(
+        String((await answer)[0]),
+        requestOrigin ? /401 Unauthorized/u : /403 Forbidden/u,
+      )
+      socket.destroy()
+    }
+
+    await f.server.authentication.initialize('alice', password)
+    const cookie = await login(f.port)
+    assert.equal(
+      (await request(f.port, '/auth-remote/logout', { method: 'POST', cookie })).status,
+      200,
+    )
+    assert.equal((await request(f.port, '/api/private', { cookie })).status, 401)
+    for (const path of paths) {
+      assert.equal((await request(f.port, path, { origin: null, cookie })).status, 200)
+    }
+    await f.connectionFiber.dispose()
+    assert.equal((await request(f.port, '/manifest.webmanifest', { origin: null })).status, 503)
+  } finally {
+    await f.cleanup()
+  }
+})
+
 test('independent HTTPS, HTTP and implicit loopback entries retain strict gates and correct cookies', async () => {
   const plainOrigin = 'http://plain.example:13090'
   const defaultPlainOrigin = 'http://plain-default.example'

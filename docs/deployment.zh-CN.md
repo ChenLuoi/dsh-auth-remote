@@ -10,7 +10,7 @@
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.1.7
+dsh plugin --profile web add dsh-auth-remote@0.1.8
 dsh plugin --profile web list
 dsh web --no-open --port 13090
 ```
@@ -112,6 +112,8 @@ alpha.2 的 IPv6 回环 HTTPS 可合并以下完整认证条目，使用自己�
 ## 来源与桥接契约
 
 准入为唯一生效公开来源加字面回环 authority；URL 根路径不支持部署前缀。请求须有唯一合法 Host，修改请求和 WebSocket 升级须有匹配 Origin；跨站或不匹配 Fetch Metadata 被拒绝。替换后旧公开来源不再登记。`Forwarded`、`X-Forwarded-*` 不决定准入或 Cookie Secure；CLI `--trusted-host` 只配置原生 Connection，不扩大外层策略。
+
+匿名 GET/HEAD 请求仅在精确匹配 `/manifest.webmanifest`、`/favicon.svg`、`/favicon-dark.svg` 时，无需会话即可交给 DSH 静态服务处理。这些 PWA 元数据与图标仍受 Host、Origin、Fetch Metadata 和就绪检查约束；这些路径的 HEAD 与 GET 一样允许缺少 Origin。登录页引用 manifest 并在 CSP 中允许加载，浏览器可在登录前读取应用信息。业务页面、API、其他资源、其他方法和 WebSocket 升级仍受鉴权保护；实际安装还取决于上游 manifest 与浏览器自身条件。
 
 插件 Cookie 跟随已验证外部来源，限主机、HttpOnly、SameSite，HTTPS 设置 Secure。原生桥接凭据仅保留服务端，跟随原生监听协议；公开 HTTP 代理接入原生 HTTPS 时，其原生 Cookie audience/Secure 仍按 HTTPS。浏览器 Cookie 不通过端口隔离。
 

@@ -30,11 +30,11 @@ With DSH installed, verify its version and install the published plugin into the
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.1.7
+dsh plugin --profile web add dsh-auth-remote@0.1.8
 dsh plugin --profile web list
 ```
 
-Check that `dsh --version` prints `0.2.1-alpha.2` (or another compatible release above) and the plugin list includes `dsh-auth-remote@0.1.7`. These commands use DSH's default data directory. For source builds and an isolated development runtime, see the [development guide](docs/development.md).
+Check that `dsh --version` prints `0.2.1-alpha.2` (or another compatible release above) and the plugin list includes `dsh-auth-remote@0.1.8`. These commands use DSH's default data directory. For source builds and an isolated development runtime, see the [development guide](docs/development.md).
 
 ## Configure the web profile
 
@@ -57,6 +57,8 @@ Enter one username and a password of 12–256 Unicode characters. The password i
 ## Sign in and manage the account
 
 Open the direct loopback URL for the minimal installation. After configuring a public origin, open `https://dsh.example.com/auth-remote/login`. Security settings inside DSH can change the password, bind or disable TOTP when policy permits, and revoke sessions. Password or factor changes revoke existing sessions. Sessions have a fixed default lifetime of 168 hours and survive service restarts.
+
+The sign-in page references DSH's PWA manifest. The manifest and favicons are readable before sign-in; business pages and APIs still require authentication. See the [public resource rules](docs/deployment.md#source-and-bridge-contract).
 
 ```sh
 dsh plugin --profile web exec dsh-auth-remote status --json

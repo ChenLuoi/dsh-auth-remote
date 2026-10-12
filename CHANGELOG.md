@@ -8,6 +8,10 @@ This file records user-visible changes to the released package. Version numbers 
 
 No changes recorded yet.
 
+## 0.1.8 - 2026-10-12
+
+- Allow anonymous GET/HEAD access to the exact PWA manifest and favicon paths, and link the manifest from sign-in with the required CSP permission. Keep origin checks and business authentication in place.
+
 ## 0.1.7 - 2026-10-10
 
 - Automatically declare the finalized native bridge authority in Connection's trusted hosts, fixing downstream plugin POST rejection when a concrete listener address was not explicitly trusted. Use the actual bound port and retain the legacy loopback bridge.
