@@ -8,6 +8,7 @@ import WebServer, {
 } from '@deepseek-ai/dsh-host-webserver'
 import type { NativeListenerConfig } from './runtime-capabilities.js'
 import { evaluateRequestOrigin, type OriginPolicy } from '../../http/origin-policy.js'
+import type { AccountCallbackBridge } from './account-callback.js'
 
 export const READY_PATH = '/auth-remote/ready'
 export const READY_PROTOCOL_VERSION = 1
@@ -69,6 +70,7 @@ export class SwitchGate implements WebGate {
 /** Wrap only public WebServer registration methods; its routing and IO stay official. */
 export class GuardedWebServer extends WebServer {
   private originPolicy: OriginPolicy | undefined
+  private accountCallbackBridge: AccountCallbackBridge | undefined
 
   constructor(
     ctx: Context,
@@ -125,12 +127,26 @@ export class GuardedWebServer extends WebServer {
     this.originPolicy = policy
   }
 
+  installAccountCallbackBridge(bridge: AccountCallbackBridge): void {
+    this.accountCallbackBridge = bridge
+  }
+
   override register(route: WebRoute): () => void {
-    return super.register({
-      ...route,
-      handler: (req, res) =>
-        this.gate.http(req, res, () => Promise.resolve(route.handler(req, res))),
-    })
+    const callback = this.accountCallbackBridge?.capture(route)
+    const handler = callback?.handler ?? route.handler
+    try {
+      const dispose = super.register({
+        ...route,
+        handler: (req, res) => this.gate.http(req, res, () => Promise.resolve(handler(req, res))),
+      })
+      return () => {
+        dispose()
+        callback?.dispose()
+      }
+    } catch (error) {
+      callback?.dispose()
+      throw error
+    }
   }
 
   override registerFallback(handler: WebRoute['handler']): () => void {

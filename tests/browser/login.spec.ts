@@ -14,6 +14,7 @@ import {
   completeApiKeyPrompt,
   dsh,
   launchBrowser,
+  openDshSettings,
   selectDshTheme,
 } from '../helpers/runtime.js'
 import { dshVersion, project } from '../../scripts/runtime.mjs'
@@ -193,12 +194,10 @@ async function fixture(
 }
 
 async function openSecurity(page: Page): Promise<void> {
-  await clickThroughDshPrompts(page, page.getByRole('button', { name: '设置', exact: true }))
+  await openDshSettings(page)
   const settings = page.getByRole('dialog', { name: '设置' })
-  await clickThroughDshPrompts(
-    page,
-    settings.getByText('安全', { exact: true }),
-    page.getByRole('button', { name: '设置', exact: true }),
+  await clickThroughDshPrompts(page, settings.getByText('安全', { exact: true }), () =>
+    openDshSettings(page),
   )
   await settings.getByRole('heading', { name: '账号安全' }).waitFor()
 }
@@ -857,7 +856,7 @@ test('official plugin settings persist through the guarded remote browser', asyn
     await f.page.getByRole('button', { name: '插件', exact: true }).click()
     await f.page.getByRole('button', { name: /^(?:查看 )?终端$/u }).click()
     assert.equal(await f.page.getByLabel('命令超时（毫秒）').inputValue(), String(updated))
-    await f.page.getByRole('button', { name: '设置', exact: true }).click()
+    await openDshSettings(f.page)
     const settings = f.page.getByRole('dialog', { name: '设置' })
     await settings.getByRole('button', { name: '模型', exact: true }).click()
     await settings.getByText('DeepSeek', { exact: true }).waitFor()
@@ -874,12 +873,12 @@ test('official plugin settings persist through the guarded remote browser', asyn
     assert.equal((await modelResponse.json()).result.ok, true)
     await f.page.reload()
     await f.page.waitForSelector('[class*="frame"]')
-    await f.page.getByRole('button', { name: '设置', exact: true }).click()
+    await openDshSettings(f.page)
     const renewed = f.page.getByRole('dialog', { name: '设置' })
     await clickThroughDshPrompts(
       f.page,
       renewed.getByRole('button', { name: '模型', exact: true }),
-      f.page.getByRole('button', { name: '设置', exact: true }),
+      () => openDshSettings(f.page),
     )
     await renewed.getByRole('button', { name: /编辑/u }).click()
     await renewed.getByText('自定义设置', { exact: true }).click()

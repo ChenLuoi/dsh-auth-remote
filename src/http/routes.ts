@@ -4,6 +4,7 @@ import type { GuardedWebServer } from '../adapters/dsh/webserver.js'
 import { PasswordValidationError } from '../auth/password.js'
 import { AuthError, AuthService } from '../auth/service.js'
 import { requireRequestContext } from './request-context.js'
+import { ACCOUNT_LOGIN_BASE } from '../shared/account-login.js'
 import {
   AUTH_BASE,
   AUTH_COOKIE,
@@ -16,6 +17,10 @@ import {
 export type RoutePermission = 'public' | 'session' | 'logout' | null
 
 const policies: Readonly<Record<string, RoutePermission>> = {
+  [`GET ${ACCOUNT_LOGIN_BASE}/state`]: 'session',
+  [`POST ${ACCOUNT_LOGIN_BASE}/start`]: 'session',
+  [`POST ${ACCOUNT_LOGIN_BASE}/submit`]: 'session',
+  [`POST ${ACCOUNT_LOGIN_BASE}/cancel`]: 'session',
   [`GET ${AUTH_BASE}/state`]: 'public',
   [`GET ${AUTH_BASE}/login`]: 'public',
   [`GET ${AUTH_BASE}/login.js`]: 'public',
@@ -35,7 +40,7 @@ export function routePermission(method: string | undefined, pathname: string): R
   return policies[`${method ?? ''} ${pathname}`] ?? null
 }
 
-class HttpFailure extends Error {
+export class HttpFailure extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
@@ -44,7 +49,7 @@ class HttpFailure extends Error {
   }
 }
 
-function stringField(body: Record<string, unknown>, field: string): string {
+export function stringField(body: Record<string, unknown>, field: string): string {
   const value = body[field]
   if (typeof value !== 'string') throw new HttpFailure(400, 'invalid_input')
   return value
@@ -57,7 +62,7 @@ function optionalStringField(body: Record<string, unknown>, field: string): stri
   return value
 }
 
-async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+export async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
   const declared = Number(req.headers['content-length'])
   if (Number.isFinite(declared) && declared > 16 * 1024)
     throw new HttpFailure(413, 'body_too_large')
@@ -109,7 +114,7 @@ async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknow
   })
 }
 
-function sendJson(
+export function sendJson(
   res: ServerResponse,
   status: number,
   body: unknown,
@@ -158,7 +163,7 @@ function loginAsset(name: 'login.js' | 'login.css'): string {
   return readFileSync(new URL(name, base), 'utf8')
 }
 
-function errorStatus(error: unknown): {
+export function errorStatus(error: unknown): {
   status: number
   body: AuthErrorResponse
   retryAfter?: string
@@ -191,6 +196,24 @@ function errorStatus(error: unknown): {
   return { status: 503, body: { error: 'service_unavailable' } }
 }
 
+export function sendHttpError(req: IncomingMessage, res: ServerResponse, error: unknown): void {
+  if (res.headersSent) {
+    res.destroy()
+    return
+  }
+  const failure = errorStatus(error)
+  const terminateBody = failure.status === 413 || failure.status === 408 || failure.status === 415
+  sendJson(res, failure.status, failure.body, {
+    ...(failure.retryAfter ? { 'retry-after': failure.retryAfter } : {}),
+    ...(terminateBody ? { connection: 'close' } : {}),
+  })
+  if (terminateBody)
+    res.once('finish', () => {
+      req.resume()
+      req.socket.end()
+    })
+}
+
 /** Explicit path/method registry; no prefix grants anonymous access. */
 export class AuthRoutes {
   constructor(
@@ -199,7 +222,11 @@ export class AuthRoutes {
   ) {}
 
   install(server: GuardedWebServer): void {
-    const paths = new Set(Object.keys(policies).map((row) => row.slice(row.indexOf(' ') + 1)))
+    const paths = new Set(
+      Object.keys(policies)
+        .map((row) => row.slice(row.indexOf(' ') + 1))
+        .filter((path) => !path.startsWith(`${ACCOUNT_LOGIN_BASE}/`)),
+    )
     for (const path of paths)
       server.register({
         kind: 'exact',
@@ -398,22 +425,7 @@ export class AuthRoutes {
           sendJson(res, 405, { error: 'method_not_allowed' })
       }
     } catch (error) {
-      if (res.headersSent) {
-        res.destroy()
-        return
-      }
-      const failure = errorStatus(error)
-      const terminateBody =
-        failure.status === 413 || failure.status === 408 || failure.status === 415
-      sendJson(res, failure.status, failure.body, {
-        ...(failure.retryAfter ? { 'retry-after': failure.retryAfter } : {}),
-        ...(terminateBody ? { connection: 'close' } : {}),
-      })
-      if (terminateBody)
-        res.once('finish', () => {
-          req.resume()
-          req.socket.end()
-        })
+      sendHttpError(req, res, error)
     }
   }
 }

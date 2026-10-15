@@ -30,7 +30,16 @@ assert.deepEqual(manifest.files, [
   'LICENSE',
   'CHANGELOG.md',
   'CHANGELOG.zh-CN.md',
-  'docs',
+  'docs/deployment.md',
+  'docs/deployment.zh-CN.md',
+  'docs/development.md',
+  'docs/development.zh-CN.md',
+  'docs/legacy-compatibility.md',
+  'docs/legacy-compatibility.zh-CN.md',
+  'docs/releasing.md',
+  'docs/releasing.zh-CN.md',
+  'docs/reverse-proxy.md',
+  'docs/reverse-proxy.zh-CN.md',
   'examples',
 ])
 for (const entry of manifest.files) {

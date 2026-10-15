@@ -17,6 +17,7 @@ const pairs = [
   ['docs/development.md', 'docs/development.zh-CN.md'],
   ['docs/reverse-proxy.md', 'docs/reverse-proxy.zh-CN.md'],
   ['docs/releasing.md', 'docs/releasing.zh-CN.md'],
+  ['docs/legacy-compatibility.md', 'docs/legacy-compatibility.zh-CN.md'],
   ...(!packaged ? [['tests/README.md', 'tests/README.zh-CN.md']] : []),
 ]
 

@@ -8,10 +8,10 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { chromium } from '@playwright/test'
 import {
-  clickThroughDshPrompts,
   completeApiKeyPrompt,
   dsh as dshBin,
   launchBrowser,
+  openDshSettings,
 } from '../helpers/runtime.js'
 
 const publicHost = 'auth-remote.test:13090'
@@ -82,7 +82,7 @@ test('target DSH boots at a non-loopback browser origin with Host settings acces
     await notice.waitFor({ state: 'hidden' })
     await completeApiKeyPrompt(page, 5000)
     await page.waitForSelector('[class*="frame"]')
-    await clickThroughDshPrompts(page, page.getByRole('button', { name: '设置', exact: true }))
+    await openDshSettings(page)
     const dialog = page.getByRole('dialog', { name: '设置' })
     await dialog.waitFor()
     assert.equal(await dialog.getByRole('button', { name: '模型', exact: true }).count(), 1)
@@ -102,7 +102,7 @@ test('target DSH boots at a non-loopback browser origin with Host settings acces
     assert.equal((await result.json()).result.ok, true)
     await page.reload({ waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]')
-    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await openDshSettings(page, 'en')
     assert.equal(
       await page
         .getByRole('dialog', { name: 'Settings' })

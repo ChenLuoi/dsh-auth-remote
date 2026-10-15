@@ -7,6 +7,8 @@ import { SecuritySection } from './settings/section.js'
 import { monitorSession } from './settings/monitor.js'
 import { en, zh, type MessageKey } from '../shared/i18n.js'
 import settingsStyles from './settings/style.css'
+import accountStyles from './account/style.css'
+import { installManualAccountLogin } from './account/index.js'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -22,13 +24,14 @@ export function apply(ctx: Context): void {
   ctx.effect(() => {
     const tag = document.createElement('style')
     tag.dataset.plugin = 'dsh-auth-remote'
-    tag.textContent = settingsStyles
+    tag.textContent = settingsStyles + accountStyles
     document.head.appendChild(tag)
     return () => tag.remove()
   }, 'auth-remote: settings styles')
   monitorSession(ctx)
   ctx.effect(() => ctx.locale.register('auth-remote', { en, zh }), 'auth-remote: dictionaries')
   const t = ctx.locale.bind('auth-remote')
+  installManualAccountLogin(ctx)
   const slots = ctx.get('slots') as SlotCore & {
     inject(name: string, register: () => () => void): void
   }
