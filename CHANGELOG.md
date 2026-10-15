@@ -6,6 +6,8 @@ This file records user-visible changes to the released package. Version numbers 
 
 ## Unreleased
 
+- Preserve the native API-key setup alternative in the DSH 0.2.1-alpha.3 manual account dialog. Selecting it continues credential onboarding without completing setup or starting account authorization; the account menu can reopen the same editor.
+
 ## 0.1.9 - 2026-10-15
 
 - Add DSH 0.2.1-alpha.3 to the compatibility declaration and seven-version CLI, installation smoke and browser matrix; use its packages for development and default verification.

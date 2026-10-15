@@ -25,7 +25,7 @@ import { accountPlatform } from '../helpers/account-platform.js'
 
 const hasAccount = dshVersion === '0.2.1-alpha.3'
 
-async function fixture() {
+async function fixture({ keepOnboarding = false } = {}) {
   const home = await mkdtemp(join(tmpdir(), 'auth-remote-manual-browser-'))
   const platform = await accountPlatform()
   const portProbe = createServer().listen(0, '127.0.0.1')
@@ -35,7 +35,8 @@ async function fixture() {
   const port = address.port
   await new Promise<void>((resolve) => portProbe.close(() => resolve()))
   const origin = `http://account-remote.test:${port}`
-  const env = { ...process.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' }
+  const env: NodeJS.ProcessEnv = { ...process.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' }
+  delete env.DEEPSEEK_API_KEY
   let child: ReturnType<typeof spawn> | undefined
   let browser: Awaited<ReturnType<typeof launchBrowser>> | undefined
   let output = ''
@@ -121,13 +122,14 @@ async function fixture() {
     await page.goto(origin, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]')
     const notice = page.getByRole('dialog', { name: /^(?:内测声明|预览版说明)$/u })
+    if (keepOnboarding) await notice.waitFor()
     if (await notice.isVisible()) await notice.getByRole('button', { name: '继续' }).click()
     // Dismiss first-run onboarding without ever initiating Platform authorization.
     const manual = page.getByRole('dialog', { name: '登录 DeepSeek 官方账号', exact: true })
-    if (hasAccount) {
+    if (hasAccount && !keepOnboarding) {
       await manual.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
       if (await manual.isVisible())
-        await manual.getByRole('button', { name: '取消', exact: true }).click()
+        await manual.getByRole('button', { name: '关闭', exact: true }).click()
     }
     return {
       page,
@@ -175,6 +177,52 @@ async function fixture() {
 
 if (hasAccount) {
   test(
+    'credential-free onboarding preserves native API-key setup without starting account authorization',
+    { timeout: 90000 },
+    async () => {
+      const f = await fixture({ keepOnboarding: true })
+      try {
+        const dialog = f.page.getByRole('dialog', { name: '登录 DeepSeek 官方账号', exact: true })
+        await expect(dialog).toBeVisible()
+        await dialog
+          .getByRole('button', { name: '使用 API Key', exact: true })
+          .click({ timeout: 5000 })
+        await expect(dialog).not.toBeVisible()
+        const editor = f.page.getByRole('dialog', {
+          name: '添加一个 API Key 开始使用',
+          exact: true,
+        })
+        await expect(editor).toBeVisible()
+        await expect(editor.getByRole('button', { name: '保存并继续' })).toBeDisabled()
+        assert.equal(f.platform.attempts.length, 0)
+        assert.equal(f.context.pages().length, 1)
+        await editor
+          .getByRole('textbox', { name: 'API 密钥', exact: true })
+          .fill('onboarding-test-key')
+        const saved = f.page.waitForResponse(
+          (response) => new URL(response.url()).pathname === '/api/credentials/set',
+        )
+        await editor.getByRole('button', { name: '保存并继续' }).click()
+        const response = await saved
+        assert.equal(response.status(), 200)
+        assert.equal((await response.json()).result.ok, true)
+        await expect(editor).not.toBeVisible()
+        // The account menu must reopen the native editor even after a provider is configured.
+        await f.open()
+        await dialog.getByRole('button', { name: '使用 API Key', exact: true }).click()
+        await expect(dialog).not.toBeVisible()
+        await expect(editor).toBeVisible()
+        await editor.getByRole('button', { name: '稍后配置', exact: true }).click()
+        await expect(editor).not.toBeVisible()
+        assert.equal(f.platform.attempts.length, 0)
+        assert.deepEqual(f.errors, [])
+      } finally {
+        await f.close()
+      }
+    },
+  )
+
+  test(
     'account menu opens instructions first and a pasted failed-navigation URL completes native sign-in',
     { timeout: 90000 },
     async () => {
@@ -192,6 +240,10 @@ if (hasAccount) {
         const popup = await opened
         await popup.getByRole('button', { name: 'Authorize test account' }).waitFor()
         await expect(dialog.getByLabel('完整回调地址')).toBeEnabled()
+        await expect(dialog.getByRole('button', { name: '使用 API Key', exact: true })).toHaveCount(
+          0,
+        )
+        await expect(dialog.getByRole('button', { name: '取消', exact: true })).toBeEnabled()
         // Changing sidebar layout must not unmount/cancel pending authorization.
         await f.page.setViewportSize({ width: 390, height: 844 })
         await expect(dialog.getByLabel('完整回调地址')).toBeEnabled()
@@ -278,6 +330,7 @@ if (hasAccount) {
           .click()
         dialog = await f.open('en')
         await expect(dialog.getByLabel('Full callback address')).toBeVisible()
+        await expect(dialog.getByRole('button', { name: 'Use API key', exact: true })).toBeVisible()
         await f.page.setViewportSize({ width: 390, height: 844 })
         await f.page.screenshot({
           path: join(project, '.cache/ui-review', dshVersion, 'account-login-dark-mobile.png'),

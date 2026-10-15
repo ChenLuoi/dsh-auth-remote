@@ -85,6 +85,8 @@ The manual callback adapter is enabled only on DSH **0.2.1-alpha.3**. Other vers
 
 This manual handoff needs no local listener, SSH tunnel or browser extension. The loopback address is an authorization return address; its page does not need to load. The plugin parses the pasted URL and delivers the callback inside DSH, retaining native state validation, PKCE exchange and credential storage. It never fetches the pasted address. Pending authorization belongs to the initiating remote session, lasts at most ten minutes and is cancelled when dismissed or the session is revoked. Expired or failed authorization must be restarted. DSH `0.1.7-rc.1`, `0.1.7-rc.2`, `0.2.0-rc.1`, `0.2.0-rc.2`, `0.2.1-alpha.1`, `0.2.1-alpha.2` retain their existing UI and API-key setup.
 
+On DSH `0.2.1-alpha.3`, the dialog also offers **Use API key** before authorization begins. It opens the native credential editor and continues setup until the key is saved or the user chooses to defer. The same option is available from the account menu. During active authorization, the secondary button cancels that attempt instead.
+
 ## Put a proxy in front
 
 Use the [reverse proxy guide](docs/reverse-proxy.md) with the [Nginx](examples/nginx.conf) or [Traefik](examples/traefik-dsh.yml) example. Preserve the browser's Host and Origin, WebSocket upgrades, and streaming responses. TLS can terminate at the proxy; set its exact HTTPS root as `publicUrl`. Keep the DSH listener private and do not cache authentication responses.

@@ -7,6 +7,13 @@ import { ACCOUNT_LOGIN_CAPABILITY } from '../../shared/account-login.js'
 type NativeProps = Record<string, unknown> & {
   complete?: () => void
   showLogin?: (visible: boolean) => void
+  useApiKey?: () => void
+  openOnboarding?: (id: string) => void
+}
+
+interface DialogOwner {
+  complete?: () => void
+  useApiKey?: () => void
 }
 
 interface NativeEntry {
@@ -40,19 +47,32 @@ export function installManualAccountLogin(ctx: Context): void {
   if (typeof slots.entries !== 'function' || typeof slots.subscribe !== 'function') return
   const t = ctx.locale.bind('auth-remote')
   const locale = () => ctx.locale.getSnapshot().active
-  let visible = false
+  let dialog: DialogOwner | undefined
   const listeners = new Set<() => void>()
   const completions = new Set<() => void>()
-  const show = (complete?: () => void) => {
-    if (complete) completions.add(complete)
-    visible = true
+  const notify = () => {
     for (const listener of listeners) listener()
   }
+  const show = (owner: DialogOwner = {}) => {
+    if (owner.complete) completions.add(owner.complete)
+    dialog = owner
+    notify()
+  }
   const close = () => {
-    visible = false
-    for (const complete of completions) complete()
+    dialog = undefined
+    const pending = [...completions]
     completions.clear()
-    for (const listener of listeners) listener()
+    notify()
+    for (const complete of pending) complete()
+  }
+  const useApiKey = () => {
+    const action = dialog?.useApiKey
+    if (!action) return
+    dialog = undefined
+    // Selecting credentials continues native onboarding; it must not complete it.
+    completions.clear()
+    notify()
+    action()
   }
   const subscribe = (listener: () => void) => {
     listeners.add(listener)
@@ -61,9 +81,14 @@ export function installManualAccountLogin(ctx: Context): void {
     }
   }
   function AccountOverlay(): JSX.Element | null {
-    const open = useSyncExternalStore(subscribe, () => visible)
-    return open ? (
-      <ManualSignInDialog t={t as TranslateNS<'auth-remote'>} locale={locale} close={close} />
+    const owner = useSyncExternalStore(subscribe, () => dialog)
+    return owner ? (
+      <ManualSignInDialog
+        t={t as TranslateNS<'auth-remote'>}
+        locale={locale}
+        close={close}
+        {...(owner.useApiKey ? { useApiKey } : {})}
+      />
     ) : null
   }
   // The sidebar and onboarding can remount while initial workspace/settings
@@ -107,9 +132,24 @@ export function installManualAccountLogin(ctx: Context): void {
                 latest.current.showLogin?.(false)
                 latest.current.complete?.()
               }
-              show(complete)
+              const owner: DialogOwner = {
+                complete,
+                ...(latest.current.useApiKey
+                  ? {
+                      useApiKey: () => {
+                        latest.current.showLogin?.(false)
+                        latest.current.useApiKey?.()
+                      },
+                    }
+                  : {}),
+              }
+              show(owner)
               return () => {
                 completions.delete(complete)
+                if (dialog === owner && owner.useApiKey) {
+                  dialog = {}
+                  notify()
+                }
               }
             }
           }, [])
@@ -117,7 +157,16 @@ export function installManualAccountLogin(ctx: Context): void {
             ? createElement(Native, {
                 ...props,
                 start: async () => {
-                  show()
+                  show(
+                    latest.current.openOnboarding
+                      ? {
+                          useApiKey: () => {
+                            latest.current.showLogin?.(false)
+                            latest.current.openOnboarding?.('deepseek-official')
+                          },
+                        }
+                      : {},
+                  )
                 },
               })
             : null

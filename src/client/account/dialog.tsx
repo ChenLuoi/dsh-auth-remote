@@ -32,10 +32,12 @@ export function ManualSignInDialog({
   t,
   locale,
   close,
+  useApiKey,
 }: {
   t: TranslateNS<'auth-remote'>
   locale: () => string
   close: () => void
+  useApiKey?: () => void
 }): JSX.Element {
   const dialog = useRef<HTMLDialogElement>(null)
   const popup = useRef<Window | null>(null)
@@ -252,8 +254,12 @@ export function ManualSignInDialog({
           </p>
         </div>
         <div className="auth-remote-account-actions">
-          <button type="button" disabled={busy || phase === 'committing'} onClick={dismiss}>
-            {t('accountLoginCancel')}
+          <button
+            type="button"
+            disabled={busy || phase === 'committing'}
+            onClick={active || !useApiKey ? dismiss : useApiKey}
+          >
+            {t(active || !useApiKey ? 'accountLoginCancel' : 'accountLoginUseApiKey')}
           </button>
           {active ? (
             <button

@@ -20,6 +20,7 @@ export const zh = {
   accountLoginOpen: '打开 DeepSeek 登录页',
   accountLoginConfirm: '确认登录',
   accountLoginCancel: '取消',
+  accountLoginUseApiKey: '使用 API Key',
   accountLoginClose: '关闭',
   accountLoginRetry: '重新开始',
   accountLoginReopen: '重新打开授权页',

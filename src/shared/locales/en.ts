@@ -21,6 +21,7 @@ export const en = {
   accountLoginOpen: 'Open DeepSeek sign-in',
   accountLoginConfirm: 'Confirm sign-in',
   accountLoginCancel: 'Cancel',
+  accountLoginUseApiKey: 'Use API key',
   accountLoginClose: 'Close',
   accountLoginRetry: 'Start again',
   accountLoginReopen: 'Reopen authorization page',

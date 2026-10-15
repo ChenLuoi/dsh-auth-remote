@@ -85,6 +85,8 @@ dsh plugin --profile web exec dsh-auth-remote revoke-sessions --lang zh
 
 手动回填无需本地监听器、SSH 隧道或浏览器扩展。回环地址用于承载授权结果，页面无需正常打开。插件只解析粘贴的 URL，在 DSH 内部分发回调，保留原生 state 校验、PKCE 兑换与凭据存储，不会请求粘贴的地址。待完成授权绑定发起操作的远程会话，最长有效期为十分钟；关闭弹窗或撤销该会话会取消待完成授权。过期或失败后须重新开始。DSH `0.1.7-rc.1`、`0.1.7-rc.2`、`0.2.0-rc.1`、`0.2.0-rc.2`、`0.2.1-alpha.1`、`0.2.1-alpha.2` 保留原有界面与 API Key 设置。
 
+DSH `0.2.1-alpha.3` 的弹窗在授权开始前也提供“使用 API Key”，点击后进入原生凭据编辑器，直到保存密钥或用户选择“稍后配置”才结束引导；账号菜单中也保留同一入口。授权进行中时，次要按钮用于取消本次授权。
+
 ## 接入反向代理
 
 参见[反向代理指南](docs/reverse-proxy.zh-CN.md)以及 [Nginx](examples/nginx.conf) 或 [Traefik](examples/traefik-dsh.yml) 示例。保留浏览器原始 Host、Origin、WebSocket 升级和流式响应。TLS 可在代理终止；把其精确 HTTPS 根地址设置为 `publicUrl`。保持 DSH 监听私有，且不要缓存认证响应。
