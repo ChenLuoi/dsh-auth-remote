@@ -6,13 +6,12 @@ This file records user-visible changes to the released package. Version numbers 
 
 ## Unreleased
 
-- Preserve the native API-key setup alternative in the DSH 0.2.1-alpha.3 manual account dialog. Selecting it continues credential onboarding without completing setup or starting account authorization; the account menu can reopen the same editor.
-
 ## 0.1.9 - 2026-10-15
 
 - Add DSH 0.2.1-alpha.3 to the compatibility declaration and seven-version CLI, installation smoke and browser matrix; use its packages for development and default verification.
 - Validate the listener's bound port before finalizing authentication. Adapt browser Settings navigation and startup URL observation to DSH 0.2.1-alpha.3.
 - Add an instruction-first official DeepSeek sign-in dialog on DSH 0.2.1-alpha.3. Open authorization only on explicit confirmation, then accept a pasted loopback callback URL through an authenticated, session-bound POST and reuse native state/PKCE exchange and credential storage. Handle blocked popups, invalid callbacks, cancellation, expiry and retries without a local listener or tunnel.
+- Preserve the native API-key setup alternative in the DSH 0.2.1-alpha.3 manual account dialog. Selecting it continues credential onboarding without completing setup or starting account authorization; the account menu can reopen the same editor.
 - Align the manual account sign-in dialog with DSH modal typography, spacing, controls and themed surfaces, keeping actions visible on short screens while the content scrolls.
 - Publish bilingual compatibility inventories with complete DSH version numbers, feature-to-version and version-to-feature matrices, implementation/test references and migration/retirement rules.
 
