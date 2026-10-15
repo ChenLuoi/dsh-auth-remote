@@ -14,7 +14,14 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 import { chromium } from '@playwright/test'
 import { startForwarder, type Forwarder } from '../helpers/proxy.js'
-import { archive, completeApiKeyPrompt, dsh, launchBrowser, project } from '../helpers/runtime.js'
+import {
+  archive,
+  completeApiKeyPrompt,
+  dsh,
+  launchBrowser,
+  openDshSettings,
+  project,
+} from '../helpers/runtime.js'
 
 const publicPort = 13100
 const dshPort = 13101
@@ -380,7 +387,7 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
     await notice.getByRole('button', { name: '继续' }).click()
     await notice.waitFor({ state: 'hidden' })
     await completeApiKeyPrompt(page, 5000)
-    await page.getByRole('button', { name: '设置', exact: true }).click()
+    await openDshSettings(page)
     const settings = page.getByRole('dialog', { name: '设置' })
     const modelTab = settings.getByRole('button', { name: '模型', exact: true })
     try {

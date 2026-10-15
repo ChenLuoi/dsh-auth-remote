@@ -36,6 +36,7 @@ const fixedFiles = [
   'package/docs/releasing.md',
   'package/docs/releasing.zh-CN.md',
   'package/docs/legacy-compatibility.md',
+  'package/docs/legacy-compatibility.zh-CN.md',
   'package/examples/web-profile-auth-remote.patch.yml',
   'package/examples/traefik-dsh.yml',
   'package/examples/nginx.conf',

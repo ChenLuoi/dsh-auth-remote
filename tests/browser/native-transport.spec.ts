@@ -18,7 +18,7 @@ import {
   type NativeRequestOptions,
 } from '../helpers/native-http.js'
 import { packedAdmin, packedCommand, packedProfile } from '../helpers/packed-runtime.js'
-import { clickThroughDshPrompts, dsh, launchBrowser } from '../helpers/runtime.js'
+import { clickThroughDshPrompts, dsh, launchBrowser, openDshSettings } from '../helpers/runtime.js'
 
 const password = 'native packed browser password 123'
 const pin = createHash('sha256')
@@ -262,8 +262,8 @@ if (nativeTransport) {
           await page.getByLabel('验证码或备用码').fill(backupCode)
           await page.getByRole('button', { name: '验证并登录' }).click()
           await page.waitForSelector('[class*="frame"]')
-          const openSettings = page.getByRole('button', { name: '设置', exact: true })
-          await clickThroughDshPrompts(page, openSettings)
+          const openSettings = () => openDshSettings(page)
+          await openSettings()
           const settings = page.getByRole('dialog', { name: '设置' })
           await expect(settings.getByRole('button', { name: '打开配置文件' })).toBeEnabled()
           await clickThroughDshPrompts(

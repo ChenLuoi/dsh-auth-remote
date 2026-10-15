@@ -10,9 +10,9 @@ import { test } from 'node:test'
 import { chromium } from '@playwright/test'
 import {
   archive,
-  clickThroughDshPrompts,
   dsh as dshBin,
   launchBrowser,
+  openDshSettings,
   packageName,
 } from '../helpers/runtime.js'
 
@@ -155,7 +155,7 @@ test('installed package and test gate boot full DSH without exposing native cred
       (await context.cookies()).map((cookie) => cookie.name),
       ['auth-gate-test'],
     )
-    await clickThroughDshPrompts(page, page.getByRole('button', { name: '设置', exact: true }))
+    await openDshSettings(page)
     const dialog = page.getByRole('dialog', { name: '设置' })
     await dialog.waitFor()
     await dialog.getByRole('button', { name: '中文', exact: true }).click()
@@ -168,7 +168,7 @@ test('installed package and test gate boot full DSH without exposing native cred
     assert.equal((await result.json()).result.ok, true)
     await page.reload({ waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]')
-    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await openDshSettings(page, 'en')
     assert.equal(
       await page
         .getByRole('dialog', { name: 'Settings' })

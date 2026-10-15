@@ -6,6 +6,7 @@ import { request } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
+import semver from 'semver'
 import { checkDshVersion, dshVersion, isolatedDshEnv } from '../../scripts/runtime.mjs'
 import { archive, dsh } from '../helpers/runtime.js'
 import { packedCommand, packedProfile } from '../helpers/packed-runtime.js'
@@ -265,7 +266,14 @@ for (const scenario of [
         401,
       )
       let observation:
-        { version: string; publicUrl: string; shellUrl: string; webPrompt?: string } | undefined
+        | {
+            version: string
+            publicUrl: string
+            shellUrl: string
+            webPrompt: string
+            webContext?: string
+          }
+        | undefined
       for (let attempt = 0; attempt < 50; attempt++) {
         try {
           observation = JSON.parse(await readFile(join(profile, 'entry-observation.json'), 'utf8'))
@@ -281,13 +289,17 @@ for (const scenario of [
         observation.shellUrl,
         nativePublicUrl ? publicUrl : `http://127.0.0.1:${backend.port}`,
       )
+      const runtimeContext = semver.gte(dshVersion, '0.2.1-alpha.3')
+      const modelUrlText = runtimeContext ? observation.webContext : observation.webPrompt
       assert.ok(
-        observation.webPrompt?.includes(observation.shellUrl),
-        'native model-facing Web section must use the same final address as DSH_WEB_URL',
+        modelUrlText?.includes(observation.shellUrl),
+        'native model-facing Web address must match DSH_WEB_URL',
       )
+      if (runtimeContext) assert.equal(observation.webPrompt.includes(observation.shellUrl), false)
       assert.equal(observation.webPrompt.includes('?token='), false)
+      assert.equal(observation.webContext?.includes('?token=') ?? false, false)
       if (scenario === 'cli-public-url')
-        assert.equal(observation.webPrompt.includes('https://file.example'), false)
+        assert.equal(modelUrlText.includes('https://file.example'), false)
       assert.equal(stdout.includes('?token='), false)
       assert.equal(stderr.includes('?token='), false)
       assert.equal(

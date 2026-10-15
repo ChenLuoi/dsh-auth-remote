@@ -12,10 +12,14 @@ export function apply(ctx) {
       const shellUrl = ctx.shellEnv.collect({}).DSH_WEB_URL
       if (typeof shellUrl !== 'string' || assembling) return
       assembling = true
-      let webPrompt
       try {
         const assembly = await ctx.systemPrompt.assemble()
-        webPrompt = assembly.sections.find((section) => section.name === 'app:web-surface')?.text
+        const webPrompt = assembly.sections.find(
+          (section) => section.name === 'app:web-surface',
+        )?.text
+        const webContext = assembly.contexts?.find(
+          (context) => context.name === 'app:web-surface',
+        )?.text
         if (typeof webPrompt !== 'string') return
         writeFileSync(
           join(ctx.get('profileContext').dir, 'entry-observation.json'),
@@ -26,6 +30,7 @@ export function apply(ctx) {
             publicUrl: ctx.webServer.publicUrl,
             shellUrl,
             webPrompt,
+            webContext,
           }),
           { mode: 0o600 },
         )

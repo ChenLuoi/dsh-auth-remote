@@ -125,30 +125,31 @@ test('legacy single/empty input migrates once in memory and explicit coexistence
   )
 })
 
-test('failure after native listening releases listener, admin socket and storage lock', async () => {
-  const profile = await mkdtemp(join(tmpdir(), 'auth-remote-finalize-fail-'))
-  const ctx = new Context()
-  const port = 13133
-  ctx.provide('profileContext', { dir: profile, name: 'web' } as never)
-  ctx.provide('webStartup', { host: '127.0.0.1', port } as never)
-  class InvalidNativePort extends AuthRemoteWebServer {
-    override get port() {
-      return 0
+for (const invalidPort of [undefined, 0])
+  test(`missing or invalid native port (${String(invalidPort)}) releases listener, admin socket and storage lock`, async () => {
+    const profile = await mkdtemp(join(tmpdir(), 'auth-remote-finalize-fail-'))
+    const ctx = new Context()
+    const port = 13133
+    ctx.provide('profileContext', { dir: profile, name: 'web' } as never)
+    ctx.provide('webStartup', { host: '127.0.0.1', port } as never)
+    class InvalidNativePort extends AuthRemoteWebServer {
+      override get port() {
+        return invalidPort
+      }
     }
-  }
-  try {
-    const fiber = ctx.plugin(InvalidNativePort, {})
-    await assert.rejects(fiber.await(), /listener|port|publicUrl/u)
-    await assert.rejects(request(port, `127.0.0.1:${port}`))
-    await assert.rejects(access(join(profile, 'auth-remote', 'admin.sock')))
-    const { AuthStateStore } = await import('../../src/storage/store.js')
-    const reopened = await AuthStateStore.open(profile)
-    await reopened.close()
-  } finally {
-    await ctx.fiber.dispose()
-    await rm(profile, { recursive: true, force: true })
-  }
-})
+    try {
+      const fiber = ctx.plugin(InvalidNativePort, {})
+      await assert.rejects(fiber.await(), /listener|port|publicUrl/u)
+      await assert.rejects(request(port, `127.0.0.1:${port}`))
+      await assert.rejects(access(join(profile, 'auth-remote', 'admin.sock')))
+      const { AuthStateStore } = await import('../../src/storage/store.js')
+      const reopened = await AuthStateStore.open(profile)
+      await reopened.close()
+    } finally {
+      await ctx.fiber.dispose()
+      await rm(profile, { recursive: true, force: true })
+    }
+  })
 
 test('native bridge preflight failure closes an already listening entry and its admin socket', async () => {
   const profile = await mkdtemp(join(tmpdir(), 'auth-remote-bridge-fail-'))

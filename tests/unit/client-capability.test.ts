@@ -2,6 +2,13 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { Context } from '@deepseek-ai/cordis'
 import { assertRemoteHostCapability } from '../../src/client/adapters/dsh.js'
+import { installAuthenticatedHostCapability } from '../../src/adapters/dsh/browser-capability.js'
+import { ACCOUNT_LOGIN_CAPABILITY } from '../../src/shared/account-login.js'
+import { ManualAccountLogin } from '../../src/http/account-login.js'
+import type { AuthService } from '../../src/auth/service.js'
+import type { AuthStateStore } from '../../src/storage/store.js'
+import type { GuardedWebServer } from '../../src/adapters/dsh/webserver.js'
+import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
 
 test('IPv6 and mapped loopback locations do not require a remote Host override', async () => {
   const ctx = new Context()
@@ -18,5 +25,59 @@ test('IPv6 and mapped loopback locations do not require a remote Host override',
   } finally {
     Reflect.deleteProperty(globalThis, 'location')
     await ctx.fiber.dispose()
+  }
+})
+
+test('only the exact reviewed release advertises and installs the manual account adapter', async () => {
+  for (const version of [
+    undefined,
+    '0.1.7-rc.1',
+    '0.1.7-rc.2',
+    '0.2.0-rc.1',
+    '0.2.0-rc.2',
+    '0.2.1-alpha.1',
+    '0.2.1-alpha.2',
+    '0.2.1-alpha.3',
+    '0.2.1-alpha.4',
+    '0.2.1',
+    '0.3.0',
+  ]) {
+    const enabled = version === '0.2.1-alpha.3'
+    const ctx = new Context()
+    let dependencies = 0
+    let bridges = 0
+    let routes = 0
+    let unsubscribed = false
+    const adapter = new ManualAccountLogin(
+      { inject: () => dependencies++ } as unknown as Context,
+      {} as AuthService,
+      {
+        subscribe: () => () => {
+          unsubscribed = true
+        },
+      } as unknown as AuthStateStore,
+      version ?? '',
+    )
+    try {
+      installAuthenticatedHostCapability(ctx, version)
+      const table: IndexInjection[] = []
+      ctx.emit('webserver/index-inject', table)
+      assert.equal(
+        table.some((entry) => entry.kind === 'global' && entry.name === ACCOUNT_LOGIN_CAPABILITY),
+        enabled,
+        String(version),
+      )
+      adapter.install({
+        installAccountCallbackBridge: () => bridges++,
+        register: () => routes++,
+      } as unknown as GuardedWebServer)
+      assert.equal(dependencies, Number(enabled), String(version))
+      assert.equal(bridges, Number(enabled), String(version))
+      assert.equal(routes, 4)
+    } finally {
+      await adapter.dispose()
+      await ctx.fiber.dispose()
+    }
+    assert.equal(unsubscribed, true)
   }
 })

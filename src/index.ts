@@ -21,6 +21,7 @@ import { AuthConnections } from './http/connections.js'
 import { AdminSocket } from './http/admin-socket.js'
 import { AuthGate } from './http/gate.js'
 import { AuthRoutes } from './http/routes.js'
+import { ManualAccountLogin } from './http/account-login.js'
 import { AuthStateStore } from './storage/store.js'
 
 export type { AuthConfig } from './config.js'
@@ -59,7 +60,7 @@ export class AuthRemoteWebServer extends GuardedWebServer {
     super(ctx, config, gate)
     this.pending = config
     this.switchGate = gate
-    installAuthenticatedHostCapability(ctx)
+    installAuthenticatedHostCapability(ctx, config.capabilities.version)
     if (config.legacyWarning)
       console.warn('auth-remote: allowedOrigins is deprecated; use publicUrl with one root URL')
   }
@@ -71,10 +72,12 @@ export class AuthRemoteWebServer extends GuardedWebServer {
     let readiness: DshReadiness | undefined
     let connections: AuthConnections | undefined
     let admin: AdminSocket | undefined
+    let accountLogin: ManualAccountLogin | undefined
     const store = await AuthStateStore.open(profile.dir, {
       onUnavailable: () => {
         this.switchGate.set(new DenyGate())
         readiness?.detach()
+        void accountLogin?.dispose().catch(() => {})
         if (connections) void connections.closeAll()
       },
     })
@@ -89,9 +92,11 @@ export class AuthRemoteWebServer extends GuardedWebServer {
       // Keep the listener behind DenyGate until its actual address has one
       // finalized policy. Its official effect is owned by this service fiber.
       await super[Service.init]()
+      const port = this.port
+      if (port === undefined) throw new Error('auth-remote: listener has not bound a port')
       this.resolvedConfig = finalizeAuthConfig(this.pending, {
         host: this.host,
-        port: this.port,
+        port,
         protocol: listenerProtocol(this, this.pending.capabilities),
       })
       this.setOriginPolicy(this.resolved.originPolicy)
@@ -101,6 +106,13 @@ export class AuthRemoteWebServer extends GuardedWebServer {
       })
       this.switchGate.set(new AuthGate(this.resolved, store, auth, readiness, connections))
       new AuthRoutes(auth, profileName).install(this)
+      accountLogin = new ManualAccountLogin(
+        this.ctx,
+        auth,
+        store,
+        this.pending.capabilities.version,
+      )
+      accountLogin.install(this)
       admin = new AdminSocket(
         profile.dir,
         auth,
@@ -115,10 +127,12 @@ export class AuthRemoteWebServer extends GuardedWebServer {
       const activeConnections = connections
       const activeReadiness = readiness
       const activeAdmin = admin
+      const activeAccountLogin = accountLogin
       this.ctx.effect(
         () => async () => {
           this.switchGate.set(new DenyGate())
           activeReadiness.detach()
+          await activeAccountLogin.dispose()
           await activeAdmin.dispose()
           await activeConnections.dispose()
           auth.dispose()
@@ -152,6 +166,7 @@ export class AuthRemoteWebServer extends GuardedWebServer {
     } catch (error) {
       this.switchGate.set(new DenyGate())
       await admin?.dispose()
+      await accountLogin?.dispose()
       await connections?.dispose()
       this.authService?.dispose()
       await store.close()

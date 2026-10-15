@@ -6,7 +6,7 @@ DSH Auth Remote 会先验证浏览器 authority，再为 DSH 改写已认证流�
 
 ## 回环直连
 
-按 [profile 示例](../examples/web-profile-auth-remote.patch.yml)，DSH 绑定 `127.0.0.1:13090`。同机浏览器可以使用 `http://127.0.0.1:13090/`。字面 `localhost`、规范 `127.0.0.0/8` 和方括号 `::1` 隐式准入，实际监听须可达。IPv4-mapped IPv6 回环来源只有作为生效 `publicUrl` 时才准入，可以显式配置，也可以从监听地址派生。alpha.2 的 IPv6 HTTP/HTTPS 监听见[原生传输配置](deployment.zh-CN.md#原生-https-与-ipv6)。认证 bundle 禁用原生 `webserver`，并建议 profile 独立禁用。
+按 [profile 示例](../examples/web-profile-auth-remote.patch.yml)，DSH 绑定 `127.0.0.1:13090`。同机浏览器可以使用 `http://127.0.0.1:13090/`。字面 `localhost`、规范 `127.0.0.0/8` 和方括号 `::1` 隐式准入，实际监听须可达。IPv4-mapped IPv6 回环来源只有作为生效 `publicUrl` 时才准入，可以显式配置，也可以从监听地址派生。DSH `0.2.1-alpha.2`、`0.2.1-alpha.3` 的 IPv6 HTTP/HTTPS 监听见[原生传输配置](deployment.zh-CN.md#原生-https-与-ipv6)。认证 bundle 禁用原生 `webserver`，并建议 profile 独立禁用。
 
 准入为唯一生效公开来源加字面回环；未设置公开 URL 时，根据实际监听协议、地址、端口派生唯一根地址。只支持根路径，拒绝子路径、查询、片段、凭据。修改请求和 WebSocket 升级的 Origin 须匹配 Host，额外 CLI 原生 trusted hosts 不扩大策略。无 Origin 且协议不明的 GET 不能写入或清除认证 Cookie。变更旧数组前参阅[旧字段迁移](deployment.zh-CN.md#迁移旧-allowedorigins)。
 
@@ -24,6 +24,6 @@ DSH Auth Remote 会先验证浏览器 authority，再为 DSH 改写已认证流�
 
 使用唯一规范公开入口，在请求到达受保护上游前，把其他主机名导向该入口。入口变更后替换 `publicUrl` 并重启，核对新根地址以及旧非回环来源被拒绝。检查匿名跳转/API 拒绝、密码加 TOTP、Cookie、设置、WebSocket、SSE、上传、预览及撤销。`/auth-remote/ready` 返回预期插件/协议与 `ready: true` 前保持访问私有。
 
-alpha.2 原生 HTTPS 上游也可位于公开 HTTP 或 HTTPS 代理后。使用 HTTPS 上游 URL，配置代理的上游证书验证和与证书对应的 hostname/SNI。插件 Cookie 按外部入口协议，服务端原生 Cookie 按监听的 HTTPS audience/Secure；两个协议不同时仍保留 Host/Origin。文件和 CLI 相对证书路径基准不同，见[路径规则](deployment.zh-CN.md#配置优先级与路径基准)。
+DSH `0.2.1-alpha.2`、`0.2.1-alpha.3` 原生 HTTPS 上游也可位于公开 HTTP 或 HTTPS 代理后。使用 HTTPS 上游 URL，配置代理的上游证书验证和与证书对应的 hostname/SNI。插件 Cookie 按外部入口协议，服务端原生 Cookie 按监听的 HTTPS audience/Secure；两个协议不同时仍保留 Host/Origin。文件和 CLI 相对证书路径基准不同，见[路径规则](deployment.zh-CN.md#配置优先级与路径基准)。
 
 认证门禁不会用 `Forwarded` 或 `X-Forwarded-*` 作信任判断，避免把客户端可伪造提示当成 TLS 或主机证明。源码检出的浏览器套件使用自有 Node HTTP/HTTPS 转发器测试这些规则，不运行 Nginx 或 Traefik 二进制。

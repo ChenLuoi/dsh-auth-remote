@@ -1,0 +1,192 @@
+/* Match DSH's account modal typography and shared control/surface tokens. */
+.auth-remote-account-dialog {
+  box-sizing: border-box;
+  width: min(520px, calc(100vw - 48px));
+  max-height: calc(100dvh - 48px);
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--dsw-radius-panel);
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-s-14);
+  box-shadow: var(--dsw-elevation-prominent);
+}
+.auth-remote-account-dialog::backdrop {
+  background: var(--dsw-alias-bg-mask-1);
+}
+.auth-remote-account-dialog form {
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+  margin: 0;
+}
+.auth-remote-account-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 22px 24px 12px;
+}
+.auth-remote-account-header h2 {
+  margin: 0;
+  font: var(--dsw-font-base-strong-16);
+}
+.auth-remote-account-dialog button {
+  font: inherit;
+  cursor: pointer;
+}
+.auth-remote-account-dialog .auth-remote-account-close {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 20px;
+  line-height: 20px;
+}
+.auth-remote-account-close:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+.auth-remote-account-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  padding: 0 24px;
+  overflow-y: auto;
+}
+.auth-remote-account-description,
+.auth-remote-account-steps,
+.auth-remote-account-hint,
+.auth-remote-account-reopen,
+.auth-remote-account-status,
+.auth-remote-account-error {
+  margin: 0;
+  font: inherit;
+}
+.auth-remote-account-description,
+.auth-remote-account-hint,
+.auth-remote-account-status {
+  color: var(--dsw-alias-label-secondary);
+}
+.auth-remote-account-steps {
+  padding-left: 20px;
+}
+.auth-remote-account-steps li + li {
+  margin-top: 6px;
+}
+.auth-remote-account-callback,
+.auth-remote-account-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.auth-remote-account-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  padding: 8px 10px;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-1);
+  color: inherit;
+  font: inherit;
+  overflow-wrap: anywhere;
+}
+.auth-remote-account-field textarea::placeholder {
+  color: var(--dsw-alias-label-dimmed);
+  opacity: 1;
+}
+.auth-remote-account-field textarea:focus {
+  border-color: var(--dsw-alias-state-business-primary);
+}
+.auth-remote-account-hint {
+  font: var(--dsw-font-xxs-12);
+}
+.auth-remote-account-dialog a {
+  color: var(--dsw-alias-link);
+  font-weight: 500;
+  text-decoration: none;
+}
+.auth-remote-account-dialog a:hover,
+.auth-remote-account-dialog a:focus-visible {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.auth-remote-account-error {
+  color: var(--dsw-alias-state-error-primary);
+}
+.auth-remote-account-status:empty,
+.auth-remote-account-error:empty {
+  display: none;
+}
+.auth-remote-account-actions {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 24px 24px;
+}
+.auth-remote-account-actions button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  height: 36px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-md);
+  padding: 0 14px;
+  background: transparent;
+  color: inherit;
+}
+.auth-remote-account-actions button:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+.auth-remote-account-actions .auth-remote-account-primary {
+  padding: 0 16px;
+  background: var(--dsw-alias-button-primary-fill);
+  border-color: transparent;
+  color: var(--dsw-alias-label-primary-foreground);
+  font-weight: 500;
+}
+.auth-remote-account-actions .auth-remote-account-primary:hover:not(:disabled) {
+  background: var(--dsw-alias-button-primary-hover);
+}
+.auth-remote-account-dialog :disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.auth-remote-account-dialog :focus-visible {
+  outline: 2px solid var(--dsw-focus-ring-color);
+  outline-offset: 2px;
+}
+@media (max-width: 480px) {
+  .auth-remote-account-header {
+    padding: 20px 20px 12px;
+  }
+  .auth-remote-account-body {
+    padding: 0 20px;
+  }
+  .auth-remote-account-actions {
+    flex-wrap: wrap;
+    padding: 20px;
+  }
+  .auth-remote-account-actions button {
+    flex: 1;
+    min-width: max-content;
+    padding: 0 12px;
+    white-space: nowrap;
+  }
+}

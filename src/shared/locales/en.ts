@@ -7,6 +7,42 @@ export const en = {
   errorServiceUnavailable: 'The service is temporarily unavailable. Try again later.',
   errorGeneric: 'The operation could not be completed. Try again.',
 
+  accountLoginTitle: 'Sign in to your DeepSeek account',
+  accountLoginDescription:
+    'Complete authorization in a new tab, then return here to finish signing in.',
+  accountLoginStepOpen: 'Click “Open DeepSeek sign-in” below and sign in on the official page.',
+  accountLoginStepCopy:
+    'After authorization, the new tab may show a connection error or 404. Copy its full address from the address bar.',
+  accountLoginStepSubmit:
+    'Return to this dialog, paste the address below and click “Confirm sign-in”.',
+  accountLoginCallbackLabel: 'Full callback address',
+  accountLoginCallbackHint:
+    'Include both code and state. The page does not need to load. Submit before this authorization expires.',
+  accountLoginOpen: 'Open DeepSeek sign-in',
+  accountLoginConfirm: 'Confirm sign-in',
+  accountLoginCancel: 'Cancel',
+  accountLoginUseApiKey: 'Use API key',
+  accountLoginClose: 'Close',
+  accountLoginRetry: 'Start again',
+  accountLoginReopen: 'Reopen authorization page',
+  accountLoginPopupBlocked: 'The new tab was blocked.',
+  accountLoginInitializing: 'Preparing authorization…',
+  accountLoginWaiting:
+    'Waiting for the callback address. This authorization lasts at most 10 minutes.',
+  accountLoginExchanging: 'Completing sign-in…',
+  accountLoginInvalidCallback:
+    'This callback address does not match the current authorization. Copy the full address, including code and state, from the latest authorization tab.',
+  accountLoginExpired: 'This authorization has expired. Start again.',
+  accountLoginMismatch:
+    'This authorization is no longer available in this session. Close this dialog and start again.',
+  accountLoginBusy:
+    'Another authorization is in progress. Finish or cancel it before starting again.',
+  accountLoginUnavailable: 'This DSH version does not provide compatible account sign-in.',
+  accountLoginFailed:
+    'Authorization could not be completed. Start again and submit the address from the new tab.',
+  accountLoginNoResponse:
+    'The DeepSeek platform did not respond. Check the DSH server’s network connection and start again.',
+
   loginInitialTitle: 'Sign in to DSH',
   loginInitialLoading: 'Checking sign-in status…',
   loginLanguageLabel: 'Language',

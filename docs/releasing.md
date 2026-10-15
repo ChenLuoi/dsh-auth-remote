@@ -4,7 +4,7 @@
 
 Each release starts from a tested commit on `master`. A `vX.Y.Z` tag must match the stable version in `package.json` and the dated entries in both changelogs. The tag workflow repeats the full checks, builds the npm archive, verifies or publishes the npm version, and creates a GitHub Release containing the same archive and `SHA256SUMS`.
 
-Before changing version support for a release, review the [legacy compatibility inventory](legacy-compatibility.md) (Chinese maintenance document). Check peers, compatibility declarations, runtime admission, test targets, CI and guides together. Remove runtime adaptations whose applicable versions no longer intersect support in that same change, while keeping shared security checks. Old plugin configuration has independent retirement conditions; update the inventory before packing.
+Before changing version support for a release, review the [legacy compatibility inventory](legacy-compatibility.md). Check peers, compatibility declarations, runtime admission, test targets, CI and guides together. Remove runtime adaptations whose applicable versions no longer intersect support in that same change, while keeping shared security checks. Old plugin configuration has independent retirement conditions; update both inventory languages and both matrix views with complete version numbers before packing.
 
 ## Prepare the version
 
@@ -29,18 +29,18 @@ Use the version that is already on `master`:
 ```sh
 git switch master
 git pull --ff-only origin master
-git tag -a v0.1.8 -m "Release v0.1.8"
-git push origin v0.1.8
+git tag -a v0.1.9 -m "Release v0.1.9"
+git push origin v0.1.9
 ```
 
-Replace `0.1.8` in these commands with the intended version. The tag must point to a commit reachable from `master`. A mismatched tag, missing changelog entry, failed test, or mismatched existing npm archive stops the release.
+Replace `0.1.9` in these commands with the intended version. The tag must point to a commit reachable from `master`. A mismatched tag, missing changelog entry, failed test, or mismatched existing npm archive stops the release.
 
 After the workflow completes, confirm the run, GitHub Release, and npm version:
 
 ```sh
 gh run list --workflow release.yml --limit 5
-gh release view v0.1.8
-npm view dsh-auth-remote@0.1.8 version dist.integrity
+gh release view v0.1.9
+npm view dsh-auth-remote@0.1.9 version dist.integrity
 ```
 
 The GitHub Release includes the `.tgz` and `SHA256SUMS`. Download them into the same directory and run `sha256sum -c SHA256SUMS` there to check the release asset. A failed workflow should be inspected in **Actions → Release** before retrying; npm versions are immutable, so the workflow only skips an existing version when its archive bytes match.

@@ -6,7 +6,7 @@ async function api() {
   return import('../../src/config.js')
 }
 
-const context = { version: '0.2.1-alpha.2', profileDir: '/tmp/profile/web', cwd: '/tmp/start' }
+const context = { version: '0.2.1-alpha.3', profileDir: '/tmp/profile/web', cwd: '/tmp/start' }
 
 test('Loader schema keeps omitted legacy field distinct from an explicit empty array', () => {
   assert.equal(Object.hasOwn(Config({}), 'allowedOrigins'), false)
@@ -129,7 +129,7 @@ test('TLS chooses whole CLI or file pair and resolves paths against their own ba
     )
 })
 
-test('six exact versions enforce native transport capabilities and concrete bindings', async () => {
+test('seven exact versions enforce native transport capabilities and concrete bindings', async () => {
   const { resolveStartupConfig } = await api()
   assert.equal(typeof resolveStartupConfig, 'function')
   for (const version of [
@@ -139,12 +139,13 @@ test('six exact versions enforce native transport capabilities and concrete bind
     '0.2.0-rc.2',
     '0.2.1-alpha.1',
     '0.2.1-alpha.2',
+    '0.2.1-alpha.3',
   ]) {
     const options = { ...context, version }
     assert.equal(resolveStartupConfig({ host: '192.0.2.10' }, {}, options).host, '192.0.2.10')
     for (const host of ['0.0.0.0', '::', '::ffff:0.0.0.0', 'localhost', 'app.example'])
       assert.throws(() => resolveStartupConfig({ host }, {}, options))
-    if (version === '0.2.1-alpha.2') {
+    if (version === '0.2.1-alpha.2' || version === '0.2.1-alpha.3') {
       assert.equal(resolveStartupConfig({ host: '::1' }, {}, options).host, '::1')
       assert.equal(
         resolveStartupConfig({ host: '::ffff:127.0.0.1' }, {}, options).host,
@@ -197,6 +198,7 @@ test('version capabilities distinguish public URL projection from native transpo
     ['0.2.0-rc.2', false, false],
     ['0.2.1-alpha.1', true, false],
     ['0.2.1-alpha.2', true, true],
+    ['0.2.1-alpha.3', true, true],
     ['0.2.1-rc.1', true, true],
     ['1.0.0', true, true],
   ] as const) {
