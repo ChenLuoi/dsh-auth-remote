@@ -110,6 +110,13 @@ async function fixture(
   const home = await mkdtemp(join(tmpdir(), 'dsh-auth-remote-browser-login-'))
   const profile = join(home, 'profiles/web')
   const origin = `http://${hostName}:${port}`
+  const runtimeEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    DSH_HOME: home,
+    DSH_TELEMETRY_DISABLED: '1',
+  }
+  // A fresh profile must not inherit model credentials from the developer's shell.
+  delete runtimeEnv.DEEPSEEK_API_KEY
   let server: ReturnType<typeof spawn> | undefined
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined
   try {
@@ -130,7 +137,7 @@ async function fixture(
     )
     server = spawn(dsh, ['web', '--no-open', '--port', String(port)], {
       cwd: home,
-      env: { ...process.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' },
+      env: runtimeEnv,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     let stderr = ''
@@ -838,8 +845,8 @@ test('official plugin settings persist through the guarded remote browser', asyn
     await directory.getByRole('button', { name: '新建文件夹' }).waitFor()
     await directory.getByRole('button', { name: '取消' }).click()
     await directory.waitFor({ state: 'hidden' })
-    await f.page.getByRole('button', { name: '插件', exact: true }).click()
-    await f.page.getByRole('button', { name: /^(?:查看 )?终端$/u }).click()
+    await clickThroughDshPrompts(f.page, f.page.getByRole('button', { name: '插件', exact: true }))
+    await clickThroughDshPrompts(f.page, f.page.getByRole('button', { name: /^(?:查看 )?终端$/u }))
     const timeout = f.page.getByLabel('命令超时（毫秒）')
     const original = Number(await timeout.inputValue())
     const updated = Math.max(original || 0, 60000) + 1000
@@ -853,8 +860,8 @@ test('official plugin settings persist through the guarded remote browser', asyn
     assert.equal((await response.json()).result.ok, true)
     await f.page.reload()
     await f.page.waitForSelector('[class*="frame"]')
-    await f.page.getByRole('button', { name: '插件', exact: true }).click()
-    await f.page.getByRole('button', { name: /^(?:查看 )?终端$/u }).click()
+    await clickThroughDshPrompts(f.page, f.page.getByRole('button', { name: '插件', exact: true }))
+    await clickThroughDshPrompts(f.page, f.page.getByRole('button', { name: /^(?:查看 )?终端$/u }))
     assert.equal(await f.page.getByLabel('命令超时（毫秒）').inputValue(), String(updated))
     await openDshSettings(f.page)
     const settings = f.page.getByRole('dialog', { name: '设置' })

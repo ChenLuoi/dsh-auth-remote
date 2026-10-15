@@ -126,6 +126,8 @@ Settings navigation and first-run test adaptations. Type: `dsh-runtime`. Active;
 
 Parallel `0.2.1-alpha.3` verification also exposed a fixture issue: shared pnpm hardlink ctime changes when another isolated profile installs the same package, triggering native HMR and client plugin disposal. Test installations now copy files, and the account fixture verifies that its client file has no shared hardlink. This is not evidence of a first-run onboarding reload and does not close the notice/reload applicability gap above.
 
+On `0.2.1-alpha.3`, the 2026-10-15 CI run and a local reproduction with `DEEPSEEK_API_KEY` unset confirmed that explicit page reload reopens account onboarding when no model credential was configured. Native `SettingsRoot` keeps completed onboarding steps in component state. `tests/browser/login.spec.ts` clears the inherited key in the DSH runtime environment and rechecks prompts when opening plugin settings after reload, while retaining the settings-persistence assertions. `completeApiKeyPrompt` selects the native API-key alternative on `0.2.1-alpha.3` before entering the shared credential editor, so fixture setup actually configures a provider. This exact case does not establish every delayed-notice or automatic-reload trigger listed above.
+
 ## DSH-ACCOUNT-001
 
 Manual official-account callback handoff. Type: `dsh-runtime`. Active; an independently removable temporary adaptation.

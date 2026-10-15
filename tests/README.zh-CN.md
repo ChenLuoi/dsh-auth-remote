@@ -29,4 +29,6 @@ CI 的 CLI/smoke 和浏览器任务覆盖 `0.1.7-rc.1`、`0.1.7-rc.2`、`0.2.0-r
 
 不要让这些命令指向现有账号目录。浏览器和 CLI 夹具使用独立临时 home；`pnpm smoke` 使用带标记的 `.dev/dsh-home`。[开发指南](../docs/development.zh-CN.md)说明隔离开发流程，[部署指南](../docs/deployment.zh-CN.md)说明正式 profile 与备份步骤。
 
+登录与官方账号浏览器夹具在 DSH 运行时环境中清除继承的 `DEEPSEEK_API_KEY`，避免继承的 DeepSeek API Key 掩盖全新 profile 的引导。API Key 设置 helper 在 DSH `0.2.1-alpha.3` 账号弹窗中选择原生凭据入口；插件设置持久化检查也会在显式刷新页面后处理引导弹窗。
+
 `integration/account-login.test.ts` 使用实际安装的 DSH `0.2.1-alpha.3` 账号提供者和本地平台替身，覆盖 PKCE、redirect URI 一致性、state、回调解析、会话归属、单次提交、取消、过期与重试。`browser/account-login.spec.ts` 验证先说明再授权、回环导航失败后粘贴完成、弹窗拦截和双语响应式主题；DSH `0.1.7-rc.1`、`0.1.7-rc.2`、`0.2.0-rc.1`、`0.2.0-rc.2`、`0.2.1-alpha.1`、`0.2.1-alpha.2` 验证启动、设置入口与手动回填未启用。全程不使用真实官方账号。

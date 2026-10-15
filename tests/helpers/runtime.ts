@@ -19,8 +19,18 @@ export function launchBrowser(args: string[] = []) {
 
 export async function completeApiKeyPrompt(page: Page, waitMs = 0): Promise<boolean> {
   const continueButton = page.getByRole('button', { name: '保存并继续' })
+  const apiKeyChoice = page
+    .getByRole('dialog', { name: '登录 DeepSeek 官方账号', exact: true })
+    .getByRole('button', { name: '使用 API Key', exact: true })
   if (waitMs) {
-    await continueButton.waitFor({ state: 'visible', timeout: waitMs }).catch(() => {})
+    await continueButton
+      .or(apiKeyChoice)
+      .waitFor({ state: 'visible', timeout: waitMs })
+      .catch(() => {})
+  }
+  if (await apiKeyChoice.isVisible()) {
+    await apiKeyChoice.click()
+    await continueButton.waitFor({ state: 'visible' })
   }
   if (!(await continueButton.isVisible())) return false
   await page.getByRole('textbox', { name: 'API 密钥' }).fill('browser-test-key')
