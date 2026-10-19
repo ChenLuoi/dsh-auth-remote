@@ -418,6 +418,7 @@ test('login and security settings follow DSH themes and fit narrow screens', asy
         // Use an enabled control even where the manual switch is disabled.
         await f.page.keyboard.press('Shift')
         const passwordAction = dialog.getByRole('button', { name: '修改密码', exact: true })
+        await expect(passwordAction).toBeEnabled()
         await passwordAction.evaluate((node) =>
           (node as HTMLElement).focus({ preventScroll: true }),
         )

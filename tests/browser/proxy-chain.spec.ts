@@ -164,6 +164,8 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
   let proxy: Forwarder | undefined
   let mock: ReturnType<typeof createHttpServer> | undefined
   const modelRequests: { method: string; path: string }[] = []
+  let streamObserved: Promise<void> | undefined
+  let releaseStream = () => {}
   try {
     await run(dsh, ['plugin', '--profile', 'web', 'add', archive], home)
     await mkdir(join(home, 'workspace'))
@@ -231,21 +233,22 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
         index: 0,
         delta: { type: 'text_delta', text: '代理链路' },
       })
-      setTimeout(() => {
-        event('content_block_delta', {
-          type: 'content_block_delta',
-          index: 0,
-          delta: { type: 'text_delta', text: '聊天成功' },
-        })
-        event('content_block_stop', { type: 'content_block_stop', index: 0 })
-        event('message_delta', {
-          type: 'message_delta',
-          delta: { stop_reason: 'end_turn', stop_sequence: null },
-          usage: { output_tokens: 4 },
-        })
-        event('message_stop', { type: 'message_stop' })
-        res.end()
-      }, 400)
+      // Keep the first chunk observable until the browser confirms receipt.
+      // A fixed delay can expire before a busy CI browser renders the chunk.
+      await streamObserved
+      event('content_block_delta', {
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'text_delta', text: '聊天成功' },
+      })
+      event('content_block_stop', { type: 'content_block_stop', index: 0 })
+      event('message_delta', {
+        type: 'message_delta',
+        delta: { stop_reason: 'end_turn', stop_sequence: null },
+        usage: { output_tokens: 4 },
+      })
+      event('message_stop', { type: 'message_stop' })
+      res.end()
     })
     await new Promise<void>((resolve, reject) => {
       mock!.once('error', reject)
@@ -420,6 +423,9 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
       name: '描述你想要构建的内容, / 调用指令, @ 文件或对话',
     })
     await composer.fill('请回复代理链路聊天成功')
+    streamObserved = new Promise<void>((resolve) => {
+      releaseStream = resolve
+    })
     await composer.press('Enter')
     await page
       .getByText('代理链路', { exact: true })
@@ -429,6 +435,7 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
           `chat did not stream: ${String(error)}; body=${(await page.locator('body').innerText()).slice(-2500)}; mock=${JSON.stringify(modelRequests)}`,
         )
       })
+    releaseStream()
     // DSH rc.2 shortened the completed-turn announcement from 已完成工作 to 已完成.
     const completedTurn = page.getByRole('status').filter({ hasText: /^已完成(?:工作)?$/u })
     await completedTurn.waitFor({ timeout: 15000 })
@@ -686,6 +693,7 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
     assert.equal(JSON.parse(bindingLogin.body).kind, 'binding')
     assert.equal(bindingLogin.headers['set-cookie'], undefined)
   } finally {
+    releaseStream()
     await browser?.close()
     await new Promise<void>((resolve) => mock?.close(() => resolve()) ?? resolve())
     await proxy?.close()
