@@ -29,7 +29,8 @@ assert.deepEqual(row('auth-remote').config, {
   publicUrl: 'https://dsh.example.com/',
   host: '127.0.0.1',
   port: 13090,
-  requireTotp: true,
+  requireTotp: false,
+  manualAccountLogin: true,
   sessionHours: 168,
   preserveOriginPaths: [],
 })

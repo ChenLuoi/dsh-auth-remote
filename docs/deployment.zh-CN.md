@@ -2,7 +2,7 @@
 
 [English](deployment.md)
 
-本指南使用 DSH `0.2.1-alpha.3` 和默认 `~/.dsh` 数据目录。其他六版能力见[兼容矩阵](../README.zh-CN.md#dsh-兼容性)，隔离源码构建见[开发指南](development.zh-CN.md)。域名、代理网络和服务管理器由部署者选择。
+本指南使用 DSH `0.2.1-alpha.5` 和默认 `~/.dsh` 数据目录。其他八版能力见[兼容矩阵](../README.zh-CN.md#dsh-兼容性)，隔离源码构建见[开发指南](development.zh-CN.md)。域名、代理网络和服务管理器由部署者选择。
 
 ## 从 npm 最小化安装
 
@@ -10,7 +10,7 @@
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.1.9
+dsh plugin --profile web add dsh-auth-remote@0.1.10
 dsh plugin --profile web list
 dsh web --no-open --port 13090
 ```
@@ -37,7 +37,8 @@ HTTPS 代理入口可把以下条目合并到 `~/.dsh/profiles/web/cordis.patch.
     publicUrl: https://dsh.example.com/
     host: 127.0.0.1
     port: 13090
-    requireTotp: true
+    requireTotp: false
+    manualAccountLogin: true
     sessionHours: 168
     preserveOriginPaths: []
 ```
@@ -50,19 +51,20 @@ HTTPS 代理入口可把以下条目合并到 `~/.dsh/profiles/web/cordis.patch.
 
 以下字段均直接位于 `auth-remote.config`，没有别名或嵌套 TLS 对象。
 
-| 字段                  | 生效值                                                                                                                                                                                                              |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `publicUrl`           | DSH `0.2.1-alpha.1`、`0.2.1-alpha.2`、`0.2.1-alpha.3` 的 CLI `--public-url` 整项替换文件 URL；否则依次为文件、旧单项迁移、实际监听根地址。仅接受绝对 HTTP(S) 根 URL，可带末尾斜杠，不能带凭据、子路径、查询或片段。 |
-| `host`                | CLI `--host`、文件、默认 `127.0.0.1`。要求具体 IPv4 字面量；DSH `0.2.1-alpha.2`、`0.2.1-alpha.3` 还接受具体 IPv6，包含 mapped 格式。拒绝 DNS 名称和通配绑定。                                                       |
-| `port`                | CLI `--port`、文件、默认 `3080`，与 host 分别覆盖。`0` 在真实非零端口绑定后才生成入口。                                                                                                                             |
-| `tlsCert`、`tlsKey`   | DSH `0.2.1-alpha.2`、`0.2.1-alpha.3` 可用。两个文件字段必须成对，CLI `--tls-cert`/`--tls-key` 也必须成对。CLI 整组替换文件组，不混合来源、不读取未采用的文件证书路径。省略 TLS 即 HTTP。                            |
-| `requireTotp`         | 默认 `true`。设为 `false` 时未绑定账号可跳过；已绑定账号仍需第二因素。                                                                                                                                              |
-| `sessionHours`        | 默认固定 168 小时。缩短会收紧已有会话，放宽不会复活过期会话。                                                                                                                                                       |
-| `preserveOriginPaths` | 可选的规范路径段前缀，默认 `[]`。匹配路径在认证后保留已验证公网 Host 和已有 Origin；最终公开来源自动配置原生 Connection 信任。                                                                                      |
+| 字段                  | 生效值                                                                                                                                                                                                                                                           |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `publicUrl`           | DSH `0.2.1-alpha.1`、`0.2.1-alpha.2`、`0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5` 的 CLI `--public-url` 整项替换文件 URL；否则依次为文件、旧单项迁移、实际监听根地址。仅接受绝对 HTTP(S) 根 URL，可带末尾斜杠，不能带凭据、子路径、查询或片段。            |
+| `host`                | CLI `--host`、文件、默认 `127.0.0.1`。要求具体 IPv4 字面量；DSH `0.2.1-alpha.2`、`0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5` 还接受具体 IPv6，包含 mapped 格式。拒绝 DNS 名称和通配绑定。                                                                  |
+| `port`                | CLI `--port`、文件、默认 `3080`，与 host 分别覆盖。`0` 在真实非零端口绑定后才生成入口。                                                                                                                                                                          |
+| `tlsCert`、`tlsKey`   | DSH `0.2.1-alpha.2`、`0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5` 可用。两个文件字段必须成对，CLI `--tls-cert`/`--tls-key` 也必须成对。CLI 整组替换文件组，不混合来源、不读取未采用的文件证书路径。省略 TLS 即 HTTP。                                       |
+| `requireTotp`         | 默认 `false`，未绑定账号可跳过，已绑定账号仍需第二因素；设为 `true` 可强制先完成绑定再访问。升级保留显式 true/false、已有绑定及备用码。                                                                                                                          |
+| `manualAccountLogin`  | 默认 `true`。原生 Settings 写当前 profile override，保存后当前页新授权立即生效且重启保留，不重启认证服务；false 不取消已接纳授权或退出官方账号。完整手动功能实测目标为 DSH `0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5`，前向准入与必要 API 检查见 README。 |
+| `sessionHours`        | 默认固定 168 小时。缩短会收紧已有会话，放宽不会复活过期会话。                                                                                                                                                                                                    |
+| `preserveOriginPaths` | 可选的规范路径段前缀，默认 `[]`。匹配路径在认证后保留已验证公网 Host 和已有 Origin；最终公开来源自动配置原生 Connection 信任。                                                                                                                                   |
 
 **特别注意 TLS 路径：**文件中的相对值以所选 profile 目录为基准，即其 `cordis.patch.yml` 所在目录；CLI 的相对路径以进程启动 cwd 为基准。两者均不以 bundle 或其他 overlay 目录为基准。绝对路径保持绝对。
 
-DSH `0.2.1-alpha.2`、`0.2.1-alpha.3` 的覆盖示例 `dsh web --no-open --host ::1 --port 0 --public-url https://dsh.example.com/` 分别替换文件 host、port 和 URL。监听绑定真实空闲端口，显式公开根地址保持不变；代理须到达该实际端口。仅覆盖端口时，省略 `--host` 即保留文件 host。
+DSH `0.2.1-alpha.2`、`0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5` 的覆盖示例 `dsh web --no-open --host ::1 --port 0 --public-url https://dsh.example.com/` 分别替换文件 host、port 和 URL。监听绑定真实空闲端口，显式公开根地址保持不变；代理须到达该实际端口。仅覆盖端口时，省略 `--host` 即保留文件 host。
 
 例如文件 `tlsCert: ./tls/dsh.crt` 始终指 `~/.dsh/profiles/web/tls/dsh.crt`，从其他目录启动也不变。以下命令则使用 `./launch-workdir/tls/dsh.crt` 和对应私钥：
 
@@ -73,13 +75,13 @@ dsh web --no-open --tls-cert ./tls/dsh.crt --tls-key ./tls/dsh.key
 
 只给一个 CLI 参数会失败，即使文件提供另一半也不混用。证书/私钥缺失、不可读、空内容、PEM 无效或不匹配时启动失败，不回退 HTTP，并释放监听、管理 socket 和存储资源。证书须对浏览器主机名有效；TLS 由官方监听处理。
 
-CLI 公开 URL 覆盖仅在 DSH `0.2.1-alpha.1`、`0.2.1-alpha.2`、`0.2.1-alpha.3` 可用。DSH `0.1.7-rc.1`、`0.1.7-rc.2`、`0.2.0-rc.1`、`0.2.0-rc.2` 对该未知参数报错，须使用插件文件字段；其 Web 提示和 `DSH_WEB_URL` 保留原生固定 IPv4 回环 URL 加实际端口，插件准入和公开地址输出仍取生效配置。DSH `0.1.7-rc.1`、`0.1.7-rc.2`、`0.2.0-rc.1`、`0.2.0-rc.2`、`0.2.1-alpha.1` 明确拒绝原生 IPv6/TLS。
+CLI 公开 URL 覆盖仅在 DSH `0.2.1-alpha.1`、`0.2.1-alpha.2`、`0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5` 可用。DSH `0.1.7-rc.1`、`0.1.7-rc.2`、`0.2.0-rc.1`、`0.2.0-rc.2` 对该未知参数报错，须使用插件文件字段；其 Web 提示和 `DSH_WEB_URL` 保留原生固定 IPv4 回环 URL 加实际端口，插件准入和公开地址输出仍取生效配置。DSH `0.1.7-rc.1`、`0.1.7-rc.2`、`0.2.0-rc.1`、`0.2.0-rc.2`、`0.2.1-alpha.1` 明确拒绝原生 IPv6/TLS。
 
-DSH `0.2.1-alpha.3` 将最终 Web 地址写入模型运行时上下文和 `DSH_WEB_URL`；DSH `0.2.1-alpha.1`、`0.2.1-alpha.2` 将地址写入 Web 提示段落。
+DSH `0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5` 将最终 Web 地址写入模型运行时上下文和 `DSH_WEB_URL`；DSH `0.2.1-alpha.1`、`0.2.1-alpha.2` 将地址写入 Web 提示段落。
 
 ## 原生 HTTPS 与 IPv6
 
-DSH `0.2.1-alpha.2`、`0.2.1-alpha.3` 的 IPv6 回环 HTTPS 可合并以下完整认证条目，使用自己的证书和私钥：
+DSH `0.2.1-alpha.2`、`0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5` 的 IPv6 回环 HTTPS 可合并以下完整认证条目，使用自己的证书和私钥：
 
 ```yaml
 - id: auth-remote
@@ -88,7 +90,8 @@ DSH `0.2.1-alpha.2`、`0.2.1-alpha.3` 的 IPv6 回环 HTTPS 可合并以下完�
     port: 8443
     tlsCert: ./tls/dsh.crt
     tlsKey: ./tls/dsh.key
-    requireTotp: true
+    requireTotp: false
+    manualAccountLogin: true
     sessionHours: 168
     preserveOriginPaths: []
 ```
@@ -119,7 +122,7 @@ DSH `0.2.1-alpha.2`、`0.2.1-alpha.3` 的 IPv6 回环 HTTPS 可合并以下完�
 
 插件 Cookie 跟随已验证外部来源，限主机、HttpOnly、SameSite，HTTPS 设置 Secure。原生桥接凭据仅保留服务端，跟随原生监听协议；公开 HTTP 代理接入原生 HTTPS 时，其原生 Cookie audience/Secure 仍按 HTTPS。浏览器 Cookie 不通过端口隔离。
 
-标准 `/api` 路由在 `preserveOriginPaths: []` 下即可工作，无需列 `/api`。插件始终将定稿的原生桥接 authority 登记到 Connection 的 `trustedHosts`，使用实际绑定端口（包含 `--port 0`），读取该列表的下游插件无需额外 trusted-host 参数即可识别桥接地址。显式 CLI trusted hosts 合并去重，不扩大外层公开来源策略。仅在下游需要原始公网 Host 时加入前缀；Origin 仅在请求已有时透传，保留路径预检并登记所选公开 authority。无需单独 Connection 条目。DSH `0.2.1-alpha.2`、`0.2.1-alpha.3` 普通路径使用归一化原生 bind authority，DSH `0.1.7-rc.1`、`0.1.7-rc.2`、`0.2.0-rc.1`、`0.2.0-rc.2`、`0.2.1-alpha.1` 的 Connection 保留内部 HTTP 回环桥接；两类路径均需完整会话。撤销、Connection 丢失或存储故障会关闭活跃上传、流和升级连接，撤回业务准入。ready 不表示账号已初始化。
+标准 `/api` 路由在 `preserveOriginPaths: []` 下即可工作，无需列 `/api`。插件始终将定稿的原生桥接 authority 登记到 Connection 的 `trustedHosts`，使用实际绑定端口（包含 `--port 0`），读取该列表的下游插件无需额外 trusted-host 参数即可识别桥接地址。显式 CLI trusted hosts 合并去重，不扩大外层公开来源策略。仅在下游需要原始公网 Host 时加入前缀；Origin 仅在请求已有时透传，保留路径预检并登记所选公开 authority。无需单独 Connection 条目。DSH `0.2.1-alpha.2`、`0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5` 普通路径使用归一化原生 bind authority，DSH `0.1.7-rc.1`、`0.1.7-rc.2`、`0.2.0-rc.1`、`0.2.0-rc.2`、`0.2.1-alpha.1` 的 Connection 保留内部 HTTP 回环桥接；两类路径均需完整会话。撤销、Connection 丢失或存储故障会关闭活跃上传、流和升级连接，撤回业务准入。ready 不表示账号已初始化。
 
 ## 启动并验证公开入口
 
@@ -138,4 +141,4 @@ DSH `0.2.1-alpha.2`、`0.2.1-alpha.3` 的 IPv6 回环 HTTPS 可合并以下完�
 
 外部入口变更时，替换唯一 `publicUrl`、更新代理并重启 DSH。检查新入口与旧非回环入口的拒绝，包含 Cookie、重定向、上传和长连接。不要在插件中临时配置两个来源。
 
-DSH `0.2.1-alpha.3` 官方 DeepSeek 账号授权使用 [README 中的手动回填弹窗](../README.zh-CN.md#登录-deepseek-官方账号)。浏览器所在电脑无需回调监听器或开放回环端口。`/auth-remote/account/*` 继续经过相同的会话与来源门禁，回填通过同源 JSON POST 提交；直接 HTTP 访问原生 `/oauth/callback` 不能完成此手动对接。无需代理例外、扩大 `preserveOriginPaths` 或放宽跨站规则。
+DSH `0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5` 官方 DeepSeek 账号授权使用 [README 中的手动回填弹窗](../README.zh-CN.md#登录-deepseek-官方账号)。浏览器所在电脑无需回调监听器或开放回环端口。`/auth-remote/account/*` 继续经过相同的会话与来源门禁，回填通过同源 JSON POST 提交；直接 HTTP 访问原生 `/oauth/callback` 不能完成此手动对接。无需代理例外、扩大 `preserveOriginPaths` 或放宽跨站规则。

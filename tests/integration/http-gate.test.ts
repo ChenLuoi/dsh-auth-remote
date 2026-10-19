@@ -223,7 +223,26 @@ test('real listener rejects anonymous and cross-site requests, then serves exact
     const cookie = await login(f.port)
     const me = await request(f.port, '/auth-remote/me', { cookie })
     assert.equal(me.status, 200)
-    assert.equal(JSON.parse(me.body).username, 'alice')
+    const overview = JSON.parse(me.body)
+    assert.deepEqual(
+      Object.keys(overview).sort(),
+      ['activeSessions', 'createdAt', 'expiresAt', 'requireTotp', 'totpEnabled', 'username'].sort(),
+    )
+    assert.equal(overview.username, 'alice')
+    assert.equal(overview.activeSessions, 1)
+    assert.ok(Number.isSafeInteger(overview.createdAt))
+    assert.ok(overview.createdAt <= Date.now())
+    assert.ok(overview.expiresAt > overview.createdAt)
+    const secondCookie = await login(f.port)
+    assert.equal(
+      JSON.parse((await request(f.port, '/auth-remote/me', { cookie: secondCookie })).body)
+        .activeSessions,
+      2,
+    )
+    assert.equal(
+      JSON.parse((await request(f.port, '/auth-remote/me', { cookie })).body).createdAt,
+      overview.createdAt,
+    )
     assert.equal(
       (await request(f.port, '/auth-remote/me', { cookie: `${cookie}; ${cookie}` })).status,
       401,

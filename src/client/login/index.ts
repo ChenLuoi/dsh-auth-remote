@@ -170,7 +170,7 @@ async function perform(action: () => Promise<void>): Promise<void> {
 function shell(nextTitleKey: MessageKey, content: string): void {
   titleKey = nextTitleKey
   currentMessage = null
-  root!.innerHTML = `<div class="login-page"><section class="login-card"><div class="login-header"><div class="brand" data-i18n="brand"></div><div class="language-control"><label for="language" data-i18n="loginLanguageLabel"></label><select id="language"><option value="en">English</option><option value="zh">中文</option></select></div></div><h1 data-i18n="${nextTitleKey}"></h1>${content}<p id="message" class="message" role="alert" aria-live="assertive"></p></section></div>`
+  root!.innerHTML = `<div class="login-page"><section class="login-card"><div class="login-header"><h1 data-i18n="${nextTitleKey}"></h1><div class="language-control"><label for="language" data-i18n="loginLanguageLabel"></label><select id="language"><option value="en">English</option><option value="zh">中文</option></select></div></div>${content}<p id="message" class="message" role="alert" aria-live="assertive"></p></section></div>`
   element<HTMLSelectElement>('language').addEventListener('change', (event) => {
     setLocale((event.currentTarget as HTMLSelectElement).value)
   })
@@ -226,7 +226,7 @@ function renderSetup(): void {
 function renderLogin(message?: Message): void {
   shell(
     'loginTitle',
-    '<p data-i18n="loginDescription"></p><form id="login-form"><label for="username" data-i18n="loginUsername"></label><input id="username" name="username" autocomplete="username" required><label for="password" data-i18n="loginPassword"></label><input id="password" name="password" type="password" autocomplete="current-password" required><button type="submit" data-i18n="loginContinue"></button></form>',
+    '<form id="login-form"><label for="username" data-i18n="loginUsername"></label><input id="username" name="username" autocomplete="username" required><label for="password" data-i18n="loginPassword"></label><input id="password" name="password" type="password" autocomplete="current-password" required><button type="submit" data-i18n="loginContinue"></button></form>',
   )
   element<HTMLInputElement>('username').value = lastUsername
   if (message) showMessage(message)

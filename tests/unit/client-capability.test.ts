@@ -3,7 +3,10 @@ import { test } from 'node:test'
 import { Context } from '@deepseek-ai/cordis'
 import { assertRemoteHostCapability } from '../../src/client/adapters/dsh.js'
 import { installAuthenticatedHostCapability } from '../../src/adapters/dsh/browser-capability.js'
-import { ACCOUNT_LOGIN_CAPABILITY } from '../../src/shared/account-login.js'
+import {
+  ACCOUNT_LOGIN_CAPABILITY,
+  supportsManualAccountLogin,
+} from '../../src/shared/account-login.js'
 import { ManualAccountLogin } from '../../src/http/account-login.js'
 import type { AuthService } from '../../src/auth/service.js'
 import type { AuthStateStore } from '../../src/storage/store.js'
@@ -28,9 +31,13 @@ test('IPv6 and mapped loopback locations do not require a remote Host override',
   }
 })
 
-test('only the exact reviewed release advertises and installs the manual account adapter', async () => {
+test('manual adapter admits the SemVer floor including prereleases without an upper bound', async () => {
   for (const version of [
     undefined,
+    'invalid',
+    '0.2.1-alpha.2+build',
+    '0.2.1-alpha.10',
+    '0.3.0-alpha.1',
     '0.1.7-rc.1',
     '0.1.7-rc.2',
     '0.2.0-rc.1',
@@ -39,10 +46,11 @@ test('only the exact reviewed release advertises and installs the manual account
     '0.2.1-alpha.2',
     '0.2.1-alpha.3',
     '0.2.1-alpha.4',
+    '0.2.1-alpha.5',
     '0.2.1',
     '0.3.0',
   ]) {
-    const enabled = version === '0.2.1-alpha.3'
+    const enabled = !!version && supportsManualAccountLogin(version)
     const ctx = new Context()
     let dependencies = 0
     let bridges = 0
@@ -80,4 +88,18 @@ test('only the exact reviewed release advertises and installs the manual account
     }
     assert.equal(unsubscribed, true)
   }
+})
+
+test('manual admission uses SemVer ordering for prereleases and invalid input', () => {
+  for (const version of [
+    '0.2.1-alpha.3',
+    '0.2.1-alpha.4',
+    '0.2.1-alpha.5',
+    '0.2.1-alpha.10',
+    '0.2.1',
+    '0.3.0-alpha.1',
+  ])
+    assert.equal(supportsManualAccountLogin(version), true)
+  for (const version of ['', 'invalid', '0.2.1-alpha.2', '0.2.1-alpha.2+build', '0.2.0'])
+    assert.equal(supportsManualAccountLogin(version), false)
 })

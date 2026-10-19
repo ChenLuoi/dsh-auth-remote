@@ -8,7 +8,10 @@ import { monitorSession } from './settings/monitor.js'
 import { en, zh, type MessageKey } from '../shared/i18n.js'
 import settingsStyles from './settings/style.css'
 import accountStyles from './account/style.css'
-import { installManualAccountLogin } from './account/index.js'
+import { manualAccountBinding } from './account/config.js'
+import { ManualAccountSetting } from './settings/manual-account-setting.js'
+import { createElement } from 'react'
+import { installManualAccountLogin, hasManualAccountClient } from './account/index.js'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -17,7 +20,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 export const name = 'auth-remote'
-export const inject = ['connection', 'slots', 'locale']
+export const inject = ['connection', 'slots', 'locale', 'remote.settings']
 
 export function apply(ctx: Context): void {
   assertRemoteHostCapability(ctx)
@@ -44,7 +47,16 @@ export function apply(ctx: Context): void {
         locale: 'auth-remote',
         label: () => t('settingsSectionLabel'),
       },
-      SecuritySection,
+      (props) =>
+        createElement(SecuritySection, {
+          ...props,
+          locale: ctx.locale.getSnapshot().active,
+          manualAccountSetting: createElement(ManualAccountSetting, {
+            binding: manualAccountBinding(ctx),
+            t,
+            clientAvailable: hasManualAccountClient(ctx),
+          }),
+        }),
     ),
   )
 }

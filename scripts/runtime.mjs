@@ -12,8 +12,10 @@ export const testedDshVersions = [
   '0.2.1-alpha.1',
   '0.2.1-alpha.2',
   '0.2.1-alpha.3',
+  '0.2.1-alpha.4',
+  '0.2.1-alpha.5',
 ]
-export const dshVersion = process.env.DSH_TEST_VERSION || '0.2.1-alpha.3'
+export const dshVersion = process.env.DSH_TEST_VERSION || '0.2.1-alpha.5'
 if (!testedDshVersions.includes(dshVersion)) {
   throw new Error(`DSH_TEST_VERSION must be one of: ${testedDshVersions.join(', ')}`)
 }

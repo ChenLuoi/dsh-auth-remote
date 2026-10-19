@@ -7,7 +7,7 @@ import {
   validatePassword,
   verifyPassword,
 } from './password.js'
-import { issueSession, sessionFor, sessionHash } from './sessions.js'
+import { isActiveSession, issueSession, sessionFor, sessionHash } from './sessions.js'
 import { backupCodeHash, generateBackupCodes, generateTotpSecret, matchedTotpStep } from './totp.js'
 
 export interface AuthPolicy {
@@ -132,16 +132,12 @@ export class AuthService {
 
   status(): { initialized: boolean; totpEnabled: boolean; activeSessions: number } {
     const state = this.store.current()
+    const now = this.now()
     return {
       initialized: state.account !== null,
       totpEnabled: state.account?.totp !== null && state.account?.totp !== undefined,
-      activeSessions: Object.values(state.sessions).filter(
-        (session) =>
-          state.account &&
-          session.accountId === state.account.id &&
-          session.securityVersion === state.account.securityVersion &&
-          session.expiresAt > this.now() &&
-          (!this.policy.requireTotp || state.account.totp),
+      activeSessions: Object.values(state.sessions).filter((session) =>
+        isActiveSession(state, session, now, this.policy.requireTotp),
       ).length,
     }
   }
@@ -154,14 +150,25 @@ export class AuthService {
     return { ...this.policy }
   }
 
-  me(token: string): { username: string; totpEnabled: boolean; expiresAt: number } {
+  me(token: string): {
+    username: string
+    totpEnabled: boolean
+    createdAt: number
+    expiresAt: number
+    activeSessions: number
+  } {
     const state = this.store.current()
-    const session = sessionFor(state, token, this.now(), this.policy.requireTotp)
+    const now = this.now()
+    const session = sessionFor(state, token, now, this.policy.requireTotp)
     if (!session || !state.account) throw new AuthError('unauthorized')
     return {
       username: state.account.username,
       totpEnabled: state.account.totp !== null,
+      createdAt: session.createdAt,
       expiresAt: session.expiresAt,
+      activeSessions: Object.values(state.sessions).filter((entry) =>
+        isActiveSession(state, entry, now, this.policy.requireTotp),
+      ).length,
     }
   }
 

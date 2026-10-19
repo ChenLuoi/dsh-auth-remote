@@ -25,12 +25,12 @@ import {
 
 /** Only the public account service surface is used; no private provider state. */
 export interface AccountProvider {
-  getState(): Promise<Omit<AccountLoginState, 'supported'>>
+  getState(): Promise<Omit<AccountLoginState, 'supported' | 'enabled'>>
   startSignIn(
     client: { version: string; locale: string; timezoneOffsetSeconds: number },
     callbackOrigin: string,
     source: 'web',
-  ): Promise<Omit<AccountLoginState, 'supported'>>
+  ): Promise<Omit<AccountLoginState, 'supported' | 'enabled'>>
   cancelSignIn(id: string): Promise<unknown>
 }
 
@@ -42,13 +42,14 @@ interface OwnedAttempt {
   id?: string
   cancelled: boolean
   submitting: boolean
+  ownsCallback: boolean
   timer?: NodeJS.Timeout
   cancellation?: Promise<void>
 }
 
 /** Authenticated clipboard handoff into the native state/PKCE/credential lifecycle. */
 export class ManualAccountLogin {
-  private readonly bridge = new AccountCallbackBridge()
+  private readonly bridge = new AccountCallbackBridge(() => this.ownsNativeCallback())
   private readonly unsubscribe: () => void
   private active: OwnedAttempt | undefined
   private starting = false
@@ -61,10 +62,10 @@ export class ManualAccountLogin {
     private readonly auth: AuthService,
     store: AuthStateStore,
     private readonly version: string,
+    private readonly enabled: () => boolean = () => true,
   ) {
     this.unsubscribe = store.subscribe((_before, after) => this.reconcile(after))
-    // Enable this temporary adapter only on the reviewed release. Other
-    // compositions retain their native callback and dependency lifecycle.
+    // Keep provider and bridge lifetimes independent of the live preference.
     if (!supportsManualAccountLogin(version)) return
     // Cordis returns a fresh traceable proxy on every get(). Retain one
     // dependency generation, and cancel its attempt before it unloads.
@@ -100,6 +101,25 @@ export class ManualAccountLogin {
       : undefined
   }
 
+  private async ownsNativeCallback(): Promise<boolean> {
+    const active = this.active
+    if (!active?.ownsCallback) return false
+    // Initialization and cancellation retain the reservation until the native
+    // attempt has an id. An authenticated native start can later supersede it;
+    // inspect only the public view before deciding which callback owns this GET.
+    if (!active.id) return true
+    try {
+      const view = await active.provider.getState()
+      if (this.active !== active) return this.active?.ownsCallback === true
+      if (!active.ownsCallback) return false
+      if (view.attempt?.id === active.id && isActiveAccountLogin(view.attempt.phase)) return true
+      active.ownsCallback = false
+      return false
+    } catch {
+      return true
+    }
+  }
+
   private session(token: string | null): { hash: string; session: SessionRecord } {
     const session = token && !this.disposed ? this.auth.session(token) : null
     if (!token || !session) throw new AuthError('unauthorized')
@@ -129,7 +149,8 @@ export class ManualAccountLogin {
   private async state(token: string | null): Promise<AccountLoginState> {
     const { hash } = this.session(token)
     const provider = this.provider()
-    if (!provider) return { supported: false, status: 'signed-out', attempt: null }
+    if (!provider)
+      return { supported: false, enabled: this.enabled(), status: 'signed-out', attempt: null }
     const view = await provider.getState()
     this.session(token)
     const active = this.active
@@ -139,15 +160,21 @@ export class ManualAccountLogin {
       active.provider !== provider ||
       active.id !== view.attempt?.id
     )
-      return { supported: true, status: view.status, attempt: null }
+      return { supported: true, enabled: this.enabled(), status: view.status, attempt: null }
     const attempt = view.attempt
+    if (attempt?.phase === 'waiting-browser' && !this.bridge.available)
+      throw new HttpFailure(503, 'account_unavailable')
     if (attempt?.expiresAt !== undefined && attempt.expiresAt < active.deadline) {
       active.deadline = attempt.expiresAt
       this.schedule(active)
     }
-    if (attempt && !isActiveAccountLogin(attempt.phase) && active.timer) clearTimeout(active.timer)
+    if (attempt && !isActiveAccountLogin(attempt.phase)) {
+      if (active.timer) clearTimeout(active.timer)
+      active.ownsCallback = false
+    }
     return {
       supported: true,
+      enabled: this.enabled(),
       status: view.status,
       attempt: attempt && { ...attempt, expiresAt: active.deadline },
     }
@@ -158,6 +185,9 @@ export class ManualAccountLogin {
     body: Record<string, unknown>,
   ): Promise<AccountLoginState> {
     const owner = this.session(token)
+    const provider = this.provider()
+    if (!provider) throw new HttpFailure(503, 'account_unavailable')
+    if (!this.enabled()) throw new HttpFailure(403, 'account_disabled')
     const locale = stringField(body, 'locale')
     const offset = body.timezoneOffsetSeconds
     if (
@@ -168,8 +198,6 @@ export class ManualAccountLogin {
     )
       throw new HttpFailure(400, 'invalid_input')
     if (this.starting) throw new HttpFailure(409, 'account_busy')
-    const provider = this.provider()
-    if (!provider) throw new HttpFailure(503, 'account_unavailable')
     this.starting = true
     let entry: OwnedAttempt | undefined
     try {
@@ -177,7 +205,7 @@ export class ManualAccountLogin {
       if (previous.attempt && isActiveAccountLogin(previous.attempt.phase))
         throw new HttpFailure(409, 'account_busy')
       if (previous.status === 'credential-stored')
-        return { ...previous, supported: true, attempt: null }
+        return { ...previous, supported: true, enabled: this.enabled(), attempt: null }
       if (this.active?.timer) clearTimeout(this.active.timer)
       entry = {
         owner: owner.hash,
@@ -186,6 +214,7 @@ export class ManualAccountLogin {
         deadline: Math.min(Date.now() + 600_000, owner.session.expiresAt),
         cancelled: false,
         submitting: false,
+        ownsCallback: true,
       }
       this.active = entry
       this.schedule(entry)
@@ -207,6 +236,7 @@ export class ManualAccountLogin {
       throw error
     } finally {
       this.starting = false
+      if (entry?.cancelled && !entry.id) entry.ownsCallback = false
     }
   }
 
@@ -253,6 +283,7 @@ export class ManualAccountLogin {
         throw new HttpFailure(409, 'account_attempt_mismatch')
       // Recheck after asynchronous state reads and immediately before handing off.
       this.owned(token, active.id!)
+      if (!this.bridge.available) throw new HttpFailure(503, 'account_unavailable')
       const status = await this.bridge.submit(query)
       if (status === 400) throw new HttpFailure(400, 'account_invalid_callback')
       const state = await this.state(token)
@@ -273,10 +304,17 @@ export class ManualAccountLogin {
     attempt.cancelled = true
     if (attempt.timer) clearTimeout(attempt.timer)
     if (attempt.id) {
-      attempt.cancellation ??= Promise.resolve().then(async () => {
+      const cancellation = (attempt.cancellation ??= Promise.resolve().then(async () => {
         await attempt.provider.cancelSignIn(attempt.id!)
-      })
-      await attempt.cancellation
+      }))
+      try {
+        await cancellation
+      } catch (error) {
+        if (attempt.cancellation === cancellation) delete attempt.cancellation
+        throw error
+      }
+      // Only a public terminal/different-attempt view releases ownership. A
+      // rejected cancellation must never expose a still-active manual handler.
     }
   }
 

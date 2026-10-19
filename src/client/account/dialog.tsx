@@ -19,6 +19,8 @@ function failureMessage(error: unknown): MessageKey {
       return 'accountLoginMismatch'
     case 'account_busy':
       return 'accountLoginBusy'
+    case 'account_disabled':
+      return 'accountLoginDisabled'
     case 'account_unavailable':
       return 'accountLoginUnavailable'
     case 'account_exchange_failed':
@@ -203,12 +205,12 @@ export function ManualSignInDialog({
           </button>
         </div>
         <div className="auth-remote-account-body">
-          <p className="auth-remote-account-description">{t('accountLoginDescription')}</p>
-          <ol className="auth-remote-account-steps">
-            <li>{t('accountLoginStepOpen')}</li>
-            <li>{t('accountLoginStepCopy')}</li>
-            <li>{t('accountLoginStepSubmit')}</li>
-          </ol>
+          {!active && (
+            <ol className="auth-remote-account-steps">
+              <li>{t('accountLoginStepOpen')}</li>
+              <li>{t('accountLoginStepCopy')}</li>
+            </ol>
+          )}
           <div className="auth-remote-account-callback">
             <label className="auth-remote-account-field">
               {t('accountLoginCallbackLabel')}
@@ -248,9 +250,11 @@ export function ManualSignInDialog({
           <p className="auth-remote-account-error" role="alert">
             {state?.supported === false
               ? t('accountLoginUnavailable')
-              : message || statusMessage
-                ? t(message ?? statusMessage!)
-                : ''}
+              : state?.enabled === false && !active
+                ? t('accountLoginDisabled')
+                : message || statusMessage
+                  ? t(message ?? statusMessage!)
+                  : ''}
           </p>
         </div>
         <div className="auth-remote-account-actions">

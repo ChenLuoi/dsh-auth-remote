@@ -156,3 +156,185 @@
 .auth-remote-error:empty {
   display: none;
 }
+
+.auth-remote-security .auth-remote-manual-setting {
+  margin-block: 20px 16px;
+}
+.auth-remote-manual-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+.auth-remote-manual-copy {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.auth-remote-security .auth-remote-manual-copy p {
+  margin: 4px 0 0;
+}
+.auth-remote-switch {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 20px;
+  margin-left: auto;
+  padding: 2px;
+  border: 0;
+  border-radius: 999px;
+  corner-shape: round;
+  background: var(--dsw-alias-border-l3);
+  cursor: pointer;
+}
+.auth-remote-switch > span {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  corner-shape: round;
+  background: var(--dsw-alias-switch-thumb, var(--dsw-alias-label-primary-foreground));
+  transition: transform 120ms ease;
+}
+.auth-remote-switch[aria-checked='true'] {
+  background: var(--dsw-alias-brand-primary);
+}
+.auth-remote-switch[aria-checked='true'] > span {
+  transform: translateX(16px);
+  background: var(--dsw-alias-label-primary-foreground);
+}
+.auth-remote-switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.auth-remote-switch:focus-visible,
+.auth-remote-policy-hint:focus-visible {
+  outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+
+.auth-remote-overview {
+  margin: 12px 0 20px;
+  display: grid;
+  gap: 8px;
+}
+.auth-remote-overview > div {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) 2fr;
+  gap: 16px;
+}
+.auth-remote-overview dt {
+  min-height: 22px;
+  color: var(--dsw-alias-label-secondary);
+}
+.auth-remote-overview dd {
+  min-height: 22px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.auth-remote-loading-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.auth-remote-totp-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.auth-remote-policy-hint {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--dsw-alias-label-secondary);
+  border-radius: 50%;
+  cursor: help;
+}
+.auth-remote-operation-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+  padding: 10px 0;
+}
+.auth-remote-security .auth-remote-operation-row h3 {
+  margin: 0;
+}
+.auth-remote-operation-row .auth-remote-actions {
+  padding: 0;
+  justify-content: flex-end;
+}
+.auth-remote-operation-row .auth-remote-button {
+  min-height: 32px;
+  padding: 4px 10px;
+  line-height: 22px;
+}
+.auth-remote-operation-dialog {
+  box-sizing: border-box;
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 20px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-lg, 16px);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  overflow: auto;
+}
+.auth-remote-operation-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+.auth-remote-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.auth-remote-dialog-header h2 {
+  margin: 0;
+}
+.auth-remote-dialog-close {
+  flex: none;
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  font-size: 20px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+}
+.auth-remote-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+.auth-remote-operation-dialog fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.auth-remote-operation-dialog form {
+  border: 0;
+  padding: 0;
+}
+@media (max-width: 600px) {
+  .auth-remote-overview > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-remote-switch > span {
+    transition: none;
+  }
+}

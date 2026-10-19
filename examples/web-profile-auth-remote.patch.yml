@@ -2,7 +2,8 @@
 # model and plugin rows. Install this package into the same profile first.
 # Replace dsh.example.com in the unique public root URL. This example uses
 # HTTP behind a TLS proxy. CLI --host/--port override the file individually.
-# For alpha.2 native TLS, supply both tlsCert and tlsKey; relative file paths
+# DSH 0.2.1-alpha.2, 0.2.1-alpha.3, 0.2.1-alpha.4 and 0.2.1-alpha.5 support native TLS.
+# Supply both tlsCert and tlsKey; relative file paths
 # resolve from this profile directory, while CLI TLS paths resolve from cwd.
 # Disabling the native row here is recommended for an independent fallback.
 - id: webserver
@@ -13,6 +14,7 @@
     publicUrl: https://dsh.example.com/
     host: 127.0.0.1
     port: 13090
-    requireTotp: true
+    requireTotp: false
+    manualAccountLogin: true
     sessionHours: 168
     preserveOriginPaths: []

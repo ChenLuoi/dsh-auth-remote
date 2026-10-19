@@ -2,13 +2,14 @@ import { createElement, useEffect, useRef, useSyncExternalStore, type ComponentT
 import type { Context } from '@deepseek-ai/cordis'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { ManualSignInDialog } from './dialog.js'
-import { ACCOUNT_LOGIN_CAPABILITY } from '../../shared/account-login.js'
+import { hasManualAccountRuntime, manualAccountBinding } from './config.js'
 
 type NativeProps = Record<string, unknown> & {
   complete?: () => void
   showLogin?: (visible: boolean) => void
   useApiKey?: () => void
   openOnboarding?: (id: string) => void
+  start?: () => Promise<void>
 }
 
 interface DialogOwner {
@@ -40,11 +41,24 @@ interface AccountSlots {
   ): () => void
 }
 
+export function hasManualAccountClient(ctx: Context, requireEntry = true): boolean {
+  const slots = ctx.get('slots') as AccountSlots | undefined
+  return (
+    hasManualAccountRuntime() &&
+    !!slots &&
+    ['entries', 'subscribe', 'inject', 'register'].every(
+      (key) => typeof slots[key as keyof AccountSlots] === 'function',
+    ) &&
+    (!requireEntry ||
+      slots
+        .entries('settings.launcher')
+        .some((entry) => entry.locale === 'settings.account' && typeof entry.inject === 'function'))
+  )
+}
+
 export function installManualAccountLogin(ctx: Context): void {
-  // The server derives this flag from the exact installed runtime version.
-  if ((globalThis as Record<string, unknown>)[ACCOUNT_LOGIN_CAPABILITY] !== true) return
+  if (!hasManualAccountClient(ctx, false)) return
   const slots = ctx.get('slots') as AccountSlots
-  if (typeof slots.entries !== 'function' || typeof slots.subscribe !== 'function') return
   const t = ctx.locale.bind('auth-remote')
   const locale = () => ctx.locale.getSnapshot().active
   let dialog: DialogOwner | undefined
@@ -103,92 +117,128 @@ export function installManualAccountLogin(ctx: Context): void {
       AccountOverlay,
     ),
   )
-  const wrappers = new WeakSet<object>()
-  for (const name of ['settings.launcher', 'settings.models.sign-in']) {
-    slots.inject(name, () => {
-      let current: NativeEntry | undefined
-      let unregister: (() => void) | undefined
-      const update = () => {
-        const native = slots
-          .entries(name)
-          .find(
-            (entry) =>
-              entry.locale === 'settings.account' &&
-              entry.inject !== undefined &&
-              !wrappers.has(entry.component),
-          )
-        if (native === current) return
-        current = native
-        unregister?.()
-        unregister = undefined
-        if (!native) return
-        const Native = native.component
-        function ManualAccountEntry(props: NativeProps): JSX.Element | null {
-          const latest = useRef(props)
-          latest.current = props
-          useEffect(() => {
-            if (name !== 'settings.launcher') {
-              const complete = () => {
-                latest.current.showLogin?.(false)
-                latest.current.complete?.()
-              }
-              const owner: DialogOwner = {
-                complete,
-                ...(latest.current.useApiKey
-                  ? {
-                      useApiKey: () => {
-                        latest.current.showLogin?.(false)
-                        latest.current.useApiKey?.()
-                      },
-                    }
-                  : {}),
-              }
-              show(owner)
-              return () => {
-                completions.delete(complete)
-                if (dialog === owner && owner.useApiKey) {
-                  dialog = {}
-                  notify()
+  ctx.inject(['configForms'], (configCtx) => {
+    const { form: nativeForm, mirror } = manualAccountBinding(configCtx)
+    const form = nativeForm!
+    const subscribePreference = (listener: () => void) => {
+      const stopForm = form.subscribe(listener)
+      const stopMirror = mirror?.subscribe(listener)
+      return () => {
+        stopForm()
+        stopMirror?.()
+      }
+    }
+    const preference = () => {
+      const snapshot = form.getSnapshot()
+      return snapshot.status === 'ready'
+        ? snapshot.value?.manualAccountLogin === true
+        : snapshot.status === 'unavailable' || mirror?.getSnapshot().error
+          ? false
+          : undefined
+    }
+    const wrappers = new WeakSet<object>()
+    for (const name of ['settings.launcher', 'settings.models.sign-in']) {
+      const activeSlots = configCtx.get('slots') as AccountSlots
+      activeSlots.inject(name, () => {
+        let current: NativeEntry | undefined
+        let unregister: (() => void) | undefined
+        const update = () => {
+          const native = slots
+            .entries(name)
+            .find(
+              (entry) =>
+                entry.locale === 'settings.account' &&
+                entry.inject !== undefined &&
+                !wrappers.has(entry.component),
+            )
+          if (native === current) return
+          current = native
+          unregister?.()
+          unregister = undefined
+          if (!native) return
+          const Native = native.component
+          function ManualAccountEntry(props: NativeProps): JSX.Element | null {
+            const latest = useRef(props)
+            latest.current = props
+            const enabled = useSyncExternalStore(subscribePreference, preference)
+            // Keep an already open native or manual onboarding task in its original mode.
+            const initialMode = useRef<boolean>()
+            if (initialMode.current === undefined && enabled !== undefined)
+              initialMode.current = enabled
+            const manualOnboarding = initialMode.current
+            useEffect(() => {
+              if (name !== 'settings.launcher' && manualOnboarding === true) {
+                const complete = () => {
+                  latest.current.showLogin?.(false)
+                  latest.current.complete?.()
+                }
+                const owner: DialogOwner = {
+                  complete,
+                  ...(latest.current.useApiKey
+                    ? {
+                        useApiKey: () => {
+                          latest.current.showLogin?.(false)
+                          latest.current.useApiKey?.()
+                        },
+                      }
+                    : {}),
+                }
+                show(owner)
+                return () => {
+                  completions.delete(complete)
+                  if (dialog === owner && owner.useApiKey) {
+                    dialog = {}
+                    notify()
+                  }
                 }
               }
-            }
-          }, [])
-          return name === 'settings.launcher'
-            ? createElement(Native, {
-                ...props,
-                start: async () => {
-                  show(
-                    latest.current.openOnboarding
-                      ? {
-                          useApiKey: () => {
-                            latest.current.showLogin?.(false)
-                            latest.current.openOnboarding?.('deepseek-official')
-                          },
-                        }
-                      : {},
-                  )
-                },
-              })
-            : null
+            }, [manualOnboarding])
+            return name === 'settings.launcher'
+              ? createElement(Native, {
+                  ...props,
+                  start: async () => {
+                    // Loading is not an accepted false preference. Keep
+                    // this click pending on the shared native read, then
+                    // choose the route from the latest accepted value.
+                    if (preference() === undefined) await mirror?.ensure()
+                    const manual = preference()
+                    if (manual === undefined) return
+                    if (!manual) return latest.current.start?.()
+                    show(
+                      latest.current.openOnboarding
+                        ? {
+                            useApiKey: () => {
+                              latest.current.showLogin?.(false)
+                              latest.current.openOnboarding?.('deepseek-official')
+                            },
+                          }
+                        : {},
+                    )
+                  },
+                })
+              : manualOnboarding === false
+                ? createElement(Native, props)
+                : null
+          }
+          wrappers.add(ManualAccountEntry)
+          unregister = slots.register(
+            {
+              name,
+              priority: (native.options.priority ?? 0) - 100,
+              // Framework still binds the native menu's translations and Hooks.
+              ...(native.locale ? { locale: native.locale } : {}),
+              inject: native.inject,
+            },
+            ManualAccountEntry,
+          )
         }
-        wrappers.add(ManualAccountEntry)
-        unregister = slots.register(
-          {
-            name,
-            priority: (native.options.priority ?? 0) - 100,
-            // Framework still binds the native menu's translations and Hooks.
-            ...(native.locale ? { locale: native.locale } : {}),
-            inject: native.inject,
-          },
-          ManualAccountEntry,
-        )
-      }
-      const stop = slots.subscribe(name, update)
-      update()
-      return () => {
-        stop()
-        unregister?.()
-      }
-    })
-  }
+        const stop = slots.subscribe(name, update)
+        update()
+        return () => {
+          stop()
+          unregister?.()
+        }
+      })
+    }
+  })
 }

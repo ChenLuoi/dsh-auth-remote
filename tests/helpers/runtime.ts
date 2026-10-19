@@ -17,10 +17,28 @@ export function launchBrowser(args: string[] = []) {
   })
 }
 
+/** Capture the settled layout after responsive sidebars finish painting. */
+export async function waitForAnimations(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await new Promise<void>((done) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => done())),
+    )
+    await Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) =>
+          Number.isFinite(Number(animation.effect?.getComputedTiming().endTime)),
+        )
+        .map((animation) => animation.finished.catch(() => {})),
+    )
+    await new Promise<void>((done) => requestAnimationFrame(() => done()))
+  })
+}
+
 export async function completeApiKeyPrompt(page: Page, waitMs = 0): Promise<boolean> {
   const continueButton = page.getByRole('button', { name: '保存并继续' })
   const apiKeyChoice = page
-    .getByRole('dialog', { name: '登录 DeepSeek 官方账号', exact: true })
+    .getByRole('dialog', { name: '登录 DeepSeek 账号', exact: true })
     .getByRole('button', { name: '使用 API Key', exact: true })
   if (waitMs) {
     await continueButton
@@ -86,10 +104,26 @@ export async function clickThroughDshPrompts(
     }
     await completeApiKeyPrompt(page)
     const signIn = page.getByRole('dialog', {
-      name: /^(?:开始使用|Get started|登录 DeepSeek 官方账号|Sign in to your DeepSeek account)$/u,
+      name: /^(?:开始使用|Get started|登录 DeepSeek 账号|Sign in to DeepSeek)$/u,
     })
-    if (await signIn.isVisible())
-      await signIn.getByRole('button', { name: /^(?:关闭|Close)$/u }).click()
+    if (await signIn.isVisible()) {
+      // A native onboarding portal can remain behind an already opened Settings
+      // panel. Prefer the actual target when it accepts interaction on top.
+      if (await target.isVisible()) {
+        try {
+          await target.click({ timeout: 1000 })
+          return
+        } catch {
+          /* The prompt is in front; dismiss it below. */
+        }
+      }
+      try {
+        await signIn.getByRole('button', { name: /^(?:关闭|Close)$/u }).click({ timeout: 2000 })
+      } catch (error) {
+        if (attempt === 5) throw error
+        continue
+      }
+    }
     try {
       // Saving the first API key can reload older hosts and close Settings.
       if (reopen && !(await target.isVisible())) await reopen()
@@ -108,12 +142,32 @@ export async function clickThroughDshPrompts(
 /** Older sidebars expose Settings directly; alpha.3 moves it into the account menu. */
 export async function openDshSettings(page: Page, locale: 'zh' | 'en' = 'zh'): Promise<void> {
   const name = locale === 'zh' ? '设置' : 'Settings'
+  const dialog = page.getByRole('dialog', { name, exact: true })
   const accountMenu = page.getByRole('button', {
     name: locale === 'zh' ? '账号菜单' : 'Account menu',
     exact: true,
   })
   const direct = page.getByRole('button', { name, exact: true })
-  await clickThroughDshPrompts(page, direct.or(accountMenu))
-  if (await accountMenu.isVisible()) await page.getByRole('menuitem', { name, exact: true }).click()
-  await page.getByRole('dialog', { name, exact: true }).waitFor()
+  for (let attempt = 0; attempt < 6; attempt++) {
+    if (await dialog.isVisible()) return
+    await clickThroughDshPrompts(page, direct.or(accountMenu))
+    if (await accountMenu.isVisible()) {
+      const item = page.getByRole('menuitem', { name, exact: true })
+      await clickThroughDshPrompts(page, item, async () => {
+        if (!(await item.isVisible())) await accountMenu.click()
+      })
+    }
+    try {
+      // Older hosts can finish onboarding and reload after the click succeeds.
+      // Confirm the destination, then handle any late native prompt and reopen.
+      await dialog.waitFor({ timeout: 2000 })
+      return
+    } catch (error) {
+      if (attempt === 5)
+        throw new Error(
+          `DSH Settings did not open: ${(await page.locator('body').innerText()).slice(0, 2000)}`,
+          { cause: error },
+        )
+    }
+  }
 }

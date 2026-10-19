@@ -254,7 +254,7 @@ if (nativeTransport) {
           const requests: string[] = []
           page.on('request', (req) => requests.push(req.url()))
           await page.goto(target)
-          await page.getByRole('heading', { name: '登录 DSH' }).waitFor()
+          await page.getByRole('heading', { name: '登录', exact: true }).waitFor()
           await page.getByLabel('用户名').fill('alice')
           await page.getByLabel('密码').fill(password)
           await page.getByRole('button', { name: '继续' }).click()
@@ -268,10 +268,10 @@ if (nativeTransport) {
           await expect(settings.getByRole('button', { name: '打开配置文件' })).toBeEnabled()
           await clickThroughDshPrompts(
             page,
-            settings.getByRole('button', { name: '安全', exact: true }),
+            settings.getByRole('button', { name: '安全与登录', exact: true }),
             openSettings,
           )
-          await settings.getByRole('heading', { name: '账号安全' }).waitFor()
+          await settings.getByRole('heading', { name: '安全与登录' }).waitFor()
           const cookies = await context.cookies()
           assert.deepEqual(
             cookies.map((value) => value.name),

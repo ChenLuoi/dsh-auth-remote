@@ -88,3 +88,21 @@ export function isUnauthorized(error: unknown): boolean {
 }
 
 export type AccountStatus = MeResponse
+
+export async function accountOverview(): Promise<AccountStatus> {
+  const value = await authRequest<Partial<AccountStatus> | null>('/auth-remote/me')
+  if (
+    !value ||
+    typeof value.username !== 'string' ||
+    typeof value.totpEnabled !== 'boolean' ||
+    typeof value.requireTotp !== 'boolean' ||
+    !Number.isSafeInteger(value.createdAt) ||
+    !Number.isSafeInteger(value.expiresAt) ||
+    !Number.isSafeInteger(value.activeSessions) ||
+    value.createdAt! < 0 ||
+    value.expiresAt! <= value.createdAt! ||
+    value.activeSessions! < 1
+  )
+    throw new SettingsFailure(503, 'service_unavailable')
+  return value as AccountStatus
+}

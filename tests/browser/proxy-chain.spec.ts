@@ -376,7 +376,7 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
         apiFailures.push({ path, status: response.status() })
     })
     await page.goto(`${origin}/`)
-    await page.getByRole('heading', { name: '登录 DSH' }).waitFor()
+    await page.getByRole('heading', { name: '登录', exact: true }).waitFor()
     await page.getByLabel('用户名').fill('alice')
     await page.getByLabel('密码').fill(password)
     await page.getByRole('button', { name: '继续' }).click()

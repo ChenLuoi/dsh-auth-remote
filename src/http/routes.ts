@@ -261,7 +261,7 @@ export class AuthRoutes {
             'referrer-policy': 'no-referrer',
           })
           res.end(
-            '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in to DSH</title><link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/auth-remote/login.css"><script defer src="/auth-remote/login.js"></script></head><body><main id="login-root" aria-live="polite">Checking sign-in status…</main></body></html>',
+            '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in</title><link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/auth-remote/login.css"><script defer src="/auth-remote/login.js"></script></head><body><main id="login-root" aria-live="polite">Checking sign-in status…</main></body></html>',
           )
           return
         }

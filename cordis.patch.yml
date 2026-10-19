@@ -20,7 +20,8 @@
       name: dsh-auth-remote
       inject: [webStartup]
       config:
-        requireTotp: true
+        manualAccountLogin: true
+        requireTotp: false
         sessionHours: 168
         preserveOriginPaths: []
 

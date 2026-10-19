@@ -67,16 +67,10 @@ body {
   border-radius: var(--dsw-radius-panel);
   background: var(--dsw-alias-bg-layer-2);
 }
-.brand {
-  color: var(--dsw-alias-button-primary-fill);
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 22px;
-}
 .login-header {
   display: flex;
   flex-wrap: wrap;
-  align-items: start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
@@ -95,7 +89,7 @@ body {
   font: inherit;
 }
 h1 {
-  margin: 16px 0 12px;
+  margin: 0;
   font-size: 24px;
   line-height: 32px;
   font-weight: 500;
