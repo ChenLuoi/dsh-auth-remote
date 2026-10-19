@@ -223,6 +223,9 @@ async function fixture({
         return dialog
       },
       async close() {
+        // Settings can issue another describe after the last UI assertion.
+        // Finish active route callbacks before disposing their request context.
+        await page.unrouteAll({ behavior: 'wait' })
         await browser?.close()
         if (child && child.exitCode === null && child.signalCode === null) {
           child.kill('SIGTERM')
