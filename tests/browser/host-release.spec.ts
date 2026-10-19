@@ -14,10 +14,16 @@ import { AUTH_COOKIE } from '../../src/shared/auth-contract.js'
 import { packedCommand, packedProfile } from '../helpers/packed-runtime.js'
 import { clickThroughDshPrompts, launchBrowser, openDshSettings } from '../helpers/runtime.js'
 
-// Exercise the native release gate with actual runtimes: alpha.3 has no
-// release metadata, while alpha.4 publishes its identity. No service is mocked.
-const previousVersion = dshVersion === '0.2.1-alpha.5' ? '0.2.1-alpha.4' : '0.2.1-alpha.3'
-if (['0.2.1-alpha.4', '0.2.1-alpha.5'].includes(dshVersion))
+// Exercise the native release gate with exact installed runtimes. Only the
+// 0.2.1-alpha.3 destination lacks release metadata; no service is mocked.
+const previousVersions: Record<string, string> = {
+  '0.2.1-alpha.4': '0.2.1-alpha.3',
+  '0.2.1-alpha.5': '0.2.1-alpha.4',
+  '0.2.1-rc.1': '0.2.1-alpha.5',
+  '0.2.1-rc.2': '0.2.1-rc.1',
+}
+const previousVersion = previousVersions[dshVersion]
+if (previousVersion)
   test(
     'native host-release prompt survives a real runtime switch and reload rechecks authentication and saved settings',
     { timeout: 180_000 },
@@ -149,7 +155,8 @@ if (['0.2.1-alpha.4', '0.2.1-alpha.5'].includes(dshVersion))
         assert.equal((await checked).status(), 200)
         await expect(page.locator('[class*="frame"]').first()).toBeVisible()
         await expect(prompt).toHaveCount(0)
-        if (previousVersion === '0.2.1-alpha.4') assert.equal(await boot(), previousVersion)
+        if (previousVersion === '0.2.1-alpha.3') assert.equal(await boot(), undefined)
+        else assert.equal(await boot(), previousVersion)
         await openDshSettings(page)
         await clickThroughDshPrompts(
           page,

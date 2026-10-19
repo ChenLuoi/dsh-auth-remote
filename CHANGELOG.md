@@ -6,6 +6,27 @@ This file records user-visible changes to the released package. Version numbers 
 
 ## Unreleased
 
+## 0.2.0 - 2026-10-19
+
+- Regenerate stable Cordis/Schemastery lockfile resolutions and peer snapshots for clean frozen installs; shorten managed verification profiles and test real Unix socket binding at the default CI checkout length.
+
+- Synchronize current normal/legacy dates, two-way history navigation, adaptation evidence and frozen-artifact operating guides without retiring any supported DSH version.
+
+- Add manually maintained bilingual, bidirectional support history with exact historical evidence, archive availability and clear separation of published releases from the RC candidate.
+
+- Add conservative ordinary/full CI planning: keep every-release CLI/smoke, fixed browser capability suites for six low-risk paths, full verification for all other changes and weekly Monday UTC checks.
+
+- Build one release artifact, verify its producer identity across all declared CLI/smoke and complete-browser targets through a shared workflow, and gate publication on the same successful artifact.
+
+- Add fixed-archive CLI/browser/smoke consumption with SHA-256 and package checks, restored dist, explicit suites, strict test counts and an isolated ephemeral-port smoke profile.
+
+- Require independent profile-level native-listener disable for protected remote deployments; verify real Loader bundle skipping and plugin runtime refusal on both RC targets without listener fallback.
+
+- Emit process-scoped startup maintenance warnings for legacy or unverified DSH versions, preserving warning history through HMR. Keep technical admission independent of dates and record no actual retirement.
+- Verify the native DSH `0.2.1-rc.2` Search/Fetch settings over the protected remote Host, including three namespaces, test-credential redaction, persistence and session refusal, without invoking paid providers.
+- Add candidate targets DSH `0.2.1-rc.1` and `0.2.1-rc.2`, pin development/default verification to `0.2.1-rc.2` with stable Cordis and Schemastery, and retain all eleven release targets. Correct account branches and four real host-release round trips; assert visible focus and switch thumbs on older themes. These additions do not change published `0.1.10` history.
+- Publish bilingual support-lifecycle rules with explicit legacy dates, continued verification until actual retirement, independent technical admission and exact-version release evidence requirements.
+
 ## 0.1.10 - 2026-10-19
 
 - Add DSH `0.2.1-alpha.4` and `0.2.1-alpha.5` support, pin development/default tests to `0.2.1-alpha.5`, and extend CLI, full browser and installation-smoke verification to all nine supported releases. Retain the remote callback and HMR isolation adaptations, exercise native host-release refresh on `0.2.1-alpha.4` and `0.2.1-alpha.5`, and declare `engines.dsh >=0.1.7-rc.1`.

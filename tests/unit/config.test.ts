@@ -130,7 +130,7 @@ test('TLS chooses whole CLI or file pair and resolves paths against their own ba
     )
 })
 
-test('nine exact versions enforce native transport capabilities and concrete bindings', async () => {
+test('eleven exact versions enforce native transport capabilities and concrete bindings', async () => {
   const { resolveStartupConfig } = await api()
   assert.equal(typeof resolveStartupConfig, 'function')
   for (const version of [
@@ -143,12 +143,23 @@ test('nine exact versions enforce native transport capabilities and concrete bin
     '0.2.1-alpha.3',
     '0.2.1-alpha.4',
     '0.2.1-alpha.5',
+    '0.2.1-rc.1',
+    '0.2.1-rc.2',
   ]) {
     const options = { ...context, version }
     assert.equal(resolveStartupConfig({ host: '192.0.2.10' }, {}, options).host, '192.0.2.10')
     for (const host of ['0.0.0.0', '::', '::ffff:0.0.0.0', 'localhost', 'app.example'])
       assert.throws(() => resolveStartupConfig({ host }, {}, options))
-    if (['0.2.1-alpha.2', '0.2.1-alpha.3', '0.2.1-alpha.4', '0.2.1-alpha.5'].includes(version)) {
+    if (
+      [
+        '0.2.1-alpha.2',
+        '0.2.1-alpha.3',
+        '0.2.1-alpha.4',
+        '0.2.1-alpha.5',
+        '0.2.1-rc.1',
+        '0.2.1-rc.2',
+      ].includes(version)
+    ) {
       assert.equal(resolveStartupConfig({ host: '::1' }, {}, options).host, '::1')
       assert.equal(
         resolveStartupConfig({ host: '::ffff:127.0.0.1' }, {}, options).host,
@@ -205,6 +216,7 @@ test('version capabilities distinguish public URL projection from native transpo
     ['0.2.1-alpha.4', true, true],
     ['0.2.1-alpha.5', true, true],
     ['0.2.1-rc.1', true, true],
+    ['0.2.1-rc.2', true, true],
     ['1.0.0', true, true],
   ] as const) {
     const result = getRuntimeCapabilities(version)

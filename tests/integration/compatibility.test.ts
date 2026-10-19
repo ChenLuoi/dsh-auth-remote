@@ -7,6 +7,11 @@ import { test } from 'node:test'
 import { Context } from '@deepseek-ai/cordis'
 import type { HostConnectionHandle } from '@deepseek-ai/dsh-client-connection'
 import semver from 'semver'
+import {
+  classifyDshSupport,
+  warnDshSupport,
+  type RetiredDshRecord,
+} from '../../src/shared/dsh-support.js'
 import { testedDshVersions } from '../../scripts/runtime.mjs'
 import {
   assertConnectionCompatibility,
@@ -47,6 +52,7 @@ test('DSH loader peer range and runtime gate admit upgrades, including prereleas
     '0.2.1-alpha.4',
     '0.2.1-alpha.5',
     '0.2.1-rc.1',
+    '0.2.1-rc.2',
     '0.3.0-rc.1',
     '1.0.0',
   ]) {
@@ -67,6 +73,36 @@ test('forward version admission still rejects missing native authentication capa
       message: `auth-remote: Connection lacks ${missing}`,
     })
   }
+})
+
+test('maintenance-only retirement warns while the same technical API checks remain mandatory', () => {
+  const fixture: RetiredDshRecord = {
+    state: 'retired',
+    version: '9.0.0-test.integration',
+    retiredOn: '2050-01-01',
+    effectivePlugin: '9.0.0-test.2',
+    lastSupportedPlugin: '9.0.0-test.1',
+    migrationTarget: '9.0.0-test.3',
+  }
+  const messages: string[] = []
+  const status = classifyDshSupport(fixture.version, new Set(), [fixture])
+  assert.equal(status.state, 'retired')
+  warnDshSupport(status, (message) => messages.push(message))
+  assert.equal(messages.length, 1)
+  assert.equal(
+    semver.satisfies(fixture.version, SUPPORTED_DSH_RANGE, { includePrerelease: true }),
+    true,
+  )
+  const available = {
+    authenticatedUrl() {},
+    authorizeIndex() {},
+    requestRejection() {},
+  } as unknown as HostConnectionHandle
+  assert.doesNotThrow(() => assertConnectionCompatibility(available))
+  assert.throws(
+    () => assertConnectionCompatibility({} as HostConnectionHandle),
+    /Connection lacks/u,
+  )
 })
 
 test('forward version admission still rejects duplicate host package copies', async () => {

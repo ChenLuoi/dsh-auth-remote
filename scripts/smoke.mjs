@@ -1,27 +1,57 @@
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
 import { once } from 'node:events'
-import { assertDevHome, dsh, dshEnv, home, port } from './dev-common.mjs'
+import { assertDevHome, dsh, dshEnv, home, port, verification } from './dev-common.mjs'
 import { packageName } from './runtime.mjs'
 
 await assertDevHome()
-const base = `http://127.0.0.1:${port}`
+let base = verification ? undefined : `http://127.0.0.1:${port}`
 const child = spawn(dsh, ['web', '--no-open', '--port', String(port)], {
   cwd: home,
   env: dshEnv(),
   stdio: ['ignore', 'pipe', 'pipe'],
 })
 let stderr = ''
+let stdout = ''
+child.stdout.on('data', (chunk) => {
+  stdout += chunk.toString('utf8')
+  if (verification) {
+    const address = stdout.match(
+      /^dsh web start at\r?\n +http:\/\/127\.0\.0\.1:([0-9]+)(?:\r?\n|$)/mu,
+    )
+    if (address && Number(address[1]) > 0) base = `http://127.0.0.1:${address[1]}`
+  }
+})
 child.stderr.on('data', (chunk) => {
   stderr += chunk.toString('utf8')
 })
+let interrupted
+const onInterrupt = (signal) => {
+  interrupted = signal
+  child.kill(signal)
+}
+const sigint = () => onInterrupt('SIGINT')
+const sigterm = () => onInterrupt('SIGTERM')
+process.on('SIGINT', sigint)
+process.on('SIGTERM', sigterm)
 try {
   let ready = false
   for (let attempt = 0; attempt < 150; attempt++) {
-    if (child.exitCode !== null) throw new Error(`DSH exited: ${stderr.slice(0, 2000)}`)
+    if (interrupted) throw new Error(`Smoke interrupted by ${interrupted}`)
+    if (child.exitCode !== null || child.signalCode !== null)
+      throw new Error(`DSH exited: ${stderr.slice(0, 2000)}`)
     try {
-      const response = await fetch(`${base}/auth-remote/ready`)
-      if (response.status === 200 && (await response.json()).ready === true) {
+      if (!base) throw new Error('Waiting for this child to announce its bound port')
+      const response = await fetch(`${base}/auth-remote/ready`, {
+        signal: AbortSignal.timeout(1000),
+      })
+      const state = await response.json()
+      if (
+        response.status === 200 &&
+        state.ready === true &&
+        state.plugin === packageName &&
+        state.protocolVersion === 1
+      ) {
         ready = true
         break
       }
@@ -31,6 +61,9 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
   assert.equal(ready, true, `isolated DSH never became ready: ${stderr.slice(0, 2000)}`)
+  assert.equal(child.exitCode, null)
+  assert.equal(child.signalCode, null)
+  assert.equal(interrupted, undefined)
   const page = await fetch(`${base}/`, {
     redirect: 'manual',
     headers: { accept: 'text/html' },
@@ -59,10 +92,15 @@ try {
   assert.equal(diagnostic.status, 0, diagnostic.stderr)
   assert.equal(JSON.parse(diagnostic.stdout).online, true)
   console.info(`Smoke passed: ${base} redirects anonymous users to the isolated login page`)
-  console.info('DSH_HOME: .dev/dsh-home')
+  assert.equal(child.exitCode, null)
+  assert.equal(child.signalCode, null)
+  console.info(`DSH_HOME: ${home}`)
 } finally {
   if (child.exitCode === null && child.signalCode === null) {
     child.kill('SIGTERM')
     await once(child, 'exit').catch(() => {})
   }
+  process.off('SIGINT', sigint)
+  process.off('SIGTERM', sigterm)
+  if (interrupted) throw new Error(`Smoke interrupted by ${interrupted}`)
 }

@@ -1,0 +1,139 @@
+name: Verify packed artifact
+
+on:
+  workflow_call:
+    inputs:
+      artifact:
+        required: true
+        type: string
+      archive:
+        required: true
+        type: string
+      sha256:
+        required: true
+        type: string
+      plan:
+        required: true
+        type: string
+      versions:
+        required: true
+        type: string
+      browser-matrix:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate artifact and matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          package-manager-cache: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.artifact }}
+          path: artifacts
+      - name: Verify producer identity and complete plan
+        env:
+          DSH_ARCHIVE_NAME: ${{ inputs.archive }}
+          DSH_ARCHIVE_SHA: ${{ inputs.sha256 }}
+          DSH_VERIFY_PLAN: ${{ inputs.plan }}
+          DSH_VERSIONS_JSON: ${{ inputs.versions }}
+          DSH_BROWSER_MATRIX: ${{ inputs.browser-matrix }}
+        run: |
+          node scripts/packed-artifact.mjs check "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA"
+          node scripts/packed-artifact.mjs plan
+
+  cli-smoke:
+    name: CLI and smoke (${{ matrix.dsh }})
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        dsh: ${{ fromJSON(inputs.versions) }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v3
+        with:
+          runtime: node@24
+          cache: true
+          require-lockfile: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.artifact }}
+          path: artifacts
+      - name: Consume the producer archive
+        env:
+          DSH_ARCHIVE_NAME: ${{ inputs.archive }}
+          DSH_ARCHIVE_SHA: ${{ inputs.sha256 }}
+          DSH_EXACT_VERSION: ${{ matrix.dsh }}
+        run: |
+          node scripts/packed-artifact.mjs check "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA"
+          node scripts/verify-packed.mjs --archive "artifacts/$DSH_ARCHIVE_NAME" --sha256 "$DSH_ARCHIVE_SHA" --dsh-version "$DSH_EXACT_VERSION" --suite cli --suite smoke
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: packed-cli-smoke-${{ matrix.dsh }}
+          path: .cache/verify-packed/report-*
+          if-no-files-found: error
+
+  browser:
+    name: Browser ${{ matrix.suite }} (${{ matrix.dsh }})
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.browser-matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v3
+        with:
+          runtime: node@24
+          cache: true
+          require-lockfile: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.artifact }}
+          path: artifacts
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Consume the producer archive
+        env:
+          DSH_ARCHIVE_NAME: ${{ inputs.archive }}
+          DSH_ARCHIVE_SHA: ${{ inputs.sha256 }}
+          DSH_EXACT_VERSION: ${{ matrix.dsh }}
+          DSH_BROWSER_SUITE: ${{ matrix.suite }}
+        run: |
+          node scripts/packed-artifact.mjs check "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA"
+          node scripts/verify-packed.mjs --archive "artifacts/$DSH_ARCHIVE_NAME" --sha256 "$DSH_ARCHIVE_SHA" --dsh-version "$DSH_EXACT_VERSION" --suite "$DSH_BROWSER_SUITE"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: packed-browser-${{ matrix.dsh }}-${{ matrix.suite }}
+          path: .cache/verify-packed/report-*
+          if-no-files-found: error
+
+  verified:
+    name: Packed verification complete
+    needs: [validate, cli-smoke, browser]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every planned job to succeed
+        env:
+          DSH_JOB_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          node --input-type=module - <<'JS'
+          import assert from 'node:assert/strict'
+          const jobs = JSON.parse(process.env.DSH_JOB_RESULTS)
+          assert.deepEqual(Object.keys(jobs).sort(), ['browser', 'cli-smoke', 'validate'])
+          for (const [name, job] of Object.entries(jobs)) assert.equal(job.result, 'success', name)
+          JS

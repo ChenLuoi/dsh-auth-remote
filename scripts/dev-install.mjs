@@ -7,9 +7,11 @@ import {
   assertRuntimeDirectory,
   dsh,
   dshEnv,
+  devRoot,
   home,
   port,
   profile,
+  verification,
 } from './dev-common.mjs'
 import { archive, checkDshVersion, dshVersion, packageManifest, project } from './runtime.mjs'
 
@@ -17,7 +19,7 @@ await assertDevHome()
 await assertRuntimeDirectory()
 const archiveBytes = await readFile(archive)
 const digest = createHash('sha256').update(archiveBytes).digest('hex')
-const stage = join(project, '.cache/dev-install')
+const stage = verification ? join(devRoot, 'staged') : join(project, '.cache/dev-install')
 await mkdir(stage, { recursive: true })
 const stageStat = await lstat(stage)
 if (!stageStat.isDirectory() || stageStat.isSymbolicLink() || (await realpath(stage)) !== stage)
@@ -63,6 +65,6 @@ await writeFile(patch, '- id: webserver\n  disabled: true\n', { mode: 0o600 })
 console.info(
   `Installed ${packageManifest.name}@${packageManifest.version} into isolated DSH ${dshVersion}`,
 )
-console.info('DSH_HOME: .dev/dsh-home')
-console.info('Profile patch: .dev/dsh-home/profiles/web/cordis.patch.yml')
+console.info(`DSH_HOME: ${home}`)
+console.info(`Profile patch: ${patch}`)
 console.info(`Local listener: http://127.0.0.1:${port}`)

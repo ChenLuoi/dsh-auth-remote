@@ -5,7 +5,8 @@
 # DSH 0.2.1-alpha.2, 0.2.1-alpha.3, 0.2.1-alpha.4 and 0.2.1-alpha.5 support native TLS.
 # Supply both tlsCert and tlsKey; relative file paths
 # resolve from this profile directory, while CLI TLS paths resolve from cwd.
-# Disabling the native row here is recommended for an independent fallback.
+# This independent disable is required for a protected remote deployment:
+# it remains effective if Loader skips the authentication bundle.
 - id: webserver
   disabled: true
 

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { access, readFile, readdir } from 'node:fs/promises'
 import { dirname, join, relative, resolve } from 'node:path'
+import { isHistoricalSourceUrl } from './doc-source-urls.mjs'
 
 const args = process.argv.slice(2)
 assert(
@@ -18,6 +19,8 @@ const pairs = [
   ['docs/reverse-proxy.md', 'docs/reverse-proxy.zh-CN.md'],
   ['docs/releasing.md', 'docs/releasing.zh-CN.md'],
   ['docs/legacy-compatibility.md', 'docs/legacy-compatibility.zh-CN.md'],
+  ['docs/support-policy.md', 'docs/support-policy.zh-CN.md'],
+  ['docs/support-history.md', 'docs/support-history.zh-CN.md'],
   ...(!packaged ? [['tests/README.md', 'tests/README.zh-CN.md']] : []),
 ]
 
@@ -75,11 +78,13 @@ for (const [english, chinese] of pairs) {
     checkPrivateEnvironment(file, content)
     for (const match of content.matchAll(/https?:\/\/([a-z0-9.-]+)/giu)) {
       const host = match[1].toLowerCase()
+      const url = content.slice(match.index).match(/^[^\s)`<>"']+/u)[0]
       assert(
         host === 'localhost' ||
           host === '127.0.0.1' ||
           /^192\.0\.2\.\d{1,3}$/u.test(host) ||
-          /^(?:[a-z0-9-]+\.)*example(?:\.com|\.org|\.net)?$/u.test(host),
+          /^(?:[a-z0-9-]+\.)*example(?:\.com|\.org|\.net)?$/u.test(host) ||
+          isHistoricalSourceUrl(label, url),
         `${label} contains a non-example URL host`,
       )
     }
