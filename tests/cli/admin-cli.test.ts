@@ -14,7 +14,7 @@ import { totpCode } from '../../src/auth/totp.js'
 import { AdminUnavailable, requestAdmin } from '../../src/cli/ipc-client.js'
 import { resolveProfileTarget } from '../../src/cli/profile.js'
 import { AdminSocket } from '../../src/http/admin-socket.js'
-import { AuthRemoteWebServer } from '../../src/index.js'
+import { AuthRemoteWebServer } from '../../dist/index.js'
 import { AuthStateStore } from '../../src/storage/store.js'
 import { archive, dsh, packageName, project } from '../helpers/runtime.js'
 

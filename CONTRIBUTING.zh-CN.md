@@ -16,7 +16,9 @@ pnpm exec playwright install chromium
 pnpm check
 ```
 
-[开发指南](docs/development.zh-CN.md)说明隔离的 DSH 运行时与完整测试范围。改动打包时执行 `pnpm pack:local`；改动安装或启动时再执行 `pnpm smoke`。测试使用临时 profile；真实账号文件与凭据不得进入仓库。
+[开发指南](docs/development.zh-CN.md)说明隔离的 DSH 运行时与完整测试范围。改动打包时执行 `pnpm pack:local`；改动安装或启动时再执行 `pnpm smoke`。测试使用临时 profile；普通开发/smoke 包装命令管理当前 checkout 的 .dev profile，最终验证使用固定归档运行器新建的带标记 home。真实账号文件与凭据不得进入仓库。
+
+支持变更须同时维护[支持规范](docs/support-policy.zh-CN.md)、[双向支持历史](docs/support-history.zh-CN.md)、README 与兼容库存的两种语言。同包验证使用[固定归档运行器](docs/development.zh-CN.md#消费固定归档)，打包包装命令只用于准备新候选。
 
 ## 提交 Pull Request
 

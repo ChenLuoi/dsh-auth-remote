@@ -6,15 +6,39 @@ on:
   push:
     branches: [master]
   workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 1'
 
 permissions:
   contents: read
 
 jobs:
-  static:
-    name: Static and core tests
+  plan:
+    name: Select verification plan
+    runs-on: ubuntu-latest
+    outputs:
+      kind: ${{ steps.plan.outputs.kind }}
+      browser-matrix: ${{ steps.plan.outputs.browser-matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          package-manager-cache: false
+      - id: plan
+        run: node scripts/ci-plan.mjs
+
+  package:
+    name: Produce CI artifact and run core tests
+    needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      archive: ${{ steps.identity.outputs.archive }}
+      sha256: ${{ steps.identity.outputs.sha256 }}
+      versions: ${{ steps.identity.outputs.versions }}
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/setup@v3
@@ -24,82 +48,43 @@ jobs:
           require-lockfile: true
       - run: pnpm check:static
       - run: pnpm test:unit
-      - run: pnpm test:integration
-
-  cli:
-    name: CLI and installation smoke (${{ matrix.dsh }})
-    strategy:
-      fail-fast: false
-      matrix:
-        dsh:
-          [
-            0.1.7-rc.1,
-            0.1.7-rc.2,
-            0.2.0-rc.1,
-            0.2.0-rc.2,
-            0.2.1-alpha.1,
-            0.2.1-alpha.2,
-            0.2.1-alpha.3,
-            0.2.1-alpha.4,
-            0.2.1-alpha.5,
-          ]
-    env:
-      DSH_TEST_VERSION: ${{ matrix.dsh }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/setup@v3
+      - run: pnpm exec tsx --test tests/integration/*.test.ts
+      - run: node scripts/pack.mjs
+      - id: identity
+        run: node scripts/packed-artifact.mjs record
+      - uses: actions/upload-artifact@v7
         with:
-          runtime: node@24
-          cache: true
-          require-lockfile: true
-      - run: pnpm test:cli
-      - run: pnpm smoke
+          name: ci-package
+          path: |
+            artifacts/${{ steps.identity.outputs.archive }}
+            artifacts/SHA256SUMS
+          if-no-files-found: error
 
-  browser:
-    name: Browser tests (${{ matrix.dsh }})
-    strategy:
-      fail-fast: false
-      matrix:
-        dsh:
-          [
-            0.1.7-rc.1,
-            0.1.7-rc.2,
-            0.2.0-rc.1,
-            0.2.0-rc.2,
-            0.2.1-alpha.1,
-            0.2.1-alpha.2,
-            0.2.1-alpha.3,
-            0.2.1-alpha.4,
-            0.2.1-alpha.5,
-          ]
-    env:
-      DSH_TEST_VERSION: ${{ matrix.dsh }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/setup@v3
-        with:
-          runtime: node@24
-          cache: true
-          require-lockfile: true
-      - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm test:browser
+  runtimes:
+    name: Verify CI artifact
+    needs: [plan, package]
+    uses: ./.github/workflows/verify-packed.yml
+    with:
+      artifact: ci-package
+      archive: ${{ needs.package.outputs.archive }}
+      sha256: ${{ needs.package.outputs.sha256 }}
+      plan: ${{ needs.plan.outputs.kind }}
+      versions: ${{ needs.package.outputs.versions }}
+      browser-matrix: ${{ needs.plan.outputs.browser-matrix }}
 
   verify:
     name: CI Verify
-    needs: [static, cli, browser]
+    needs: [plan, package, runtimes]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Require all checks
+      - name: Require every planned check
         env:
-          STATIC_RESULT: ${{ needs.static.result }}
-          CLI_RESULT: ${{ needs.cli.result }}
-          BROWSER_RESULT: ${{ needs.browser.result }}
+          DSH_JOB_RESULTS: ${{ toJSON(needs) }}
         run: |
-          test "$STATIC_RESULT" = success
-          test "$CLI_RESULT" = success
-          test "$BROWSER_RESULT" = success
+          node --input-type=module - <<'JS'
+          import assert from 'node:assert/strict'
+          const jobs = JSON.parse(process.env.DSH_JOB_RESULTS)
+          assert.deepEqual(Object.keys(jobs).sort(), ['package', 'plan', 'runtimes'])
+          for (const [name, job] of Object.entries(jobs)) assert.equal(job.result, 'success', name)
+          JS

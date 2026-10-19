@@ -1,7 +1,7 @@
 # Bundle baseline: replace the native listener with the authenticated WebServer.
 # The plugin reads the listener address from the official web-startup service.
-# A profile-level disable is recommended when protection against a skipped
-# bundle is desired; the bundle itself disables the native row while active.
+# Remote deployments must also disable this row in the independent profile patch.
+# A skipped bundle cannot apply this patch or protect the listener itself.
 - id: webserver
   disabled: true
 

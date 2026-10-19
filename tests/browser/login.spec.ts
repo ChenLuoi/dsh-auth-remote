@@ -403,6 +403,31 @@ test('login and security settings follow DSH themes and fit narrow screens', asy
         await f.page.setViewportSize({ width, height: 900 })
         await waitForAnimations(f.page)
         assert.equal(await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth), true)
+        const toggle = dialog.getByRole('switch', { name: '远程 DeepSeek 账号登录' })
+        const thumb = toggle.locator('span')
+        await expect(thumb).toBeVisible()
+        await expect(thumb).toHaveCSS('width', '16px')
+        await expect(thumb).toHaveCSS('height', '16px')
+        const colors = await toggle.evaluate((node) => ({
+          track: getComputedStyle(node).backgroundColor,
+          thumb: getComputedStyle(node.firstElementChild!).backgroundColor,
+        }))
+        assert.notEqual(colors.thumb, 'rgba(0, 0, 0, 0)', 'switch thumb must have a visible fill')
+        assert.notEqual(colors.thumb, colors.track, 'switch thumb must differ from its track')
+        // Enter keyboard modality without traversing native off-screen tab stops.
+        // Use an enabled control even where the manual switch is disabled.
+        await f.page.keyboard.press('Shift')
+        const passwordAction = dialog.getByRole('button', { name: '修改密码', exact: true })
+        await passwordAction.evaluate((node) =>
+          (node as HTMLElement).focus({ preventScroll: true }),
+        )
+        await expect(passwordAction).toBeFocused()
+        await expect(passwordAction).toBeInViewport()
+        await passwordAction.click({ trial: true })
+        assert.equal(await passwordAction.evaluate((node) => node.matches(':focus-visible')), true)
+        await expect(passwordAction).toHaveCSS('outline-style', 'solid')
+        await expect(passwordAction).toHaveCSS('outline-width', '2px')
+        await expect(passwordAction).not.toHaveCSS('outline-color', 'rgba(0, 0, 0, 0)')
         await f.page.screenshot({
           path: join(screenshots, `security-overview-${theme}-${width}.png`),
         })

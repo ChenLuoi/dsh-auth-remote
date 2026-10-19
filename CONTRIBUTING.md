@@ -14,9 +14,11 @@ pnpm exec playwright install chromium
 pnpm check
 ```
 
-The [development guide](docs/development.md) explains the isolated DSH runtime and the full test boundaries. Run `pnpm pack:local` when a change affects packaging, and `pnpm smoke` when it affects installation or startup. Tests use temporary profiles; keep real account files and credentials out of the repository.
+The [development guide](docs/development.md) explains the isolated DSH runtime and the full test boundaries. Run `pnpm pack:local` when a change affects packaging, and `pnpm smoke` when it affects installation or startup. Tests use temporary profiles; ordinary development/smoke wrappers manage the checkout’s .dev profile. Final verification uses the fixed-archive consumer’s new marked home. Keep real account files and credentials out of the repository.
 
 Before changing supported versions, consult the [legacy compatibility inventory](docs/legacy-compatibility.md). Review manifest peers and compatibility declarations, runtime admission, test targets, CI matrices, and user claims together. Retire runtime adaptations in the same change only when none of their applicable DSH versions remain supported; retire old plugin configuration under its own migration policy. Keep shared security checks. Update both inventory languages, both matrix views and affected entries with complete version numbers whenever compatibility code changes.
+
+Keep the [support policy](docs/support-policy.md), both directions of [support history](docs/support-history.md), README and inventory synchronized in both languages for support changes. Use the [fixed-archive consumer](docs/development.md#consume-a-fixed-archive) for same-package verification; packaging wrappers are for preparing a new candidate.
 
 ## Open a pull request
 

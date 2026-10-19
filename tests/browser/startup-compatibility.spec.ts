@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { copyFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { appendFile, copyFile, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { request } from 'node:http'
+import { createConnection, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -14,6 +15,123 @@ import { nativeHttp } from '../helpers/native-http.js'
 import { getRuntimeCapabilities } from '../../src/adapters/dsh/runtime-capabilities.js'
 
 const port = 13130
+
+async function vacantPort() {
+  const listener = createServer().listen(0, '127.0.0.1')
+  await once(listener, 'listening')
+  const address = listener.address()
+  assert.ok(address && typeof address !== 'string')
+  await new Promise<void>((resolve) => listener.close(() => resolve()))
+  return address.port
+}
+
+async function assertNoListener(port: number) {
+  await assert.rejects(
+    new Promise<void>((resolve, reject) => {
+      const socket = createConnection({ host: '127.0.0.1', port })
+      socket.setTimeout(1000, () => socket.destroy(new Error('listener probe timed out')))
+      socket.once('connect', () => {
+        socket.destroy()
+        resolve()
+      })
+      socket.once('error', reject)
+    }),
+    { code: 'ECONNREFUSED' },
+  )
+  for (const path of ['/auth-remote/ready', '/', '/api/settings/describe'])
+    await assert.rejects(nativeHttp(`http://127.0.0.1:${port}`, path), { code: 'ECONNREFUSED' })
+  await assert.rejects(
+    nativeHttp(`http://127.0.0.1:${port}`, '/api', {
+      headers: {
+        connection: 'Upgrade',
+        upgrade: 'websocket',
+        'sec-websocket-version': '13',
+        'sec-websocket-key': 'dGhlIHNhbXBsZSBub25jZQ==',
+      },
+    }),
+    { code: 'ECONNREFUSED' },
+  )
+}
+
+// These deliberately damaged plugin copies exercise rejection, not compatibility.
+// The upstream packages, their versions and the Loader audit remain unchanged.
+if (['0.2.1-rc.1', '0.2.1-rc.2'].includes(dshVersion))
+  for (const fault of ['loader-requirement', 'runtime-admission'] as const)
+    test(`DSH ${dshVersion} keeps the native listener disabled after ${fault} rejection`, async () => {
+      const f = await packedProfile({})
+      const port = await vacantPort()
+      let command: ReturnType<typeof packedCommand> | undefined
+      try {
+        const patchPath = join(f.profile, 'cordis.patch.yml')
+        await appendFile(patchPath, '- id: webserver\n  disabled: true\n')
+        const patch = await readFile(patchPath, 'utf8')
+        const plugin = join(f.profile, 'node_modules/dsh-auth-remote')
+        const entry = join(plugin, 'dist/index.js')
+        const manifestPath = join(plugin, 'package.json')
+        assert.equal((await stat(entry)).nlink, 1)
+        assert.equal((await stat(manifestPath)).nlink, 1)
+        const marker = 'auth-remote rejection probe module imported'
+        await appendFile(entry, '\nconsole.info(' + JSON.stringify(marker) + ');\n')
+        if (fault === 'loader-requirement') {
+          const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+          manifest.engines.dsh = '>=99.0.0'
+          await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
+        } else {
+          const source = await readFile(entry, 'utf8')
+          const range = /\bvar SUPPORTED_DSH_RANGE = ">=0\.1\.7-rc\.1";/gu
+          assert.equal([...source.matchAll(range)].length, 1)
+          await writeFile(entry, source.replace(range, 'var SUPPORTED_DSH_RANGE = ">=99.0.0";'))
+        }
+        await assertNoListener(port)
+        command = packedCommand(f.home, ['web', '--no-open', '--port', String(port)], f.cwd)
+        const diagnostic =
+          fault === 'loader-requirement'
+            ? /skipping profile bundle "dsh-auth-remote":.*incompatible with dsh/u
+            : /auth-remote: unsupported @deepseek-ai\/dsh-host-webserver version/u
+        for (let attempt = 0; attempt < 150; attempt++) {
+          const { stdout, stderr } = command.output()
+          if (diagnostic.test(stdout + stderr)) break
+          if (command.child.exitCode !== null) break
+          await new Promise((resolve) => setTimeout(resolve, 100))
+        }
+        const { stdout, stderr } = command.output()
+        assert.match(stdout + stderr, diagnostic)
+        if (fault === 'loader-requirement') {
+          assert.match(stderr, /"engines.dsh":">=99\.0\.0"/u)
+          assert.doesNotMatch(stdout, new RegExp(marker, 'u'))
+        } else {
+          assert.ok(stdout.includes(marker), stdout + stderr)
+          assert.ok(stderr.includes(`version ${dshVersion}`), stderr)
+        }
+        // Recheck over time: a skipped bundle must not permit delayed fallback.
+        for (let attempt = 0; attempt < 5; attempt++) {
+          await assertNoListener(port)
+          await new Promise((resolve) => setTimeout(resolve, 100))
+        }
+        let timer: ReturnType<typeof setTimeout> | undefined
+        try {
+          const result = await Promise.race([
+            command.done,
+            new Promise<never>((_, reject) => {
+              timer = setTimeout(
+                () => reject(new Error('Rejected DSH startup did not settle')),
+                20_000,
+              )
+            }),
+          ])
+          assert.notEqual(result.code, 0, result.stdout + result.stderr)
+          assert.notEqual(result.code, null, 'startup must fail before the fixture terminates it')
+        } finally {
+          clearTimeout(timer)
+        }
+        await assertNoListener(port)
+        assert.doesNotMatch(command.output().stdout, /dsh web start at|public access at/u)
+        assert.equal(await readFile(patchPath, 'utf8'), patch)
+      } finally {
+        await command?.stop()
+        await f.cleanup()
+      }
+    })
 
 function get(
   path: string,

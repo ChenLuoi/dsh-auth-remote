@@ -1,5 +1,7 @@
 /** Host entry: storage is preflighted before the guarded listener opens. */
 import { Service, type Context } from '@deepseek-ai/cordis'
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { basename } from 'node:path'
 import { assertWebServerCompatibility } from './adapters/dsh/compatibility.js'
 import { installAuthenticatedHostCapability } from './adapters/dsh/browser-capability.js'
@@ -25,6 +27,16 @@ import { AuthGate } from './http/gate.js'
 import { AuthRoutes } from './http/routes.js'
 import { ManualAccountLogin } from './http/account-login.js'
 import { AuthStateStore } from './storage/store.js'
+import { classifyDshSupport, warnDshSupport } from './shared/dsh-support.js'
+
+const ownManifest = JSON.parse(
+  readFileSync(createRequire(import.meta.url).resolve('dsh-auth-remote/package.json'), 'utf8'),
+)
+const declaredDshReleases = new Set(
+  Object.entries(ownManifest.dsh.compatibility.dshReleases)
+    .filter(([, state]) => state === 'compatible')
+    .map(([version]) => version),
+)
 
 export type { AuthConfig } from './config.js'
 export { Config, DEFAULT_REQUIRE_TOTP, DEFAULT_SESSION_HOURS } from './config.js'
@@ -75,6 +87,7 @@ export class AuthRemoteWebServer extends GuardedWebServer {
     super(ctx, config, gate)
     this.pending = config
     this.switchGate = gate
+    warnDshSupport(classifyDshSupport(config.capabilities.version, declaredDshReleases))
     installAuthenticatedHostCapability(ctx, config.capabilities.version)
     if (config.legacyWarning)
       console.warn('auth-remote: allowedOrigins is deprecated; use publicUrl with one root URL')

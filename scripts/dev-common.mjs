@@ -1,14 +1,16 @@
 import { lstat, mkdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { dshVersion, isolatedDshEnv, project } from './runtime.mjs'
+import { assertVerificationRoot, dshVersion, isolatedDshEnv, project } from './runtime.mjs'
 
 export { project, dshVersion }
-export const devRoot = join(project, '.dev')
-export const runtime = join(devRoot, `runtime-${dshVersion}`)
-export const home = join(devRoot, 'dsh-home')
+export const verification = Boolean(process.env.DSH_VERIFY_ROOT)
+export const devRoot = verification ? resolve(process.env.DSH_VERIFY_ROOT) : join(project, '.dev')
+if (verification) await assertVerificationRoot(devRoot)
+export const runtime = join(devRoot, verification ? 'runtime' : `runtime-${dshVersion}`)
+export const home = join(devRoot, verification ? 'h' : 'dsh-home')
 export const profile = join(home, 'profiles/web')
 export const dsh = join(runtime, 'node_modules/.bin/dsh')
-export const port = 13090
+export const port = verification ? 0 : 13090
 const marker = join(home, '.dsh-auth-remote-dev-home')
 const markerText = 'dsh-auth-remote isolated development home v1\n'
 

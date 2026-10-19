@@ -31,11 +31,16 @@ jobs:
           git fetch --no-tags origin master:refs/remotes/origin/master
           git merge-base --is-ancestor "$GITHUB_SHA" origin/master
 
-  static:
-    name: Release static and core tests
+  package:
+    name: Build the release artifact once
     needs: tag
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      archive: ${{ steps.identity.outputs.archive }}
+      sha256: ${{ steps.identity.outputs.sha256 }}
+      versions: ${{ steps.identity.outputs.versions }}
+      browser-matrix: ${{ steps.identity.outputs.browser-matrix }}
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/setup@v3
@@ -45,27 +50,11 @@ jobs:
       - run: node scripts/check-release.mjs --tag "$GITHUB_REF_NAME"
       - run: pnpm check:static
       - run: pnpm test:unit
-      - run: pnpm test:integration
-
-  cli:
-    name: Release CLI and package
-    needs: tag
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/setup@v3
-        with:
-          runtime: node@24
-          require-lockfile: true
-      - run: pnpm test:cli
-      - run: pnpm release:pack
-      - run: pnpm smoke:packed
-      - name: Record archive checksum
-        run: |
-          cd artifacts
-          sha256sum ./*.tgz > SHA256SUMS
-          sha256sum -c SHA256SUMS
+      - run: pnpm exec tsx --test tests/integration/*.test.ts
+      - run: node scripts/pack.mjs
+      - name: Record archive identity and full matrices
+        id: identity
+        run: node scripts/packed-artifact.mjs record
       - uses: actions/upload-artifact@v7
         with:
           name: release-package
@@ -74,23 +63,21 @@ jobs:
             artifacts/SHA256SUMS
           if-no-files-found: error
 
-  browser:
-    name: Release browser tests
-    needs: tag
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/setup@v3
-        with:
-          runtime: node@24
-          require-lockfile: true
-      - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm test:browser
+  verify:
+    name: Verify every declared release
+    needs: package
+    uses: ./.github/workflows/verify-packed.yml
+    with:
+      artifact: release-package
+      archive: ${{ needs.package.outputs.archive }}
+      sha256: ${{ needs.package.outputs.sha256 }}
+      plan: full
+      versions: ${{ needs.package.outputs.versions }}
+      browser-matrix: ${{ needs.package.outputs.browser-matrix }}
 
   publish:
     name: Publish npm and GitHub Release
-    needs: [static, cli, browser]
+    needs: [tag, package, verify]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -108,11 +95,12 @@ jobs:
           path: artifacts
       - name: Verify archive and check npm version
         id: npm-version
+        env:
+          DSH_ARCHIVE_NAME: ${{ needs.package.outputs.archive }}
+          DSH_ARCHIVE_SHA: ${{ needs.package.outputs.sha256 }}
         run: |
-          cd artifacts
-          sha256sum -c SHA256SUMS
-          cd ..
-          archive="artifacts/dsh-auth-remote-${GITHUB_REF_NAME#v}.tgz"
+          node scripts/packed-artifact.mjs check "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA"
+          archive="artifacts/$DSH_ARCHIVE_NAME"
           status="$(node scripts/check-npm-publication.mjs "$archive")"
           echo "status=$status" >> "$GITHUB_OUTPUT"
       - name: Publish to npm with trusted publishing

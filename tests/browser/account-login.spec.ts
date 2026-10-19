@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto'
 import {
   appendFile,
   copyFile,
+  cp,
   mkdir,
   mkdtemp,
   readFile,
@@ -31,9 +32,16 @@ import {
   selectDshTheme,
 } from '../helpers/runtime.js'
 import { dshVersion } from '../../scripts/runtime.mjs'
+import { classifyDshSupport, dshSupportWarning } from '../../src/shared/dsh-support.js'
 import { accountPlatform } from '../helpers/account-platform.js'
 
-const hasAccount = ['0.2.1-alpha.3', '0.2.1-alpha.4', '0.2.1-alpha.5'].includes(dshVersion)
+const hasAccount = [
+  '0.2.1-alpha.3',
+  '0.2.1-alpha.4',
+  '0.2.1-alpha.5',
+  '0.2.1-rc.1',
+  '0.2.1-rc.2',
+].includes(dshVersion)
 
 async function fixture({
   keepOnboarding = false,
@@ -41,6 +49,7 @@ async function fixture({
   loopback = false,
   preferenceOnly = false,
   hmrProbeEnabled = false,
+  supportReloadProbe = false,
 } = {}) {
   const home = await mkdtemp(join(tmpdir(), 'auth-remote-manual-browser-'))
   const platform = await accountPlatform()
@@ -62,6 +71,22 @@ async function fixture({
       env,
     })
     const profile = join(home, 'profiles/web')
+    const reloadPackage = join(profile, 'support-reload-package')
+    const moduleEntry = supportReloadProbe
+      ? join(reloadPackage, 'dist/index.js')
+      : join(profile, 'node_modules/dsh-auth-remote/dist/index.js')
+    if (supportReloadProbe) {
+      // Native source HMR is opt-in and excludes node_modules. Keep the exact
+      // candidate and its manifest while using the documented watchable location.
+      await mkdir(reloadPackage)
+      await copyFile(
+        join(profile, 'node_modules/dsh-auth-remote/package.json'),
+        join(reloadPackage, 'package.json'),
+      )
+      await cp(join(profile, 'node_modules/dsh-auth-remote/dist'), join(reloadPackage, 'dist'), {
+        recursive: true,
+      })
+    }
     const hmrProbe = join(profile, 'hmr-config-probe.mjs')
     if (hmrProbeEnabled)
       await copyFile(new URL('../fixtures/hmr-config-probe.mjs', import.meta.url), hmrProbe)
@@ -77,10 +102,27 @@ async function fixture({
         ...(!preferenceOnly
           ? [
               '- id: auth-remote',
+              ...(supportReloadProbe
+                ? [
+                    '  disabled: true',
+                    '- insert:',
+                    '  - id: auth-remote-support-probe',
+                    `    name: ${JSON.stringify(moduleEntry)}`,
+                    '    inject: [webStartup]',
+                  ]
+                : []),
+              `${supportReloadProbe ? '    ' : '  '}config:`,
+              `${supportReloadProbe ? '      ' : '    '}publicUrl: ${origin}`,
+              `${supportReloadProbe ? '      ' : '    '}requireTotp: false`,
+              `${supportReloadProbe ? '      ' : '    '}manualAccountLogin: ${manualEnabled}`,
+            ]
+          : []),
+        ...(supportReloadProbe
+          ? [
+              '- id: hmr',
               '  config:',
-              `    publicUrl: ${origin}`,
-              '    requireTotp: false',
-              `    manualAccountLogin: ${manualEnabled}`,
+              `    base: ${JSON.stringify(profile)}`,
+              '    root: [support-reload-package/dist]',
             ]
           : []),
         ...(hasAccount
@@ -162,7 +204,14 @@ async function fixture({
     const errors: string[] = []
     page.on('pageerror', (error) => errors.push(error.message))
     await page.goto(origin, { waitUntil: 'load' })
-    await page.waitForSelector('[class*="frame"]')
+    try {
+      await page.waitForSelector('[class*="frame"]')
+    } catch (error) {
+      console.error('Account fixture startup output:', output)
+      console.error('Account fixture browser errors:', errors)
+      console.error('Account fixture page:', await page.locator('body').innerText())
+      throw error
+    }
     const notice = page.getByRole('dialog', { name: /^(?:内测声明|预览版说明)$/u })
     await notice.waitFor()
     if (await notice.isVisible()) {
@@ -200,6 +249,7 @@ async function fixture({
     }
     return {
       profile,
+      moduleEntry,
       page,
       context,
       platform,
@@ -321,6 +371,7 @@ test(
   'native settings after HMR wait for the existing transaction and still reject genuine nesting',
   { timeout: 90000 },
   async () => {
+    const maintenance = dshSupportWarning(classifyDshSupport(dshVersion, new Set([dshVersion])))
     const f = await fixture({ hmrProbeEnabled: true })
     const probe = (action: string) =>
       f.page.evaluate(async (action) => {
@@ -335,13 +386,15 @@ test(
         }
       }, action)
     try {
+      const warningCount = () => (maintenance ? f.output().split(maintenance).length - 1 : 0)
+      if (maintenance) assert.equal(warningCount(), 1)
       const before = await probe('state')
       assert.ok(before.generation > 0)
       const patchPath = join(f.profile, 'cordis.patch.yml')
       const patch = await readFile(patchPath, 'utf8')
       await writeFile(
         patchPath,
-        patch.replace('    requireTotp: false', '    requireTotp: false\n    sessionHours: 167'),
+        patch.replace(/^( +)requireTotp: false$/mu, '$&\n$1sessionHours: 167'),
       )
       try {
         await expect
@@ -360,6 +413,7 @@ test(
       const view = described.result.value.namespaces.find(
         (value: any) => value.ns === 'auth-remote',
       )
+      assert.ok(view, JSON.stringify(described))
       let settled = false
       const save = nativeSettingsRpc(f.page, 'settings/mutate', {
         ns: 'auth-remote',
@@ -387,12 +441,54 @@ test(
       assert.equal(reply.result.ok, true, JSON.stringify(reply))
       assert.equal(reply.result.value.value.manualAccountLogin, false)
       assert.equal(await f.page.evaluate(async () => (await fetch('/auth-remote/me')).status), 200)
+      if (maintenance)
+        assert.equal(warningCount(), 1, 'configuration HMR must not repeat maintenance diagnostics')
+      else
+        assert.doesNotMatch(
+          f.output(),
+          /auth-remote: DSH .* (?:legacy|retired|support commitment)/u,
+        )
     } finally {
       await probe('release').catch(() => {})
       await f.close()
     }
   },
 )
+
+if (classifyDshSupport(dshVersion, new Set([dshVersion])).state === 'legacy')
+  test(
+    'legacy maintenance diagnostics survive native source module replacement',
+    { timeout: 90000 },
+    async () => {
+      const f = await fixture({ hmrProbeEnabled: true, supportReloadProbe: true })
+      const maintenance = dshSupportWarning(classifyDshSupport(dshVersion, new Set([dshVersion])))!
+      const warningCount = () => f.output().split(maintenance).length - 1
+      const generation = () =>
+        f.page.evaluate(
+          async () => (await (await fetch('/plugins/hmr-config/state')).json()).generation,
+        )
+      try {
+        assert.equal(warningCount(), 1)
+        const previousGeneration = await generation()
+        const marker = 'auth-remote support diagnostic module replacement loaded'
+        await appendFile(f.moduleEntry, '\nconsole.info(' + JSON.stringify(marker) + ');\n')
+        try {
+          await expect.poll(f.output, { timeout: 20_000 }).toContain(marker)
+          await expect.poll(generation, { timeout: 20_000 }).toBe(previousGeneration + 1)
+        } catch (error) {
+          console.error('Support module HMR output:', f.output())
+          throw error
+        }
+        assert.equal(
+          await f.page.evaluate(async () => (await fetch('/auth-remote/me')).status),
+          200,
+        )
+        assert.equal(warningCount(), 1, 'module HMR must preserve process-wide warning history')
+      } finally {
+        await f.close()
+      }
+    },
+  )
 
 if (hasAccount) {
   test(
