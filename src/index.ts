@@ -6,6 +6,7 @@ import { installAuthenticatedHostCapability } from './adapters/dsh/browser-capab
 import { DshReadiness, watchConnection } from './adapters/dsh/readiness.js'
 import { startupLines } from './adapters/dsh/startup-urls.js'
 import { listenerProtocol } from './adapters/dsh/runtime-capabilities.js'
+import { outsideHmrTransaction } from './adapters/dsh/hmr-context.js'
 import { DenyGate, GuardedWebServer, SwitchGate } from './adapters/dsh/webserver.js'
 import { AuthService } from './auth/service.js'
 import {
@@ -13,6 +14,7 @@ import {
   finalizeAuthConfig,
   Config,
   type AuthConfig,
+  type ParsedAuthConfig,
   type WebStartupConfig,
   type PendingAuthConfig,
   type ResolvedAuthConfig,
@@ -38,6 +40,19 @@ export { AuthConnections } from './http/connections.js'
 
 export const name = 'auth-remote'
 
+/** Attempt every cleanup in order, keeping the state lock until requests settle. */
+async function disposeResources(disposers: Array<() => void | Promise<void>>): Promise<void> {
+  const errors: unknown[] = []
+  for (const dispose of disposers) {
+    try {
+      await dispose()
+    } catch (error) {
+      errors.push(error)
+    }
+  }
+  if (errors.length) throw new AggregateError(errors, 'auth-remote: resource cleanup failed')
+}
+
 export class AuthRemoteWebServer extends GuardedWebServer {
   static override Config = Config as unknown as typeof GuardedWebServer.Config
   private stateStore: AuthStateStore | undefined
@@ -46,7 +61,7 @@ export class AuthRemoteWebServer extends GuardedWebServer {
   private resolvedConfig: ResolvedAuthConfig | undefined
   private readonly switchGate: SwitchGate
 
-  constructor(ctx: Context, input: AuthConfig) {
+  constructor(ctx: Context, input: AuthConfig | ParsedAuthConfig) {
     const startup = ctx.get('webStartup') as WebStartupConfig | undefined
     if (!startup) throw new Error('auth-remote: webStartup service is required')
     const profile = ctx.get('profileContext') as { dir?: string } | undefined
@@ -91,7 +106,7 @@ export class AuthRemoteWebServer extends GuardedWebServer {
       this.authService = auth
       // Keep the listener behind DenyGate until its actual address has one
       // finalized policy. Its official effect is owned by this service fiber.
-      await super[Service.init]()
+      await outsideHmrTransaction(this.ctx, () => super[Service.init]())
       const port = this.port
       if (port === undefined) throw new Error('auth-remote: listener has not bound a port')
       this.resolvedConfig = finalizeAuthConfig(this.pending, {
@@ -111,6 +126,7 @@ export class AuthRemoteWebServer extends GuardedWebServer {
         auth,
         store,
         this.pending.capabilities.version,
+        () => this.pending.manualAccountLogin.get(),
       )
       accountLogin.install(this)
       admin = new AdminSocket(
@@ -132,11 +148,13 @@ export class AuthRemoteWebServer extends GuardedWebServer {
         () => async () => {
           this.switchGate.set(new DenyGate())
           activeReadiness.detach()
-          await activeAccountLogin.dispose()
-          await activeAdmin.dispose()
-          await activeConnections.dispose()
-          auth.dispose()
-          await store.close()
+          await disposeResources([
+            () => activeAccountLogin.dispose(),
+            () => activeAdmin.dispose(),
+            () => activeConnections.dispose(),
+            () => auth.dispose(),
+            () => store.close(),
+          ])
         },
         'auth-remote.storage-and-gate',
       )
@@ -165,11 +183,18 @@ export class AuthRemoteWebServer extends GuardedWebServer {
       )
     } catch (error) {
       this.switchGate.set(new DenyGate())
-      await admin?.dispose()
-      await accountLogin?.dispose()
-      await connections?.dispose()
-      this.authService?.dispose()
-      await store.close()
+      readiness?.detach()
+      try {
+        await disposeResources([
+          () => accountLogin?.dispose(),
+          () => admin?.dispose(),
+          () => connections?.dispose(),
+          () => this.authService?.dispose(),
+          () => store.close(),
+        ])
+      } catch (cleanupError) {
+        throw new AggregateError([error, cleanupError], 'auth-remote: startup and cleanup failed')
+      }
       throw error
     }
   }

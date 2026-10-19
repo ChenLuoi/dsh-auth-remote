@@ -30,6 +30,8 @@ test('DSH loader peer range and runtime gate admit upgrades, including prereleas
     name.startsWith('@deepseek-ai/dsh-'),
   )
   assert.ok(peers.length > 0)
+  assert.equal(manifest.engines.dsh, SUPPORTED_DSH_RANGE)
+  assert.equal(manifest.engines.node, '>=24')
   for (const [, range] of peers) assert.equal(range, SUPPORTED_DSH_RANGE)
   // DSH preflight explicitly includes prereleases. These future examples test
   // version admission only, not the compatibility of unreleased host APIs.
@@ -42,6 +44,8 @@ test('DSH loader peer range and runtime gate admit upgrades, including prereleas
     '0.2.1-alpha.1',
     '0.2.1-alpha.2',
     '0.2.1-alpha.3',
+    '0.2.1-alpha.4',
+    '0.2.1-alpha.5',
     '0.2.1-rc.1',
     '0.3.0-rc.1',
     '1.0.0',

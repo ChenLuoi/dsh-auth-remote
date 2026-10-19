@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { AuthService, type AuthPolicy } from '../../src/auth/service.js'
 import { hashPassword, validatePassword, verifyPassword } from '../../src/auth/password.js'
 import { backupCodeHash, matchedTotpStep, totpCode } from '../../src/auth/totp.js'
+import { resolveStartupConfig } from '../../src/config.js'
 import { AuthStateStore } from '../../src/storage/store.js'
 
 const username = 'alice'
@@ -513,3 +514,89 @@ test('bound account password change requires both factors and invalidates prior 
     await f.cleanup()
   }
 })
+
+test('overview uses current session creation and counts only admitted sessions from the same snapshot', async () => {
+  const f = await fixture({ requireTotp: false, sessionHours: 1 })
+  try {
+    await f.auth.initialize(username, password)
+    const first = await f.auth.login(username, password)
+    if (first.kind !== 'session') throw new Error('Expected session')
+    const createdAt = f.now()
+    f.advance(1000)
+    const second = await f.auth.login(username, password)
+    if (second.kind !== 'session') throw new Error('Expected session')
+    await f.store.transact((draft) => {
+      const session = Object.values(draft.sessions)[0]!
+      draft.sessions['a'.repeat(64)] = { ...session, securityVersion: session.securityVersion + 1 }
+      draft.sessions['b'.repeat(64)] = { ...session, createdAt: 0, expiresAt: 1 }
+    })
+    assert.deepEqual(f.auth.me(first.token), {
+      username,
+      totpEnabled: false,
+      createdAt,
+      expiresAt: createdAt + 3_600_000,
+      activeSessions: 2,
+    })
+    assert.equal(f.auth.status().activeSessions, 2)
+    f.setNow(createdAt + 3_600_000)
+    assert.throws(() => f.auth.me(first.token), /unauthorized/u)
+    assert.equal(f.auth.me(second.token).activeSessions, 1)
+    await f.auth.logout(second.token)
+    assert.throws(() => f.auth.me(second.token), /unauthorized/u)
+  } finally {
+    await f.cleanup()
+  }
+})
+
+for (const bound of [false, true])
+  for (const explicit of [undefined, true, false])
+    test(`upgrade retains account factors, backup codes and explicit policy: bound=${bound}, requireTotp=${String(explicit)}`, async () => {
+      const f = await fixture({ requireTotp: bound, sessionHours: 168 })
+      let resumed: AuthService | undefined
+      let reopened: AuthStateStore | undefined
+      try {
+        let token: string
+        if (bound) {
+          const codes = await bind(f)
+          const login = await f.auth.login(username, password)
+          if (login.kind !== 'mfa') throw new Error('Expected second factor')
+          token = (await f.auth.verifyMfa(login.challenge, codes[0]!)).token
+        } else {
+          await f.auth.initialize(username, password)
+          const login = await f.auth.login(username, password)
+          if (login.kind !== 'session') throw new Error('Expected session')
+          token = login.token
+        }
+        const before = f.store.current()
+        const bytes = await readFile(f.store.path, 'utf8')
+        f.auth.dispose()
+        await f.store.close()
+        reopened = await AuthStateStore.open(f.profile)
+        const resolved = resolveStartupConfig(
+          explicit === undefined ? {} : { requireTotp: explicit },
+          {},
+          { version: '0.2.1-alpha.3', profileDir: f.profile, cwd: f.profile },
+        )
+        resumed = new AuthService(
+          reopened,
+          { requireTotp: resolved.requireTotp, sessionHours: resolved.sessionHours },
+          { now: f.now },
+        )
+        await resumed.enforceCurrentPolicy()
+        assert.equal(resumed.policySnapshot().requireTotp, explicit ?? false)
+        assert.deepEqual(reopened.current().account!.totp, before.account!.totp)
+        if (bound || explicit !== true) {
+          assert.equal(await readFile(reopened.path, 'utf8'), bytes)
+          assert.ok(resumed.session(token))
+        } else {
+          assert.equal(resumed.session(token), null)
+          assert.equal(Object.keys(reopened.current().sessions).length, 0)
+        }
+        const login = await resumed.login(username, password)
+        assert.equal(login.kind, bound ? 'mfa' : explicit === true ? 'binding' : 'session')
+      } finally {
+        resumed?.dispose()
+        await reopened?.close()
+        await f.cleanup()
+      }
+    })

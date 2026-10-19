@@ -12,8 +12,9 @@ export function packedCommand(
   args: string[],
   cwd = home,
   extraEnv: NodeJS.ProcessEnv = {},
+  binary = dsh,
 ) {
-  const child = spawn(dsh, args, {
+  const child = spawn(binary, args, {
     cwd,
     env: { ...isolatedDshEnv(home), ...extraEnv },
     stdio: ['ignore', 'pipe', 'pipe'],

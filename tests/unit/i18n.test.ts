@@ -41,8 +41,8 @@ test('language selection has an exact stored form and an English fallback', () =
 })
 
 test('formatting inserts text parameters without interpreting markup', () => {
-  assert.equal(formatMessage('zh', 'loginTitle'), '登录 DSH')
-  assert.equal(formatMessage('fr', 'loginTitle'), 'Sign in to DSH')
+  assert.equal(formatMessage('zh', 'loginTitle'), '登录')
+  assert.equal(formatMessage('fr', 'loginTitle'), 'Sign in')
   assert.equal(
     formatMessage('en', 'errorRateLimited', { seconds: 12 }),
     'Too many attempts. Try again in about 12 seconds.',

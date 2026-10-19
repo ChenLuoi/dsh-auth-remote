@@ -1,4 +1,5 @@
 import z from '@deepseek-ai/schemastery'
+import type { Volatile } from '@deepseek-ai/cordis'
 import { isIP } from 'node:net'
 import { resolve } from 'node:path'
 import { listenerPublicUrl, parsePublicUrl, type RootPublicUrl } from './adapters/dsh/public-url.js'
@@ -19,8 +20,13 @@ export interface AuthConfig {
   tlsKey?: string
   allowedOrigins?: string[] | undefined
   requireTotp?: boolean
+  manualAccountLogin?: boolean
   sessionHours?: number
   preserveOriginPaths?: string[]
+}
+
+export type ParsedAuthConfig = Omit<AuthConfig, 'manualAccountLogin'> & {
+  manualAccountLogin: Volatile<boolean>
 }
 
 export interface ResolvedAuthConfig extends Omit<PendingAuthConfig, 'publicUrl'> {
@@ -33,20 +39,21 @@ export interface ResolvedAuthConfig extends Omit<PendingAuthConfig, 'publicUrl'>
   readonly originPolicy: OriginPolicy
 }
 
-export const DEFAULT_REQUIRE_TOTP = true
+export const DEFAULT_REQUIRE_TOTP = false
 export const DEFAULT_SESSION_HOURS = 168
 export const DEFAULT_WEB_HOST = '127.0.0.1'
 export const DEFAULT_WEB_PORT = 3080
 const AUTH_CONFIG_KEYS = new Set([
   'allowedOrigins',
   'requireTotp',
+  'manualAccountLogin',
   'sessionHours',
   'preserveOriginPaths',
 ])
 
 // The Loader resolves defaults before apply(). Programmatic activation is
 // checked here as well because it need not pass through the Loader.
-export const Config: z<AuthConfig> = z.object({
+const StaticConfig: z<Omit<AuthConfig, 'manualAccountLogin'>> = z.object({
   publicUrl: z.string(),
   host: z.string(),
   port: z.number().step(1).min(0).max(65535),
@@ -57,6 +64,12 @@ export const Config: z<AuthConfig> = z.object({
   sessionHours: z.number().step(1).min(1).default(DEFAULT_SESSION_HOURS),
   preserveOriginPaths: z.array(z.string()).default([]),
 })
+
+const ManualAccountLoginConfig = z.boolean().default(true).volatile()
+export const Config = z.object({
+  ...StaticConfig.dict,
+  manualAccountLogin: ManualAccountLoginConfig,
+}) as z<AuthConfig, ParsedAuthConfig>
 
 export interface WebStartupConfig {
   host?: string
@@ -72,13 +85,14 @@ export interface PendingAuthConfig extends NativeListenerConfig {
   readonly tlsSource: 'cli' | 'file' | undefined
   readonly legacyWarning: boolean
   readonly requireTotp: boolean
+  readonly manualAccountLogin: Volatile<boolean>
   readonly sessionHours: number
   readonly preserveOriginPaths: readonly string[]
 }
 
 /** Resolve effective inputs without reading certificates or constructing a source policy. */
 export function resolveStartupConfig(
-  input: AuthConfig,
+  input: AuthConfig | ParsedAuthConfig,
   startup: WebStartupConfig,
   context: { version: string; profileDir: string; cwd: string },
 ): PendingAuthConfig {
@@ -93,7 +107,18 @@ export function resolveStartupConfig(
   const explicitUrl = startup.publicUrl !== undefined || Object.hasOwn(input, 'publicUrl')
   if (legacyWarning && explicitUrl)
     throw new Error('auth-remote: publicUrl and allowedOrigins cannot be supplied together')
-  const config = Config(input)
+  // Loader owns parsed volatile references. Validate their current value without
+  // reparsing or replacing the reference that it will update in place.
+  const { manualAccountLogin: manual, ...ordinary } = input
+  const config = StaticConfig(ordinary)
+  let manualAccountLogin: Volatile<boolean>
+  if (typeof manual === 'object' && manual !== null) {
+    if (typeof manual.get !== 'function') throw new Error('auth-remote: invalid manualAccountLogin')
+    z.boolean().required()(manual.get())
+    manualAccountLogin = manual
+  } else {
+    manualAccountLogin = ManualAccountLoginConfig(manual)
+  }
   const capabilities = getRuntimeCapabilities(context.version)
   let publicUrl: RootPublicUrl | undefined
   let publicUrlSource: PendingAuthConfig['publicUrlSource'] = 'derived'
@@ -156,6 +181,7 @@ export function resolveStartupConfig(
     tlsSource,
     legacyWarning,
     requireTotp: config.requireTotp ?? DEFAULT_REQUIRE_TOTP,
+    manualAccountLogin,
     sessionHours,
     preserveOriginPaths: Object.freeze([...paths]),
   }

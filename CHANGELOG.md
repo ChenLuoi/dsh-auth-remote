@@ -6,6 +6,17 @@ This file records user-visible changes to the released package. Version numbers 
 
 ## Unreleased
 
+## 0.1.10 - 2026-10-19
+
+- Add DSH `0.2.1-alpha.4` and `0.2.1-alpha.5` support, pin development/default tests to `0.2.1-alpha.5`, and extend CLI, full browser and installation-smoke verification to all nine supported releases. Retain the remote callback and HMR isolation adaptations, exercise native host-release refresh on `0.2.1-alpha.4` and `0.2.1-alpha.5`, and declare `engines.dsh >=0.1.7-rc.1`.
+- Fix native Settings writes after a running DSH hot-reloads the plugin: initialize the listener outside the reload transaction context so re-enabling remote account sign-in still enters the native configuration queue.
+- Fix configuration retry after an initial Settings read failure or a temporarily missing namespace, and wait for the loaded preference before choosing manual or native account sign-in.
+- Simplify the standalone sign-in heading and remove redundant account instructions; show account overview labels and reserved value rows before loading completes.
+- Use a visual switch for remote account sign-in, place its explanation under the feature, show required TOTP policy as inline help, compact security actions and simplify account sign-in instructions with matching dialog styles.
+- Add default-on `manualAccountLogin` through native Settings profile overrides. Accepted saves affect new attempts immediately; disabling preserves admitted authorizations and restores native entries. Manual admission uses SemVer `>=0.2.1-alpha.3` including prereleases, required APIs and configuration; exact full-feature targets are `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5`.
+- Default `requireTotp` to false while preserving explicit policy, existing TOTP and backup codes. Reorganize Security & sign-in into account overview, sign-in options and task dialogs for passwords, TOTP and current/all-session sign-out.
+- Show backup codes once in the same successful TOTP dialog, with Copy all, protected acknowledgement and a redirect hold after revocation. Preserve atomic verification, cancellation/errors, rate limits, session and callback security boundaries.
+
 ## 0.1.9 - 2026-10-15
 
 - Add DSH 0.2.1-alpha.3 to the compatibility declaration and seven-version CLI, installation smoke and browser matrix; use its packages for development and default verification.

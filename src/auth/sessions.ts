@@ -32,15 +32,22 @@ export function sessionFor(
 ): SessionRecord | null {
   if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/u.test(token)) return null
   const session = state.sessions[sessionHash(token)]
+  return session && isActiveSession(state, session, now, requireTotp) ? session : null
+}
+
+/** Shared admission predicate for authentication and the account overview. */
+export function isActiveSession(
+  state: AuthState,
+  session: SessionRecord,
+  now: number,
+  requireTotp: boolean,
+): boolean {
   const account = state.account
-  if (
-    !session ||
-    !account ||
-    session.accountId !== account.id ||
-    session.securityVersion !== account.securityVersion ||
-    session.expiresAt <= now ||
-    (requireTotp && !account.totp)
+  return !!(
+    account &&
+    session.accountId === account.id &&
+    session.securityVersion === account.securityVersion &&
+    session.expiresAt > now &&
+    (!requireTotp || account.totp)
   )
-    return null
-  return session
 }

@@ -12,6 +12,8 @@ export interface MeResponse {
   totpEnabled: boolean
   requireTotp: boolean
   expiresAt: number
+  createdAt: number
+  activeSessions: number
 }
 
 export interface AuthErrorResponse {

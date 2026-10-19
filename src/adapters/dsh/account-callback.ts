@@ -9,13 +9,20 @@ import { ACCOUNT_CALLBACK_PATH } from '../../shared/account-login.js'
 export class AccountCallbackBridge {
   private handler: WebRoute['handler'] | undefined
 
+  constructor(private readonly ownsCallback: () => boolean | Promise<boolean> = () => true) {}
+
+  get available(): boolean {
+    return this.handler !== undefined
+  }
+
   capture(route: WebRoute): { handler: WebRoute['handler']; dispose(): void } | undefined {
     if (route.kind !== 'exact' || route.path !== ACCOUNT_CALLBACK_PATH) return
     const handler = route.handler
     this.handler = handler
     return {
-      handler: (_req, res) => {
-        res.writeHead(403, { 'cache-control': 'no-store' }).end()
+      handler: async (req, res) => {
+        if (await this.ownsCallback()) res.writeHead(403, { 'cache-control': 'no-store' }).end()
+        else return handler(req, res)
       },
       dispose: () => {
         if (this.handler === handler) this.handler = undefined

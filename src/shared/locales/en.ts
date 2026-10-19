@@ -1,24 +1,30 @@
 /** Human-facing text only. Protocol identifiers and command names stay unchanged. */
 export const en = {
-  brand: 'DSH · Remote sign-in',
   errorNetwork: 'Connection failed. Check your network and try again.',
   errorRateLimited: 'Too many attempts. Try again in about {seconds} seconds.',
   errorUnauthorized: 'Your session has expired. Sign in again.',
   errorServiceUnavailable: 'The service is temporarily unavailable. Try again later.',
   errorGeneric: 'The operation could not be completed. Try again.',
 
-  accountLoginTitle: 'Sign in to your DeepSeek account',
-  accountLoginDescription:
-    'Complete authorization in a new tab, then return here to finish signing in.',
-  accountLoginStepOpen: 'Click “Open DeepSeek sign-in” below and sign in on the official page.',
-  accountLoginStepCopy:
-    'After authorization, the new tab may show a connection error or 404. Copy its full address from the address bar.',
-  accountLoginStepSubmit:
-    'Return to this dialog, paste the address below and click “Confirm sign-in”.',
+  accountLoginDisabled:
+    'Manual account sign-in is disabled. Refresh this page to use the native sign-in entry.',
+  settingsLoginConfiguration: 'Sign-in preferences',
+  settingsManualDescription: 'Authorize in a new tab, then paste the callback address.',
+  settingsManualAccountLogin: 'Remote DeepSeek account sign-in',
+  settingsManualConfigUnavailable: 'Sign-in preferences are temporarily unavailable.',
+  settingsManualUnavailable: 'Manual account sign-in is unavailable in this DSH environment.',
+  settingsManualSaveFailed:
+    'Could not save this preference. Check the current value and try again.',
+  settingsSaving: 'Saving…',
+  settingsRetry: 'Retry',
+
+  accountLoginTitle: 'Sign in to DeepSeek',
+  accountLoginStepOpen: 'Sign in to DeepSeek in a new tab.',
+  accountLoginStepCopy: 'Copy the full address after authorization and paste it here.',
   accountLoginCallbackLabel: 'Full callback address',
   accountLoginCallbackHint:
-    'Include both code and state. The page does not need to load. Submit before this authorization expires.',
-  accountLoginOpen: 'Open DeepSeek sign-in',
+    'A connection error or 404 after authorization is expected. Copy the full address.',
+  accountLoginOpen: 'Open sign-in page',
   accountLoginConfirm: 'Confirm sign-in',
   accountLoginCancel: 'Cancel',
   accountLoginUseApiKey: 'Use API key',
@@ -27,8 +33,7 @@ export const en = {
   accountLoginReopen: 'Reopen authorization page',
   accountLoginPopupBlocked: 'The new tab was blocked.',
   accountLoginInitializing: 'Preparing authorization…',
-  accountLoginWaiting:
-    'Waiting for the callback address. This authorization lasts at most 10 minutes.',
+  accountLoginWaiting: 'Authorization lasts at most 10 minutes.',
   accountLoginExchanging: 'Completing sign-in…',
   accountLoginInvalidCallback:
     'This callback address does not match the current authorization. Copy the full address, including code and state, from the latest authorization tab.',
@@ -43,7 +48,7 @@ export const en = {
   accountLoginNoResponse:
     'The DeepSeek platform did not respond. Check the DSH server’s network connection and start again.',
 
-  loginInitialTitle: 'Sign in to DSH',
+  loginInitialTitle: 'Sign in',
   loginInitialLoading: 'Checking sign-in status…',
   loginLanguageLabel: 'Language',
   loginSetupTitle: 'Set up your account first',
@@ -55,8 +60,7 @@ export const en = {
   loginSetupCopyFallback: 'Select and copy the command manually.',
   loginSetupNotFound:
     'No account was found. Check that the command used this profile, then try again.',
-  loginTitle: 'Sign in to DSH',
-  loginDescription: 'Enter the single-user account created in the server terminal.',
+  loginTitle: 'Sign in',
   loginUsername: 'Username',
   loginPassword: 'Password',
   loginContinue: 'Continue',
@@ -93,7 +97,7 @@ export const en = {
   loginOptionalSkipLater: 'Connect later and enter DSH',
   loginReasonExpired: 'Your session has expired. Sign in again.',
   loginReasonUpdated: 'Security settings changed. Sign in again.',
-  loginReasonSignedOut: 'You signed out of this device.',
+  loginReasonSignedOut: 'You signed out of this session.',
   loginUnavailableTitle: 'Sign-in is temporarily unavailable',
   loginUnavailableDescription: 'The service status is unavailable. Check the connection and retry.',
   loginRetry: 'Check again',
@@ -104,15 +108,26 @@ export const en = {
   loginErrorUninitialized:
     'The account is not set up. Run the setup command in the server terminal.',
 
-  settingsSectionLabel: 'Security',
-  settingsSectionAria: 'Security settings',
-  settingsTitle: 'Account security',
+  settingsClose: 'Close',
+  settingsCancel: 'Cancel',
+  settingsOverview: 'Account overview',
+  settingsUsername: 'DSH sign-in username',
+  settingsCreatedAt: 'Signed in at',
+  settingsExpiresAt: 'Session expires at',
+  settingsActiveSessions: 'Active sessions',
+  settingsTotpRequired: 'TOTP is required by configuration and cannot be turned off.',
+  settingsPasswordTitle: 'Password',
+  settingsSignOutCurrentDescription: 'Sign out this session? Other sessions will stay signed in.',
+
+  settingsSectionLabel: 'Security & sign-in',
+  settingsSectionAria: 'Security & sign-in settings',
+  settingsTitle: 'Security & sign-in',
   settingsAccountSummary: 'Account: {username} · TOTP: {totp}',
   settingsTotpEnabled: 'Enabled',
   settingsTotpNotBound: 'Not connected',
   settingsLoading: 'Loading account status…',
   settingsChangePassword: 'Change password',
-  settingsBindTotp: 'Connect TOTP',
+  settingsBindTotp: 'Turn on TOTP',
   settingsRebindTotp: 'Reconnect TOTP',
   settingsSessions: 'Session management',
   settingsPasswordMismatch: 'The new passwords do not match.',
@@ -135,10 +150,15 @@ export const en = {
   settingsNewCode: 'Six-digit code from the new authenticator',
   settingsConfirmBinding: 'Confirm setup',
   settingsRestartBinding: 'Start over',
-  settingsSignOutCurrent: 'Sign out this device',
-  settingsSignOutAll: 'Sign out every device',
+  settingsSignOutCurrent: 'Sign out this session',
+  settingsSignOutAll: 'Sign out all sessions',
   settingsSignOutAllDescription:
-    'Enter your current credentials. All signed-in devices and open connections will be revoked.',
+    'Enter your current credentials. All sessions, including this one, and open connections will be revoked.',
+  settingsOldBackupInvalid: 'Your previous backup codes no longer work.',
+  settingsCopyAll: 'Copy all',
+  settingsBackupCopied: 'Backup codes copied.',
+  settingsBackupCopyFailed: 'Could not copy. Select the codes and copy them manually.',
+
   settingsBackupTitle: 'Save your backup codes',
   settingsBackupDescription:
     'These codes are shown only once. Store them safely; each code can be used only once.',

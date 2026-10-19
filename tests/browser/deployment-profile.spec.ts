@@ -168,7 +168,7 @@ for (const scenario of [
         JSON.parse((await requestLocal('/auth-remote/state', undefined, scenario.host)).body),
         {
           initialized: false,
-          requireTotp: true,
+          requireTotp: false,
           profileName: 'web',
         },
       )

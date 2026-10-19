@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createRequire } from 'node:module'
 import { test } from 'node:test'
 import { Config } from '../../src/config.js'
 
@@ -129,7 +130,7 @@ test('TLS chooses whole CLI or file pair and resolves paths against their own ba
     )
 })
 
-test('seven exact versions enforce native transport capabilities and concrete bindings', async () => {
+test('nine exact versions enforce native transport capabilities and concrete bindings', async () => {
   const { resolveStartupConfig } = await api()
   assert.equal(typeof resolveStartupConfig, 'function')
   for (const version of [
@@ -140,12 +141,14 @@ test('seven exact versions enforce native transport capabilities and concrete bi
     '0.2.1-alpha.1',
     '0.2.1-alpha.2',
     '0.2.1-alpha.3',
+    '0.2.1-alpha.4',
+    '0.2.1-alpha.5',
   ]) {
     const options = { ...context, version }
     assert.equal(resolveStartupConfig({ host: '192.0.2.10' }, {}, options).host, '192.0.2.10')
     for (const host of ['0.0.0.0', '::', '::ffff:0.0.0.0', 'localhost', 'app.example'])
       assert.throws(() => resolveStartupConfig({ host }, {}, options))
-    if (version === '0.2.1-alpha.2' || version === '0.2.1-alpha.3') {
+    if (['0.2.1-alpha.2', '0.2.1-alpha.3', '0.2.1-alpha.4', '0.2.1-alpha.5'].includes(version)) {
       assert.equal(resolveStartupConfig({ host: '::1' }, {}, options).host, '::1')
       assert.equal(
         resolveStartupConfig({ host: '::ffff:127.0.0.1' }, {}, options).host,
@@ -199,6 +202,8 @@ test('version capabilities distinguish public URL projection from native transpo
     ['0.2.1-alpha.1', true, false],
     ['0.2.1-alpha.2', true, true],
     ['0.2.1-alpha.3', true, true],
+    ['0.2.1-alpha.4', true, true],
+    ['0.2.1-alpha.5', true, true],
     ['0.2.1-rc.1', true, true],
     ['1.0.0', true, true],
   ] as const) {
@@ -325,4 +330,38 @@ test('old runtime retains the loopback bridge while exposing its concrete IPv4 p
   assert.equal(final.publicUrl, 'http://192.0.2.10:13138/')
   assert.equal(final.nativeAuthority, '127.0.0.1:13138')
   assert.equal(final.nativeOrigin, 'http://127.0.0.1:13138')
+})
+
+test('manual login raw values validate while Loader updates retain the exact reference', async () => {
+  const { resolveStartupConfig } = await api()
+  const require = createRequire(import.meta.url)
+  const { updateVolatile } = createRequire(require.resolve('@deepseek-ai/cordis/package.json'))(
+    '@deepseek-ai/cosmokit',
+  )
+  for (const value of [undefined, true, false]) {
+    const input = value === undefined ? {} : { manualAccountLogin: value }
+    assert.equal(resolveStartupConfig(input, {}, context).manualAccountLogin.get(), value ?? true)
+  }
+  const parsed = Config({ manualAccountLogin: true })
+  const pending = resolveStartupConfig(parsed, {}, context)
+  assert.equal(pending.manualAccountLogin, parsed.manualAccountLogin)
+  updateVolatile(
+    parsed.manualAccountLogin,
+    Config({ manualAccountLogin: false }).manualAccountLogin,
+  )
+  assert.equal(pending.manualAccountLogin.get(), false)
+  for (const manualAccountLogin of ['false', 0, [], {}, { get: () => 'false' }])
+    assert.throws(() => resolveStartupConfig({ manualAccountLogin } as never, {}, context))
+})
+
+test('TOTP is optional by default and explicit profile policies retain their exact value', async () => {
+  const { resolveStartupConfig, DEFAULT_REQUIRE_TOTP } = await api()
+  assert.equal(DEFAULT_REQUIRE_TOTP, false)
+  for (const value of [undefined, true, false]) {
+    const input = value === undefined ? {} : { requireTotp: value }
+    const before = JSON.stringify(input)
+    assert.equal(Config(input).requireTotp, value ?? false)
+    assert.equal(resolveStartupConfig(input, {}, context).requireTotp, value ?? false)
+    assert.equal(JSON.stringify(input), before)
+  }
 })
