@@ -27,13 +27,6 @@ export const suites = {
     pattern: '^login and security settings follow DSH themes and fit narrow screens$',
     count: 1,
   },
-  'startup-transport': {
-    versions: ['0.2.1-alpha.1', '0.2.1-alpha.2'],
-    files: [
-      'tests/browser/startup-compatibility.spec.ts',
-      'tests/browser/native-transport.spec.ts',
-    ],
-  },
   account: {
     versions: ['0.2.1-alpha.3'],
     files: [
@@ -44,7 +37,14 @@ export const suites = {
   },
   'host-release': {
     files: ['tests/browser/host-release.spec.ts'],
-    versions: ['0.2.1-alpha.4', '0.2.1-alpha.5', '0.2.1-rc.1', '0.2.1-rc.2'],
+    versions: [
+      '0.2.1-alpha.4',
+      '0.2.1-alpha.5',
+      '0.2.1-rc.1',
+      '0.2.1-rc.2',
+      '0.2.1-rc.3',
+      '0.2.1-rc.4',
+    ],
     count: 1,
   },
   'rc-bootstrap': {
@@ -153,6 +153,27 @@ export function testCounts(output, selectedFiles = []) {
   for (const key of ['fail', 'cancelled', 'skipped', 'todo'])
     assert.equal(counts[key], 0, `Unexpected ${key} tests`)
   return counts
+}
+
+export function assertRegisteredCoverage(name, version, counts) {
+  assert(testedDshVersions.includes(version), 'Unknown coverage target')
+  assert(Object.hasOwn(suites, name), 'Unknown verification suite')
+  const optional =
+    name === 'browser'
+      ? [
+          ...(version === '0.2.1-alpha.3' ? ['tests/browser/host-release.spec.ts'] : []),
+          ...(!['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4'].includes(version)
+            ? ['tests/browser/web-search-settings.spec.ts']
+            : []),
+          ...(!['0.2.1-rc.3', '0.2.1-rc.4'].includes(version)
+            ? ['tests/browser/rc-navigation.spec.ts']
+            : []),
+        ].map((path) => join(project, path))
+      : []
+  for (const path of counts.placeholderFiles)
+    assert(optional.includes(path), `Required file registered zero tests: ${path}`)
+  if (suites[name].count)
+    assert.equal(counts.actualTests, suites[name].count, 'Wrong specialized test count')
 }
 
 export function parseArguments(argv) {
@@ -350,25 +371,7 @@ export async function verifyPacked(options) {
         result.pattern = pattern ?? null
         report.commands.push({ command: 'pnpm', args })
         counts = testCounts(await run('pnpm', args, env, log, cancellation.signal), selected)
-        if (!options['test-name-pattern']) {
-          const optional =
-            name === 'browser'
-              ? [
-                  ...(!['0.2.1-alpha.4', '0.2.1-alpha.5', '0.2.1-rc.1', '0.2.1-rc.2'].includes(
-                    version,
-                  )
-                    ? ['tests/browser/host-release.spec.ts']
-                    : []),
-                  ...(version !== '0.2.1-rc.2'
-                    ? ['tests/browser/web-search-settings.spec.ts']
-                    : []),
-                ].map((path) => join(project, path))
-              : []
-          for (const path of counts.placeholderFiles)
-            assert(optional.includes(path), `Required file registered zero tests: ${path}`)
-        }
-        if (suite.count && !options['test-name-pattern'])
-          assert.equal(counts.actualTests, suite.count, 'Wrong specialized test count')
+        if (!options['test-name-pattern']) assertRegisteredCoverage(name, version, counts)
       }
       assert.equal(
         sha256(await readFile(source)),

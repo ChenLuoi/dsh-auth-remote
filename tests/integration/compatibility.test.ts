@@ -41,24 +41,29 @@ test('DSH loader peer range and runtime gate admit upgrades, including prereleas
   // DSH preflight explicitly includes prereleases. These future examples test
   // version admission only, not the compatibility of unreleased host APIs.
   for (const version of [
-    '0.1.7-rc.1',
-    '0.1.7-rc.2',
-    '0.2.0-rc.1',
-    '0.2.0-rc.2',
-    '0.2.0',
-    '0.2.1-alpha.1',
-    '0.2.1-alpha.2',
     '0.2.1-alpha.3',
     '0.2.1-alpha.4',
     '0.2.1-alpha.5',
     '0.2.1-rc.1',
     '0.2.1-rc.2',
+    '0.2.1-rc.3',
+    '0.2.1-rc.4',
     '0.3.0-rc.1',
     '1.0.0',
   ]) {
     assert.equal(semver.satisfies(version, SUPPORTED_DSH_RANGE, { includePrerelease: true }), true)
   }
-  for (const version of ['0.1.6', '0.1.7-alpha.1', 'invalid']) {
+  for (const version of [
+    '0.1.7-rc.1',
+    '0.1.7-rc.2',
+    '0.2.0-rc.1',
+    '0.2.0-rc.2',
+    '0.2.1-alpha.1',
+    '0.2.1-alpha.2',
+    '0.1.6',
+    '0.1.7-alpha.1',
+    'invalid',
+  ]) {
     assert.equal(semver.satisfies(version, SUPPORTED_DSH_RANGE, { includePrerelease: true }), false)
   }
 })

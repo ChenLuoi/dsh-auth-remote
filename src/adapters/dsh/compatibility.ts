@@ -10,7 +10,7 @@ const CONNECTION_PACKAGE = '@deepseek-ai/dsh-client-connection'
 // DSH's loader includes prereleases when evaluating this same peer range.
 // Future versions are admitted by version; the API and identity checks below
 // still fail closed if the host can no longer enforce the authentication gate.
-export const SUPPORTED_DSH_RANGE = '>=0.1.7-rc.1'
+export const SUPPORTED_DSH_RANGE = '>=0.2.1-alpha.3'
 
 interface PackageManifest {
   name: string
@@ -27,7 +27,9 @@ function packageManifest(
     manifest.name !== packageName ||
     !semver.satisfies(manifest.version, SUPPORTED_DSH_RANGE, { includePrerelease: true })
   ) {
-    throw new Error(`auth-remote: unsupported ${packageName} version ${manifest.version}`)
+    throw new Error(
+      `auth-remote: unsupported ${packageName} version ${manifest.version}; minimum DSH 0.2.1-alpha.3. Upgrade to DSH 0.2.1-rc.4; last supported plugin for older DSH: 0.2.0. See README.md and docs/support-history.md.`,
+    )
   }
   return { path, manifest }
 }

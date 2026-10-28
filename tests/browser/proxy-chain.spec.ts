@@ -12,13 +12,14 @@ import { request as httpsRequest } from 'node:https'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { chromium } from '@playwright/test'
+import { chromium, expect } from '@playwright/test'
 import { startForwarder, type Forwarder } from '../helpers/proxy.js'
 import {
   archive,
   completeApiKeyPrompt,
   dsh,
   launchBrowser,
+  isolatedDshEnv,
   openDshSettings,
   project,
 } from '../helpers/runtime.js'
@@ -32,13 +33,7 @@ const directOrigin = `http://127.0.0.1:${relayPort}`
 const password = 'proxy browser password 123'
 
 function testEnv(home: string): NodeJS.ProcessEnv {
-  return {
-    PATH: process.env.PATH,
-    HOME: home,
-    DSH_HOME: home,
-    DSH_TELEMETRY_DISABLED: '1',
-    LANG: 'C.UTF-8',
-  }
+  return isolatedDshEnv(home)
 }
 
 function quote(value: string): string {
@@ -181,6 +176,9 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
     await writeFile(
       join(profile, 'cordis.patch.yml'),
       [
+        '- id: llm-deepseek',
+        '  config:',
+        '    baseURL: http://127.0.0.1:13103/onboarding',
         '- id: webserver',
         '  disabled: true',
         '- id: auth-remote',
@@ -423,6 +421,11 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
       name: '描述你想要构建的内容, / 调用指令, @ 文件或对话',
     })
     await composer.fill('请回复代理链路聊天成功')
+    assert.deepEqual(
+      modelRequests,
+      [],
+      'native onboarding and model settings must not invoke inference',
+    )
     streamObserved = new Promise<void>((resolve) => {
       releaseStream = resolve
     })
@@ -440,8 +443,12 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
     const completedTurn = page.getByRole('status').filter({ hasText: /^已完成(?:工作)?$/u })
     await completedTurn.waitFor({ timeout: 15000 })
     await page.getByText('代理链路聊天成功', { exact: true }).last().waitFor()
-    assert.ok(modelRequests.some((request) => request.method === 'POST'))
-    assert.ok(modelRequests.every((request) => request.path === '/anthropic/v1/messages'))
+    // The native host also generates the first session title through the same local route.
+    await expect.poll(() => modelRequests.length).toBe(2)
+    assert.deepEqual(modelRequests, [
+      { method: 'POST', path: '/anthropic/v1/messages' },
+      { method: 'POST', path: '/anthropic/v1/messages' },
+    ])
     const uploaded = page.waitForResponse(
       (response) => new URL(response.url()).pathname === '/api/session/uploadFileBinary',
     )

@@ -21,6 +21,8 @@ const previousVersions: Record<string, string> = {
   '0.2.1-alpha.5': '0.2.1-alpha.4',
   '0.2.1-rc.1': '0.2.1-alpha.5',
   '0.2.1-rc.2': '0.2.1-rc.1',
+  '0.2.1-rc.3': '0.2.1-rc.2',
+  '0.2.1-rc.4': '0.2.1-rc.3',
 }
 const previousVersion = previousVersions[dshVersion]
 if (previousVersion)

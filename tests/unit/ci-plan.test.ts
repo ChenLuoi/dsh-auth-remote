@@ -78,14 +78,14 @@ test('unknown events, manual and weekly events, incomplete/empty input and renam
 
 test('ordinary matrices retain all CLI targets and every fixed capability boundary', () => {
   const ordinary = ordinaryVerificationPlan()
-  assert.equal(ordinary.versions.length, 11)
-  assert.equal(ordinary.browser.include.length, 10)
+  assert.equal(ordinary.versions.length, 7)
+  assert.equal(ordinary.browser.include.length, 7)
   validateVerificationPlan(ordinary.kind, ordinary.versions, ordinary.browser)
   assert.deepEqual(
     ordinary.browser.include
       .filter(({ suite }: { suite: string }) => suite === 'browser')
       .map(({ dsh }: { dsh: string }) => dsh),
-    ['0.1.7-rc.1', '0.2.0-rc.2', '0.2.1-rc.2'],
+    ['0.2.1-alpha.3', '0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4'],
   )
   const missing = structuredClone(ordinary.browser)
   missing.include.pop()

@@ -21,6 +21,8 @@ import {
   completeApiKeyPrompt,
   dsh,
   launchBrowser,
+  isolatedDshEnv,
+  localModelEndpoint,
   openDshSettings,
   selectDshTheme,
   waitForAnimations,
@@ -37,7 +39,7 @@ function quote(value: string): string {
 async function command(bin: string, args: string[], home: string): Promise<void> {
   const child = spawn(bin, args, {
     cwd: home,
-    env: { ...process.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' },
+    env: isolatedDshEnv(home),
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   let stderr = ''
@@ -62,7 +64,7 @@ async function initialize(home: string): Promise<void> {
   ]
   const child = spawn('script', ['-q', '-e', '-f', '-c', args.map(quote).join(' '), '/dev/null'], {
     cwd: home,
-    env: { ...process.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' },
+    env: isolatedDshEnv(home),
     stdio: ['pipe', 'pipe', 'pipe'],
   })
   const prompts = [
@@ -118,13 +120,8 @@ async function fixture(
   const home = await mkdtemp(join(tmpdir(), 'dsh-auth-remote-browser-login-'))
   const profile = join(home, 'profiles/web')
   const origin = `http://${hostName}:${port}`
-  const runtimeEnv: NodeJS.ProcessEnv = {
-    ...process.env,
-    DSH_HOME: home,
-    DSH_TELEMETRY_DISABLED: '1',
-  }
-  // A fresh profile must not inherit model credentials from the developer's shell.
-  delete runtimeEnv.DEEPSEEK_API_KEY
+  const runtimeEnv = isolatedDshEnv(home)
+  const model = await localModelEndpoint()
   let server: ReturnType<typeof spawn> | undefined
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined
   try {
@@ -132,6 +129,7 @@ async function fixture(
     await writeFile(
       join(profile, 'cordis.patch.yml'),
       [
+        ...model.patch,
         '- id: webserver',
         '  disabled: true',
         '- id: auth-remote',
@@ -187,12 +185,14 @@ async function fixture(
       origin,
       page,
       context,
+      model,
       cleanup: async () => {
         await browser?.close()
         if (server && server.exitCode === null && server.signalCode === null) {
           server.kill('SIGTERM')
           await once(server, 'exit').catch(() => {})
         }
+        await model.close()
         if (process.env.DSH_KEEP_TEST_HOME === '1') console.error(`Browser login home: ${home}`)
         else await rm(home, { recursive: true, force: true })
       },
@@ -203,6 +203,7 @@ async function fixture(
       server.kill('SIGTERM')
       await once(server, 'exit').catch(() => {})
     }
+    await model.close()
     await rm(home, { recursive: true, force: true })
     throw error
   }
@@ -1369,7 +1370,8 @@ test('official plugin settings persist through the guarded remote browser', asyn
     await settings.getByText('DeepSeek', { exact: true }).waitFor()
     await settings.getByRole('button', { name: /编辑/u }).click()
     await settings.getByText('自定义设置', { exact: true }).click()
-    const modelAddress = 'https://example.invalid/anthropic'
+    assert.equal(await settings.getByLabel('API 地址').inputValue(), f.model.baseURL)
+    const modelAddress = f.model.baseURL + '/persisted'
     await settings.getByLabel('API 地址').fill(modelAddress)
     const modelMutate = f.page.waitForResponse(
       (response) => new URL(response.url()).pathname === '/api/settings/mutate',

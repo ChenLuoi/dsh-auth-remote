@@ -14,10 +14,10 @@ import { AUTH_COOKIE } from '../../src/shared/auth-contract.js'
 import { packedCommand, packedProfile } from '../helpers/packed-runtime.js'
 import { clickThroughDshPrompts, launchBrowser } from '../helpers/runtime.js'
 
-// The three-namespace Search/Fetch form was introduced in this exact release.
-if (dshVersion === '0.2.1-rc.2')
+// Verify the three-namespace native form on each exact RC target.
+if (['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4'].includes(dshVersion))
   test(
-    'RC.2 native web search settings persist all three namespaces and credentials behind the remote session gate',
+    `DSH ${dshVersion} native web search settings persist all three namespaces and credentials behind the remote session gate`,
     { timeout: 120_000 },
     async () => {
       const probe = createServer().listen(0, '127.0.0.1')
@@ -137,6 +137,8 @@ if (dshVersion === '0.2.1-rc.2')
           const response = await answer
           assert.equal(response.status(), 200)
           assert.equal((await response.json()).result.ok, true)
+          // The native form writes credentials after its settings namespace response.
+          await expect(page.getByRole('button', { name: '保存', exact: true })).toBeDisabled()
         }
         await openSearch()
         let sections = await describe()
@@ -229,10 +231,16 @@ if (dshVersion === '0.2.1-rc.2')
         const denied = async (omit: boolean) => {
           for (const [method, args] of [
             ['settings/describe', {}],
-            ...['web', 'web-search-deepseek', 'web-deepseek-api'].map((ns) => [
-              'settings/mutate',
-              { ns, ops: [{ op: 'set', path: ['baseURL'], value: 'https://example.invalid/' }] },
-            ]),
+            ...['web', 'web-search-deepseek', 'web-deepseek-api'].map(
+              (ns) =>
+                [
+                  'settings/mutate',
+                  {
+                    ns,
+                    ops: [{ op: 'set', path: ['baseURL'], value: 'https://example.invalid/' }],
+                  },
+                ] as const,
+            ),
             ['credentials/describe', { refs: ['DEEPSEEK_API_KEY'] }],
             ['credentials/set', { ref: 'DEEPSEEK_API_KEY', value: 'must-not-save' }],
           ] as const)

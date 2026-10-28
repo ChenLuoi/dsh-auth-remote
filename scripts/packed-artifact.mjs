@@ -19,16 +19,13 @@ export function ordinaryVerificationPlan() {
     versions: [...testedDshVersions],
     browser: {
       include: [
-        { dsh: '0.1.7-rc.1', suite: 'browser' },
-        { dsh: '0.1.7-rc.2', suite: 'theme' },
-        { dsh: '0.2.0-rc.2', suite: 'browser' },
-        { dsh: '0.2.1-alpha.1', suite: 'startup-transport' },
-        { dsh: '0.2.1-alpha.2', suite: 'startup-transport' },
-        { dsh: '0.2.1-alpha.3', suite: 'account' },
+        { dsh: '0.2.1-alpha.3', suite: 'browser' },
         { dsh: '0.2.1-alpha.4', suite: 'host-release' },
         { dsh: '0.2.1-alpha.5', suite: 'host-release' },
         { dsh: '0.2.1-rc.1', suite: 'rc-bootstrap' },
         { dsh: '0.2.1-rc.2', suite: 'browser' },
+        { dsh: '0.2.1-rc.3', suite: 'browser' },
+        { dsh: '0.2.1-rc.4', suite: 'browser' },
       ],
     },
   }

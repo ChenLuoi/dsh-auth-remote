@@ -9,7 +9,6 @@ import {
   ACCOUNT_CALLBACK_PATH,
   ACCOUNT_LOGIN_BASE,
   isActiveAccountLogin,
-  supportsManualAccountLogin,
   type AccountLoginState,
 } from '../shared/account-login.js'
 import type { AuthState, SessionRecord } from '../storage/state.js'
@@ -66,7 +65,6 @@ export class ManualAccountLogin {
   ) {
     this.unsubscribe = store.subscribe((_before, after) => this.reconcile(after))
     // Keep provider and bridge lifetimes independent of the live preference.
-    if (!supportsManualAccountLogin(version)) return
     // Cordis returns a fresh traceable proxy on every get(). Retain one
     // dependency generation, and cancel its attempt before it unloads.
     ctx.inject(['deepseekAccount'], (accountCtx) => {
@@ -82,7 +80,7 @@ export class ManualAccountLogin {
   }
 
   install(server: GuardedWebServer): void {
-    if (supportsManualAccountLogin(this.version)) server.installAccountCallbackBridge(this.bridge)
+    server.installAccountCallbackBridge(this.bridge)
     for (const action of ['state', 'start', 'submit', 'cancel'])
       server.register({
         kind: 'exact',

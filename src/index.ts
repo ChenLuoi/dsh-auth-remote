@@ -87,8 +87,8 @@ export class AuthRemoteWebServer extends GuardedWebServer {
     super(ctx, config, gate)
     this.pending = config
     this.switchGate = gate
-    warnDshSupport(classifyDshSupport(config.capabilities.version, declaredDshReleases))
-    installAuthenticatedHostCapability(ctx, config.capabilities.version)
+    warnDshSupport(classifyDshSupport(config.version, declaredDshReleases))
+    installAuthenticatedHostCapability(ctx, config.version)
     if (config.legacyWarning)
       console.warn('auth-remote: allowedOrigins is deprecated; use publicUrl with one root URL')
   }
@@ -125,7 +125,7 @@ export class AuthRemoteWebServer extends GuardedWebServer {
       this.resolvedConfig = finalizeAuthConfig(this.pending, {
         host: this.host,
         port,
-        protocol: listenerProtocol(this, this.pending.capabilities),
+        protocol: listenerProtocol(this),
       })
       this.setOriginPolicy(this.resolved.originPolicy)
       connections = new AuthConnections(store, auth)
@@ -134,12 +134,8 @@ export class AuthRemoteWebServer extends GuardedWebServer {
       })
       this.switchGate.set(new AuthGate(this.resolved, store, auth, readiness, connections))
       new AuthRoutes(auth, profileName).install(this)
-      accountLogin = new ManualAccountLogin(
-        this.ctx,
-        auth,
-        store,
-        this.pending.capabilities.version,
-        () => this.pending.manualAccountLogin.get(),
+      accountLogin = new ManualAccountLogin(this.ctx, auth, store, this.pending.version, () =>
+        this.pending.manualAccountLogin.get(),
       )
       accountLogin.install(this)
       admin = new AdminSocket(

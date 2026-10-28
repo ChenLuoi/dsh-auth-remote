@@ -77,7 +77,7 @@ export class GuardedWebServer extends WebServer {
     config: NativeListenerConfig & { originPolicy?: OriginPolicy },
     private readonly gate: WebGate = new DenyGate(),
   ) {
-    // Production resolves capabilities and explicitly validates the native
+    // Production verifies the host version and explicitly validates the native
     // schema before calling this constructor, including on old IPv4 runtimes.
     super(ctx, config as WebServerConfig)
     this.originPolicy = config.originPolicy
