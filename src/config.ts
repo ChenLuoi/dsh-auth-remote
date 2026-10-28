@@ -4,10 +4,9 @@ import { isIP } from 'node:net'
 import { resolve } from 'node:path'
 import { listenerPublicUrl, parsePublicUrl, type RootPublicUrl } from './adapters/dsh/public-url.js'
 import {
-  getRuntimeCapabilities,
+  assertRuntimeVersion,
   listenerTransport,
   validateListenerConfig,
-  type RuntimeCapabilities,
   type NativeListenerConfig,
 } from './adapters/dsh/runtime-capabilities.js'
 import { createOriginPolicy, type OriginPolicy, type OriginProtocol } from './http/origin-policy.js'
@@ -79,7 +78,7 @@ export interface WebStartupConfig {
 }
 
 export interface PendingAuthConfig extends NativeListenerConfig {
-  readonly capabilities: RuntimeCapabilities
+  readonly version: string
   readonly publicUrl: RootPublicUrl | undefined
   readonly publicUrlSource: 'cli' | 'file' | 'legacy' | 'derived'
   readonly tlsSource: 'cli' | 'file' | undefined
@@ -119,7 +118,7 @@ export function resolveStartupConfig(
   } else {
     manualAccountLogin = ManualAccountLoginConfig(manual)
   }
-  const capabilities = getRuntimeCapabilities(context.version)
+  assertRuntimeVersion(context.version)
   let publicUrl: RootPublicUrl | undefined
   let publicUrlSource: PendingAuthConfig['publicUrlSource'] = 'derived'
   if (explicitUrl) {
@@ -152,7 +151,7 @@ export function resolveStartupConfig(
       keyFile: resolve(context.profileDir, config.tlsKey),
     }
   }
-  const listener = validateListenerConfig(capabilities, {
+  const listener = validateListenerConfig({
     host: startup.host ?? (Object.hasOwn(input, 'host') ? config.host! : DEFAULT_WEB_HOST),
     port: startup.port ?? (Object.hasOwn(input, 'port') ? config.port! : DEFAULT_WEB_PORT),
     ...(tls ? { tls } : {}),
@@ -175,7 +174,7 @@ export function resolveStartupConfig(
   }
   return {
     ...listener,
-    capabilities,
+    version: context.version,
     publicUrl,
     publicUrlSource,
     tlsSource,
@@ -199,7 +198,7 @@ export function finalizeAuthConfig(
     isIP(actual.host) === 0
   )
     throw new Error('auth-remote: invalid actual listener host or port')
-  const transport = listenerTransport(actual, pending.capabilities)
+  const transport = listenerTransport(actual)
   let listenerUrl: string
   if (actual.host.includes('%')) {
     // A scoped bind is not a portable URL authority. Keep its listener display,

@@ -121,19 +121,56 @@ jobs:
           path: .cache/verify-packed/report-*
           if-no-files-found: error
 
+  retired-rejection:
+    name: Retired DSH rejection (0.2.1-alpha.2)
+    needs: validate
+    if: ${{ inputs.plan == 'full' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v3
+        with:
+          runtime: node@24
+          cache: true
+          require-lockfile: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.artifact }}
+          path: artifacts
+      - name: Reject the producer archive on the adjacent retired host
+        env:
+          DSH_ARCHIVE_NAME: ${{ inputs.archive }}
+          DSH_ARCHIVE_SHA: ${{ inputs.sha256 }}
+        run: |
+          node scripts/packed-artifact.mjs check "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA"
+          node scripts/verify-retired.mjs --archive "artifacts/$DSH_ARCHIVE_NAME" --sha256 "$DSH_ARCHIVE_SHA" --retired-dsh-version 0.2.1-alpha.2
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: packed-retired-rejection-0.2.1-alpha.2
+          path: .cache/verify-retired/report-*.json
+          if-no-files-found: error
+
   verified:
     name: Packed verification complete
-    needs: [validate, cli-smoke, browser]
+    needs: [validate, cli-smoke, browser, retired-rejection]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Require every planned job to succeed
         env:
           DSH_JOB_RESULTS: ${{ toJSON(needs) }}
+          DSH_VERIFY_PLAN: ${{ inputs.plan }}
         run: |
           node --input-type=module - <<'JS'
           import assert from 'node:assert/strict'
           const jobs = JSON.parse(process.env.DSH_JOB_RESULTS)
-          assert.deepEqual(Object.keys(jobs).sort(), ['browser', 'cli-smoke', 'validate'])
-          for (const [name, job] of Object.entries(jobs)) assert.equal(job.result, 'success', name)
+          const plan = process.env.DSH_VERIFY_PLAN
+          assert(['full', 'ordinary'].includes(plan), 'Unknown verification plan')
+          assert.deepEqual(Object.keys(jobs).sort(), ['browser', 'cli-smoke', 'retired-rejection', 'validate'])
+          for (const [name, job] of Object.entries(jobs)) {
+            const expected = plan === 'ordinary' && name === 'retired-rejection' ? 'skipped' : 'success'
+            assert.equal(job.result, expected, name)
+          }
           JS

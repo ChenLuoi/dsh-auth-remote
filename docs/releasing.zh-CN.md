@@ -4,11 +4,11 @@
 
 每次发布都从已通过检查的 `master` 提交开始。`vX.Y.Z` 标签必须与 `package.json` 中的稳定版本以及两份更新日志的日期条目一致。标签工作流先核对标签与 master 祖先关系，只构建一个 npm 压缩包，对全部声明的 DSH 版本验证该包，再核对或发布 npm 版本，并创建包含相同压缩包和 `SHA256SUMS` 的 GitHub Release。
 
-RC/生命周期变更归入版本 `0.2.0`。每次发布前须验证其最终归档；不得重发或改写 npm `0.1.10`。
+七版支持迁移归入未发布候选 `0.3.1`。发布前须验证最终归档，既有 npm 版本不可重发。更新日志与 `retiredOn: 2026-10-28` 记录准备日期，不证明 registry 已发布。
 
 发布准备中修改支持版本前，先复核 [Legacy 兼容维护清单](legacy-compatibility.zh-CN.md)，共同检查 peers、兼容声明、运行时准入、测试目标、CI 和指南。同次删除与支持集合无交集的专属运行时适配，保留共享安全逻辑；旧插件配置退役有独立条件。打包前同步更新并人工核对中英文清单、两个维度的矩阵及完整版本号。
 
-打包前同时维护两种语言的[支持规范](support-policy.zh-CN.md)、[DSH → 插件](support-history.zh-CN.md#by-dsh)与[插件 → DSH](support-history.zh-CN.md#by-plugin)历史、库存及 README。新发布版本须新增历史行及自身分发证据，不改写旧 npm 0.1.10 记录。
+打包前同步维护双语 README、[DSH → 插件](support-history.zh-CN.md#by-dsh)和[插件 → DSH](support-history.zh-CN.md#by-plugin)历史及库存。本次 `0.3.1` 迁移保持两份 support-policy 原样，作为前一发布记录。保留历史行/锚点，区分已发布 `0.2.0` 和未发布候选，不引用不存在的候选 tag 作为已核实证据。
 
 ## 准备版本
 
@@ -46,9 +46,15 @@ for (const version of testedDshVersions) {
 JS
 ```
 
+后续每次 full/发布还须用同包验证相邻退役宿主；本次迁移最终验收另外串行运行开发指南列出的全部六版负向。它们不属于正向业务矩阵。
+
+```sh
+node scripts/verify-retired.mjs --archive artifacts/dsh-auth-remote-0.3.1.tgz --sha256 <recorded-sha256> --retired-dsh-version 0.2.1-alpha.2
+```
+
 消费循环中不得构建或打包。归档内容变化须产生新候选并重新全量验证。JSON 报告记录摘要、精确版本、suite 范围、命令和真实用例数，见[固定归档指南](development.zh-CN.md#消费固定归档)。
 
-工作流 DAG 为 `tag` → `package` → 共用 `verify-packed.yml` → `publish`。producer 上传一份 `release-package` 制品，独立 CLI/smoke 与完整 browser job 覆盖全部十一个声明版本，消费前核对 producer 给出的预期 SHA-256、包身份及摘要文件。验证 job 拒绝不完整矩阵，聚合要求全部计划 job 成功；失败、取消或意外跳过均阻止发布。
+工作流 DAG 为 `tag` → `package` → 共用 `verify-packed.yml` → `publish`。producer 上传一份 `release-package` 制品，独立 CLI/smoke 与完整 browser job 覆盖全部七个声明版本，消费前核对 producer 给出的预期 SHA-256、包身份及摘要文件。验证 job 拒绝不完整矩阵，full 聚合要求全部计划 job（含独立 `0.2.1-alpha.2` 退役拒绝）成功；失败、取消或意外跳过均阻止发布。
 
 `publish` 下载同一制品，再次与 producer 预期摘要核对，不构建或打包。保留 npm 同版本字节比较、可信发布及 GitHub Release 重试行为。工作流用 `npm publish ./artifacts/dsh-auth-remote-X.Y.Z.tgz --access public` 发布已验证 tgz，无需在本地手动发布。
 
@@ -59,18 +65,18 @@ JS
 ```sh
 git switch master
 git pull --ff-only origin master
-git tag -a v0.2.0 -m "Release v0.2.0"
-git push origin v0.2.0
+git tag -a v0.3.1 -m "Release v0.3.1"
+git push origin v0.3.1
 ```
 
-执行时把 `0.2.0` 换成目标版本。标签必须指向 `master` 可达的提交。标签版本不匹配、缺少更新日志条目、测试失败，或 npm 现存版本与本次压缩包字节不同，都会阻止发布。
+执行时把 `0.3.1` 换成目标版本。标签必须指向 `master` 可达的提交。标签版本不匹配、缺少更新日志条目、测试失败，或 npm 现存版本与本次压缩包字节不同，都会阻止发布。
 
 工作流结束后检查运行状态、GitHub Release 和 npm 版本：
 
 ```sh
 gh run list --workflow release.yml --limit 5
-gh release view v0.2.0
-npm view dsh-auth-remote@0.2.0 version dist.integrity
+gh release view v0.3.1
+npm view dsh-auth-remote@0.3.1 version dist.integrity
 ```
 
 GitHub Release 包含 `.tgz` 和 `SHA256SUMS`。把两者下载到同一个目录，在该目录运行 `sha256sum -c SHA256SUMS` 验证附件。工作流失败时先查看 **Actions → Release** 再重试；npm 版本不可覆盖，因此只有现存版本的压缩包字节与本次构建一致时，工作流才会跳过重复发布。

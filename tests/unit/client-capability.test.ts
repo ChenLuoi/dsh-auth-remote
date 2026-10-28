@@ -49,47 +49,59 @@ test('manual adapter admits the SemVer floor including prereleases without an up
     '0.2.1-alpha.5',
     '0.2.1-rc.1',
     '0.2.1-rc.2',
+    '0.2.1-rc.3',
+    '0.2.1-rc.4',
     '0.2.1',
     '0.3.0',
   ]) {
     const enabled = !!version && supportsManualAccountLogin(version)
     const ctx = new Context()
-    let dependencies = 0
-    let bridges = 0
-    let routes = 0
-    let unsubscribed = false
-    const adapter = new ManualAccountLogin(
-      { inject: () => dependencies++ } as unknown as Context,
-      {} as AuthService,
-      {
-        subscribe: () => () => {
-          unsubscribed = true
-        },
-      } as unknown as AuthStateStore,
-      version ?? '',
-    )
     try {
       installAuthenticatedHostCapability(ctx, version)
       const table: IndexInjection[] = []
       ctx.emit('webserver/index-inject', table)
+      assert.deepEqual(table[0], {
+        kind: 'global',
+        name: '__DSH_TRANSPORT__',
+        value: { ownsHost: true },
+      })
+      assert.equal(table.length, enabled ? 2 : 1)
       assert.equal(
         table.some((entry) => entry.kind === 'global' && entry.name === ACCOUNT_LOGIN_CAPABILITY),
         enabled,
         String(version),
       )
-      adapter.install({
-        installAccountCallbackBridge: () => bridges++,
-        register: () => routes++,
-      } as unknown as GuardedWebServer)
-      assert.equal(dependencies, Number(enabled), String(version))
-      assert.equal(bridges, Number(enabled), String(version))
-      assert.equal(routes, 4)
     } finally {
-      await adapter.dispose()
       await ctx.fiber.dispose()
     }
-    assert.equal(unsubscribed, true)
   }
+})
+
+test('an admitted manual server retains provider and bridge lifetimes when dynamically disabled', async () => {
+  let dependencies = 0
+  let bridges = 0
+  let routes = 0
+  let unsubscribed = false
+  const adapter = new ManualAccountLogin(
+    { inject: () => dependencies++ } as unknown as Context,
+    {} as AuthService,
+    {
+      subscribe: () => () => {
+        unsubscribed = true
+      },
+    } as unknown as AuthStateStore,
+    '0.2.1-alpha.3',
+    () => false,
+  )
+  adapter.install({
+    installAccountCallbackBridge: () => bridges++,
+    register: () => routes++,
+  } as unknown as GuardedWebServer)
+  assert.equal(dependencies, 1)
+  assert.equal(bridges, 1)
+  assert.equal(routes, 4)
+  await adapter.dispose()
+  assert.equal(unsubscribed, true)
 })
 
 test('manual admission uses SemVer ordering for prereleases and invalid input', () => {
@@ -99,6 +111,8 @@ test('manual admission uses SemVer ordering for prereleases and invalid input', 
     '0.2.1-alpha.5',
     '0.2.1-rc.1',
     '0.2.1-rc.2',
+    '0.2.1-rc.3',
+    '0.2.1-rc.4',
     '0.2.1-alpha.10',
     '0.2.1',
     '0.3.0-alpha.1',

@@ -6,6 +6,16 @@ This file records user-visible changes to the released package. Version numbers 
 
 ## Unreleased
 
+## 0.3.1 - 2026-10-28
+
+- Prepare the unpublished `0.3.1` candidate for seven exact DSH releases, adding `0.2.1-rc.3` and `0.2.1-rc.4`; use `0.2.1-rc.4` by default and require DSH `>=0.2.1-alpha.3`.
+- Retire six older hosts with plugin `0.2.0` as their last supported plugin. Mark `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5` legacy from 2026-10-28, with earliest retirement eligibility 2026-11-11 (Asia/Shanghai); dates do not automatically stop support.
+
+- Remove retired-host-only IPv4/TLS/protocol/public-URL and direct Settings branches. Remove old theme fallbacks and delegate focus color to native rules while retaining shared authentication, Secure, revocation and TLS-failure cleanup. Keep account callback, HMR context and old allowedOrigins configuration migration.
+- Extend six real host-switch pairs, three Search/Fetch targets and both new RC menu/model-selection regressions, rejecting missing registration or zero-case false success. Point native model baseURL at a local stub before first key entry, preserve credential-free onboarding, and require zero model calls for UI cases.
+- Add independent retired-host installation rollback/whole-package Loader refusal verification. Full/releases verify adjacent `0.2.1-alpha.2`; ordinary accepts only its planned skip. This migration additionally verifies all six retired hosts against the same candidate digest.
+- Synchronize bilingual current support, bidirectional history, development/deployment/release and migration/rollback guides. Preserve both previous-release support policies unchanged; preparation dates do not establish npm publication.
+
 ## 0.2.0 - 2026-10-19
 
 - Regenerate stable Cordis/Schemastery lockfile resolutions and peer snapshots for clean frozen installs; shorten managed verification profiles and test real Unix socket binding at the default CI checkout length.

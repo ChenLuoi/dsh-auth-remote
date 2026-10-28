@@ -1,18 +1,64 @@
 import { chromium, expect, type Locator, type Page } from '@playwright/test'
-import { archive, packageName, project, selectedTestDsh } from '../../scripts/runtime.mjs'
+import assert from 'node:assert/strict'
+import { createServer } from 'node:http'
+import { once } from 'node:events'
+import {
+  archive,
+  isolatedDshEnv,
+  packageName,
+  project,
+  selectedTestDsh,
+} from '../../scripts/runtime.mjs'
 
-export { archive, packageName, project }
+export { archive, isolatedDshEnv, packageName, project }
 export const dsh = selectedTestDsh()
 
 // Shared pnpm hardlinks change ctime when another profile installs the same
 // archive. DSH watches ctime for HMR, so test profiles need independent copies.
 process.env.pnpm_config_package_import_method = 'copy'
 
+/** Configure the native route before boot without supplying a model credential. */
+export async function localModelEndpoint() {
+  const requests: { method: string; path: string }[] = []
+  const server = createServer((request, response) => {
+    requests.push({ method: request.method ?? '', path: request.url ?? '' })
+    response.writeHead(500, { 'content-type': 'application/json' })
+    response.end(JSON.stringify({ error: 'UI-only fixture must not invoke a model' }))
+  }).listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  const address = server.address()
+  assert(address && typeof address !== 'string')
+  const baseURL = `http://127.0.0.1:${address.port}/anthropic`
+  return {
+    baseURL,
+    patch: ['- id: llm-deepseek', '  config:', `    baseURL: ${baseURL}`],
+    requests,
+    async close() {
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      )
+      assert.deepEqual(requests, [], 'UI-only native LLM route received unexpected requests')
+    },
+  }
+}
+
 export function launchBrowser(args: string[] = []) {
   const executablePath = process.env.DSH_TEST_BROWSER?.trim()
+  const env = { ...process.env }
+  // Browser proxy environment can override local hostname mappings even with --no-proxy-server.
+  for (const key of [
+    'HTTP_PROXY',
+    'HTTPS_PROXY',
+    'ALL_PROXY',
+    'http_proxy',
+    'https_proxy',
+    'all_proxy',
+  ])
+    delete env[key]
   return chromium.launch({
     headless: true,
     args,
+    env,
     ...(executablePath ? { executablePath } : {}),
   })
 }
@@ -139,7 +185,7 @@ export async function clickThroughDshPrompts(
   }
 }
 
-/** Older sidebars expose Settings directly; alpha.3 moves it into the account menu. */
+/** Open native Settings through the account menu, preserving first-run retries. */
 export async function openDshSettings(page: Page, locale: 'zh' | 'en' = 'zh'): Promise<void> {
   const name = locale === 'zh' ? '设置' : 'Settings'
   const dialog = page.getByRole('dialog', { name, exact: true })
@@ -147,18 +193,15 @@ export async function openDshSettings(page: Page, locale: 'zh' | 'en' = 'zh'): P
     name: locale === 'zh' ? '账号菜单' : 'Account menu',
     exact: true,
   })
-  const direct = page.getByRole('button', { name, exact: true })
   for (let attempt = 0; attempt < 6; attempt++) {
     if (await dialog.isVisible()) return
-    await clickThroughDshPrompts(page, direct.or(accountMenu))
-    if (await accountMenu.isVisible()) {
-      const item = page.getByRole('menuitem', { name, exact: true })
-      await clickThroughDshPrompts(page, item, async () => {
-        if (!(await item.isVisible())) await accountMenu.click()
-      })
-    }
+    await clickThroughDshPrompts(page, accountMenu)
+    const item = page.getByRole('menuitem', { name, exact: true })
+    await clickThroughDshPrompts(page, item, async () => {
+      if (!(await item.isVisible())) await accountMenu.click()
+    })
     try {
-      // Older hosts can finish onboarding and reload after the click succeeds.
+      // Native onboarding can settle after the click succeeds.
       // Confirm the destination, then handle any late native prompt and reopen.
       await dialog.waitFor({ timeout: 2000 })
       return

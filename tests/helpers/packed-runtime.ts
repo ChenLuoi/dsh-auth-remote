@@ -5,7 +5,7 @@ import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { isolatedDshEnv } from '../../scripts/runtime.mjs'
-import { archive, dsh, packageName } from './runtime.js'
+import { archive, dsh, localModelEndpoint, packageName } from './runtime.js'
 
 export function packedCommand(
   home: string,
@@ -87,6 +87,7 @@ export async function packedAdmin(
 
 export async function packedProfile(config: Record<string, unknown>, strictFixture = false) {
   const home = await mkdtemp(join(tmpdir(), 'dsh-auth-remote-native-packed-'))
+  const model = await localModelEndpoint()
   try {
     const installed = await packedCommand(home, ['plugin', '--profile', 'web', 'add', archive]).done
     assert.equal(installed.code, 0, installed.stderr)
@@ -94,6 +95,7 @@ export async function packedProfile(config: Record<string, unknown>, strictFixtu
     const cwd = join(home, 'launch-cwd')
     await mkdir(cwd)
     const lines = [
+      ...model.patch,
       '- id: auth-remote',
       '  config:',
       ...Object.entries(config).map(([key, value]) => `    ${key}: ${JSON.stringify(value)}`),
@@ -109,8 +111,21 @@ export async function packedProfile(config: Record<string, unknown>, strictFixtu
       )
     }
     await writeFile(join(profile, 'cordis.patch.yml'), lines.join('\n') + '\n')
-    return { home, profile, cwd, cleanup: () => rm(home, { recursive: true, force: true }) }
+    return {
+      home,
+      profile,
+      cwd,
+      model,
+      cleanup: async () => {
+        try {
+          await model.close()
+        } finally {
+          await rm(home, { recursive: true, force: true })
+        }
+      },
+    }
   } catch (error) {
+    await model.close()
     await rm(home, { recursive: true, force: true })
     throw error
   }

@@ -11,6 +11,8 @@ import {
   completeApiKeyPrompt,
   dsh as dshBin,
   launchBrowser,
+  isolatedDshEnv,
+  localModelEndpoint,
   openDshSettings,
 } from '../helpers/runtime.js'
 
@@ -18,11 +20,17 @@ const publicHost = 'auth-remote.test:13090'
 
 test('target DSH boots at a non-loopback browser origin with Host settings access', async () => {
   const home = await mkdtemp(join(tmpdir(), 'dsh-auth-remote-browser-'))
+  const model = await localModelEndpoint()
   const patchPath = join(home, 'adapter.patch.yml')
   const adapterPath = fileURLToPath(
     new URL('../fixtures/browser-adapter/index.mjs', import.meta.url),
   )
-  await writeFile(patchPath, `- insert:\n    - id: auth-client-probe\n      name: ${adapterPath}\n`)
+  await writeFile(
+    patchPath,
+    model.patch.join('\n') +
+      '\n' +
+      `- insert:\n    - id: auth-client-probe\n      name: ${adapterPath}\n`,
+  )
   const args = [
     '--profile',
     'web',
@@ -36,7 +44,7 @@ test('target DSH boots at a non-loopback browser origin with Host settings acces
   ]
   const child = spawn(dshBin, args, {
     cwd: home,
-    env: { ...process.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' },
+    env: isolatedDshEnv(home),
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined
@@ -116,6 +124,7 @@ test('target DSH boots at a non-loopback browser origin with Host settings acces
       child.kill('SIGTERM')
       await once(child, 'exit').catch(() => {})
     }
+    await model.close()
     await rm(home, { recursive: true, force: true })
   }
 })

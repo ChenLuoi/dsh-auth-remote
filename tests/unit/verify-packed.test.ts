@@ -16,6 +16,7 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 import {
   parseArguments,
+  assertRegisteredCoverage,
   sha256,
   testCounts,
   unpackFiles,
@@ -25,6 +26,8 @@ import {
   assertVerificationRoot,
   createVerificationRoot,
   packageManifest,
+  project,
+  testedDshVersions,
 } from '../../scripts/runtime.mjs'
 
 async function fixture(manifest = packageManifest) {
@@ -123,7 +126,7 @@ test('suite and target selection fail closed, including actual Node zero-test ou
     /one cli or browser suite/u,
   )
   assert.throws(
-    () => parseArguments(valid.map((value) => (value === '0.2.1-rc.2' ? '0.2.1-rc.3' : value))),
+    () => parseArguments(valid.map((value) => (value === '0.2.1-rc.2' ? '0.2.1-rc.5' : value))),
     /exact dsh-version/u,
   )
   const directory = await mkdtemp(join(tmpdir(), 'packed-empty-'))
@@ -255,4 +258,56 @@ test('verification socket binds from a checkout as long as the default CI path',
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
+})
+
+test('complete browser coverage permits only exact zero-registration exceptions and preserves specialized counts', () => {
+  for (const version of testedDshVersions) {
+    for (const file of [
+      'host-release',
+      'web-search-settings',
+      'rc-navigation',
+      'account-login',
+      'startup-compatibility',
+      'native-transport',
+      'unexpected',
+    ]) {
+      const counts = {
+        actualTests: 1,
+        placeholderFiles: [join(project, `tests/browser/${file}.spec.ts`)],
+      }
+      const allowed =
+        file === 'host-release'
+          ? version === '0.2.1-alpha.3'
+          : file === 'web-search-settings'
+            ? !['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4'].includes(version)
+            : file === 'rc-navigation' && !['0.2.1-rc.3', '0.2.1-rc.4'].includes(version)
+      if (allowed) assert.doesNotThrow(() => assertRegisteredCoverage('browser', version, counts))
+      else
+        assert.throws(
+          () => assertRegisteredCoverage('browser', version, counts),
+          /Required file registered zero tests/u,
+        )
+    }
+  }
+  assert.throws(
+    () =>
+      assertRegisteredCoverage('browser', '0.2.1-rc.5', { actualTests: 1, placeholderFiles: [] }),
+    /Unknown coverage target/u,
+  )
+  assert.throws(
+    () =>
+      assertRegisteredCoverage('rc-bootstrap', '0.2.1-rc.1', {
+        actualTests: 1,
+        placeholderFiles: [],
+      }),
+    /specialized test count/u,
+  )
+  assert.throws(
+    () =>
+      assertRegisteredCoverage('account', '0.2.1-alpha.3', {
+        actualTests: 1,
+        placeholderFiles: [join(project, 'tests/browser/account-login.spec.ts')],
+      }),
+    /Required file registered zero tests/u,
+  )
 })

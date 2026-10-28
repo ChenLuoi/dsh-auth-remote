@@ -20,7 +20,7 @@ export function apply(ctx) {
         const webContext = assembly.contexts?.find(
           (context) => context.name === 'app:web-surface',
         )?.text
-        if (typeof webPrompt !== 'string') return
+        if (typeof webPrompt !== 'string' || typeof webContext !== 'string') return
         writeFileSync(
           join(ctx.get('profileContext').dir, 'entry-observation.json'),
           JSON.stringify({
@@ -31,6 +31,12 @@ export function apply(ctx) {
             shellUrl,
             webPrompt,
             webContext,
+            sectionsHavePublicUrl: assembly.sections.some((section) =>
+              section.text.includes(ctx.webServer.publicUrl.replace(/\/$/u, '')),
+            ),
+            sectionsHaveToken: assembly.sections.some((section) =>
+              section.text.includes('?token='),
+            ),
           }),
           { mode: 0o600 },
         )

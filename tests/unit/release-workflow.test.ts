@@ -46,7 +46,7 @@ test('release producer builds and packs once and publication consumes only the v
 
 test('complete artifact matrices are exact and missing, duplicate or narrowed targets fail', () => {
   const full = fullVerificationPlan()
-  assert.equal(full.versions.length, 11)
+  assert.equal(full.versions.length, 7)
   assert.deepEqual(full.versions, testedDshVersions)
   assert.deepEqual(
     full.browser.include.map(({ dsh }: { dsh: string }) => dsh),
@@ -69,7 +69,12 @@ test('complete artifact matrices are exact and missing, duplicate or narrowed ta
 test('shared workflow consumers never repack and its real aggregate rejects failed, cancelled and skipped dependencies', async () => {
   const shared = await workflow('verify-packed')
   assert(shared.on.workflow_call)
-  assert.deepEqual(shared.jobs.verified.needs, ['validate', 'cli-smoke', 'browser'])
+  assert.deepEqual(shared.jobs.verified.needs, [
+    'validate',
+    'cli-smoke',
+    'browser',
+    'retired-rejection',
+  ])
   for (const name of ['cli-smoke', 'browser']) {
     const job = shared.jobs[name]
     assert.equal(job.needs, 'validate')
@@ -79,21 +84,49 @@ test('shared workflow consumers never repack and its real aggregate rejects fail
     assert.doesNotMatch(commands, /scripts\/pack\.mjs|pnpm (?:build|release:pack|test:)/u)
     assert(job.steps.some((step: any) => step.uses === 'actions/download-artifact@v8'))
   }
+  const retired = shared.jobs['retired-rejection']
+  assert.equal(retired.needs, 'validate')
+  assert.equal(retired.if, "${{ inputs.plan == 'full' }}")
+  const retiredCommands = retired.steps.map((step: any) => step.run ?? '').join('\n')
+  assert.match(retiredCommands, /verify-retired\.mjs.*--retired-dsh-version 0\.2\.1-alpha\.2/u)
+  assert.match(retiredCommands, /packed-artifact\.mjs check/u)
+  assert.doesNotMatch(retiredCommands, /scripts\/pack\.mjs|pnpm (?:build|release:pack|test:)/u)
+  assert(retired.steps.some((step: any) => step.uses === 'actions/download-artifact@v8'))
+  assert.equal(shared.jobs.verified.steps[0].env.DSH_VERIFY_PLAN, '${{ inputs.plan }}')
   const shell = shared.jobs.verified.steps[0].run
-  for (const result of ['success', 'failure', 'cancelled', 'skipped']) {
-    for (const changed of ['validate', 'cli-smoke', 'browser']) {
-      const needs = Object.fromEntries(
-        ['validate', 'cli-smoke', 'browser'].map((name) => [
-          name,
-          { result: name === changed ? result : 'success' },
-        ]),
-      )
-      const execution = spawnSync('bash', ['-e', '-c', shell], {
-        encoding: 'utf8',
-        env: { ...process.env, DSH_JOB_RESULTS: JSON.stringify(needs) },
-      })
-      if (result === 'success') assert.equal(execution.status, 0, execution.stderr)
-      else assert.notEqual(execution.status, 0, `${changed}/${result} must fail the aggregate`)
+  const names = ['validate', 'cli-smoke', 'browser', 'retired-rejection']
+  const execute = (plan: string, jobs: Record<string, { result: string }>) =>
+    spawnSync('bash', ['-e', '-c', shell], {
+      encoding: 'utf8',
+      env: { ...process.env, DSH_VERIFY_PLAN: plan, DSH_JOB_RESULTS: JSON.stringify(jobs) },
+    })
+  for (const plan of ['full', 'ordinary']) {
+    const expected = Object.fromEntries(
+      names.map((name) => [
+        name,
+        { result: plan === 'ordinary' && name === 'retired-rejection' ? 'skipped' : 'success' },
+      ]),
+    )
+    assert.equal(execute(plan, expected).status, 0)
+    for (const changed of names)
+      for (const result of ['success', 'failure', 'cancelled', 'skipped']) {
+        const jobs = structuredClone(expected)
+        jobs[changed]!.result = result
+        const execution = execute(plan, jobs)
+        if (result === expected[changed]!.result)
+          assert.equal(execution.status, 0, execution.stderr)
+        else
+          assert.notEqual(
+            execution.status,
+            0,
+            `${plan}/${changed}/${result} must fail the aggregate`,
+          )
+      }
+    for (const missing of names) {
+      const jobs = structuredClone(expected)
+      delete jobs[missing]
+      assert.notEqual(execute(plan, jobs).status, 0)
     }
+    assert.notEqual(execute('unknown', expected).status, 0)
   }
 })

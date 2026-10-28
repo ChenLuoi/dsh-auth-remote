@@ -6,19 +6,15 @@ import { fileURLToPath } from 'node:url'
 
 export const project = resolve(fileURLToPath(new URL('..', import.meta.url)))
 export const testedDshVersions = [
-  '0.1.7-rc.1',
-  '0.1.7-rc.2',
-  '0.2.0-rc.1',
-  '0.2.0-rc.2',
-  '0.2.1-alpha.1',
-  '0.2.1-alpha.2',
   '0.2.1-alpha.3',
   '0.2.1-alpha.4',
   '0.2.1-alpha.5',
   '0.2.1-rc.1',
   '0.2.1-rc.2',
+  '0.2.1-rc.3',
+  '0.2.1-rc.4',
 ]
-export const dshVersion = process.env.DSH_TEST_VERSION || '0.2.1-rc.2'
+export const dshVersion = process.env.DSH_TEST_VERSION || '0.2.1-rc.4'
 if (!testedDshVersions.includes(dshVersion)) {
   throw new Error(`DSH_TEST_VERSION must be one of: ${testedDshVersions.join(', ')}`)
 }

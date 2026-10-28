@@ -59,7 +59,7 @@
   height: 32px;
   padding: 0 10px;
   border: 0.5px solid var(--dsw-alias-border-l4);
-  border-radius: var(--dsw-radius-md, 8px);
+  border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-primary);
   font: inherit;
@@ -81,7 +81,7 @@
   max-width: 100%;
   padding: 6px 14px;
   border: 0.5px solid var(--dsw-alias-border-l3);
-  border-radius: var(--dsw-radius-md, 18px);
+  border-radius: var(--dsw-radius-md);
   background: transparent;
   color: var(--dsw-alias-label-primary);
   font: inherit;
@@ -115,7 +115,8 @@
 }
 
 .auth-remote-button:focus-visible {
-  outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-style: solid;
+  outline-width: var(--dsw-focus-ring-width);
   outline-offset: 2px;
 }
 
@@ -128,7 +129,7 @@
   max-width: 100%;
   height: auto;
   margin: 16px 0;
-  border-radius: var(--dsw-radius-md, 8px);
+  border-radius: var(--dsw-radius-md);
 }
 
 .auth-remote-security code,
@@ -144,7 +145,7 @@
   gap: 8px 24px;
   margin: 20px 0;
   padding: 16px 16px 16px 40px;
-  border-radius: var(--dsw-radius-lg, 16px);
+  border-radius: var(--dsw-radius-lg);
   background: var(--dsw-alias-bg-module-platform);
 }
 
@@ -193,7 +194,7 @@
   height: 16px;
   border-radius: 50%;
   corner-shape: round;
-  background: var(--dsw-alias-switch-thumb, var(--dsw-alias-label-primary-foreground));
+  background: var(--dsw-alias-switch-thumb);
   transition: transform 120ms ease;
 }
 .auth-remote-switch[aria-checked='true'] {
@@ -209,7 +210,8 @@
 }
 .auth-remote-switch:focus-visible,
 .auth-remote-policy-hint:focus-visible {
-  outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-style: solid;
+  outline-width: var(--dsw-focus-ring-width);
   outline-offset: 2px;
 }
 
@@ -282,7 +284,7 @@
   margin: auto;
   padding: 20px;
   border: 0.5px solid var(--dsw-alias-border-l3);
-  border-radius: var(--dsw-radius-lg, 16px);
+  border-radius: var(--dsw-radius-lg);
   background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-primary);
   overflow: auto;

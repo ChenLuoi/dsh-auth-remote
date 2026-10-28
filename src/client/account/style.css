@@ -7,7 +7,7 @@
   padding: 0;
   overflow: hidden;
   border: 0.5px solid var(--dsw-alias-border-l3);
-  border-radius: var(--dsw-radius-lg, 16px);
+  border-radius: var(--dsw-radius-lg);
   background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-primary);
   font-family: var(--dsw-font-family);
@@ -51,7 +51,7 @@
   height: 28px;
   padding: 0;
   border: 0;
-  border-radius: var(--dsw-radius-md, 8px);
+  border-radius: var(--dsw-radius-md);
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   font-size: 20px;
@@ -99,7 +99,7 @@
   resize: vertical;
   padding: 8px 10px;
   border: 0.5px solid var(--dsw-alias-border-l4);
-  border-radius: var(--dsw-radius-md, 8px);
+  border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-bg-layer-1);
   color: inherit;
   font: inherit;
@@ -149,7 +149,7 @@
   min-width: 72px;
   height: 36px;
   border: 0.5px solid var(--dsw-alias-border-l3);
-  border-radius: var(--dsw-radius-md, 18px);
+  border-radius: var(--dsw-radius-md);
   padding: 0 14px;
   background: transparent;
   color: inherit;
@@ -172,7 +172,8 @@
   cursor: not-allowed;
 }
 .auth-remote-account-dialog :focus-visible {
-  outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-style: solid;
+  outline-width: var(--dsw-focus-ring-width);
   outline-offset: 2px;
 }
 @media (max-width: 480px) {

@@ -12,6 +12,8 @@ import {
   archive,
   dsh as dshBin,
   launchBrowser,
+  isolatedDshEnv,
+  localModelEndpoint,
   openDshSettings,
   packageName,
 } from '../helpers/runtime.js'
@@ -21,7 +23,7 @@ const origin = `http://${host}`
 
 async function run(bin: string, args: string[], home: string): Promise<void> {
   const child = spawn(bin, args, {
-    env: { ...process.env, DSH_HOME: home },
+    env: isolatedDshEnv(home),
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   let diagnostic = ''
@@ -51,6 +53,7 @@ async function request(path: string, port = 13090): Promise<{ status: number; bo
 
 test('installed package and test gate boot full DSH without exposing native credentials', async () => {
   const home = await mkdtemp(join(tmpdir(), 'dsh-auth-remote-gate-'))
+  const model = await localModelEndpoint()
   const profile = join(home, 'profiles/web')
   let server: ReturnType<typeof spawn> | undefined
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined
@@ -61,6 +64,7 @@ test('installed package and test gate boot full DSH without exposing native cred
     await writeFile(
       join(profile, 'cordis.patch.yml'),
       [
+        ...model.patch,
         '- id: webserver',
         '  disabled: true',
         '- id: auth-remote',
@@ -85,9 +89,7 @@ test('installed package and test gate boot full DSH without exposing native cred
     server = spawn(dshBin, ['web', '--no-open', '--port', '13090'], {
       cwd: home,
       env: {
-        ...process.env,
-        DSH_HOME: home,
-        DSH_TELEMETRY_DISABLED: '1',
+        ...isolatedDshEnv(home),
         DSH_GATE_TEST_COOKIE: testCookie,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -186,6 +188,7 @@ test('installed package and test gate boot full DSH without exposing native cred
       server.kill('SIGTERM')
       await once(server, 'exit').catch(() => {})
     }
+    await model.close()
     if (process.env.DSH_KEEP_TEST_HOME === '1') console.error(`Gate test home: ${home}`)
     else await rm(home, { recursive: true, force: true })
   }
@@ -227,7 +230,7 @@ test('profile-level native disable holds when the bundle is missing or invalid c
       )
       child = spawn(dshBin, ['web', '--no-open', '--port', '13092'], {
         cwd: home,
-        env: { ...process.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' },
+        env: isolatedDshEnv(home),
         stdio: ['ignore', 'pipe', 'pipe'],
       })
       let output = ''
@@ -280,7 +283,7 @@ test('formal package rejects corrupt persistent state before binding', async () 
     )
     const child = spawn(dshBin, ['web', '--no-open', '--port', '13093'], {
       cwd: home,
-      env: { ...process.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' },
+      env: isolatedDshEnv(home),
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     let stderr = ''

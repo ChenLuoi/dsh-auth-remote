@@ -27,24 +27,35 @@ function legacy(version: string, windowDays: number, eligibleRetirement: string)
   return {
     state: 'legacy',
     version,
-    legacySince: '2026-10-19',
+    legacySince: '2026-10-28',
     windowDays,
     eligibleRetirement,
-    migrationTarget: '0.2.1-rc.2',
+    migrationTarget: '0.2.1-rc.4',
   }
 }
 
 export const LEGACY_DSH_RELEASES: readonly LegacyDshRecord[] = [
-  legacy('0.1.7-rc.1', 14, '2026-11-02'),
-  legacy('0.1.7-rc.2', 14, '2026-11-02'),
-  legacy('0.2.0-rc.1', 21, '2026-11-09'),
-  legacy('0.2.0-rc.2', 21, '2026-11-09'),
-  legacy('0.2.1-alpha.1', 21, '2026-11-09'),
-  legacy('0.2.1-alpha.2', 21, '2026-11-09'),
+  legacy('0.2.1-alpha.3', 14, '2026-11-11'),
+  legacy('0.2.1-alpha.4', 14, '2026-11-11'),
+  legacy('0.2.1-alpha.5', 14, '2026-11-11'),
 ]
 
-// Only a deliberate future plugin release may add an effective retirement.
-export const RETIRED_DSH_RELEASES: readonly RetiredDshRecord[] = []
+// Preparation date, not the registry publication time or an admission input.
+export const RETIRED_DSH_RELEASES: readonly RetiredDshRecord[] = [
+  '0.1.7-rc.1',
+  '0.1.7-rc.2',
+  '0.2.0-rc.1',
+  '0.2.0-rc.2',
+  '0.2.1-alpha.1',
+  '0.2.1-alpha.2',
+].map((version) => ({
+  state: 'retired',
+  version,
+  retiredOn: '2026-10-28',
+  effectivePlugin: '0.3.1',
+  lastSupportedPlugin: '0.2.0',
+  migrationTarget: '0.2.1-rc.4',
+}))
 const lifecycle: readonly DshLifecycleRecord[] = [...LEGACY_DSH_RELEASES, ...RETIRED_DSH_RELEASES]
 
 /** Exact declarations take precedence. Calendar time is deliberately not an input. */
@@ -66,7 +77,7 @@ export function classifyDshSupport(
 }
 
 export function dshSupportWarning(support: DshSupport): string | undefined {
-  const guides = 'See docs/support-policy.md and docs/support-history.md.'
+  const guides = 'See README.md and docs/support-history.md.'
   if (support.state === 'supported') return
   if (support.state === 'legacy') {
     const record = support.record

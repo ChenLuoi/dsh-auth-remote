@@ -7,12 +7,10 @@ import { createConnection, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import semver from 'semver'
 import { checkDshVersion, dshVersion, isolatedDshEnv } from '../../scripts/runtime.mjs'
 import { archive, dsh } from '../helpers/runtime.js'
 import { packedCommand, packedProfile } from '../helpers/packed-runtime.js'
 import { nativeHttp } from '../helpers/native-http.js'
-import { getRuntimeCapabilities } from '../../src/adapters/dsh/runtime-capabilities.js'
 
 const port = 13130
 
@@ -55,83 +53,89 @@ async function assertNoListener(port: number) {
 
 // These deliberately damaged plugin copies exercise rejection, not compatibility.
 // The upstream packages, their versions and the Loader audit remain unchanged.
-if (['0.2.1-rc.1', '0.2.1-rc.2'].includes(dshVersion))
-  for (const fault of ['loader-requirement', 'runtime-admission'] as const)
-    test(`DSH ${dshVersion} keeps the native listener disabled after ${fault} rejection`, async () => {
-      const f = await packedProfile({})
-      const port = await vacantPort()
-      let command: ReturnType<typeof packedCommand> | undefined
-      try {
-        const patchPath = join(f.profile, 'cordis.patch.yml')
-        await appendFile(patchPath, '- id: webserver\n  disabled: true\n')
-        const patch = await readFile(patchPath, 'utf8')
-        const plugin = join(f.profile, 'node_modules/dsh-auth-remote')
-        const entry = join(plugin, 'dist/index.js')
-        const manifestPath = join(plugin, 'package.json')
-        assert.equal((await stat(entry)).nlink, 1)
-        assert.equal((await stat(manifestPath)).nlink, 1)
-        const marker = 'auth-remote rejection probe module imported'
-        await appendFile(entry, '\nconsole.info(' + JSON.stringify(marker) + ');\n')
-        if (fault === 'loader-requirement') {
-          const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
-          manifest.engines.dsh = '>=99.0.0'
-          await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
-        } else {
-          const source = await readFile(entry, 'utf8')
-          const range = /\bvar SUPPORTED_DSH_RANGE = ">=0\.1\.7-rc\.1";/gu
-          assert.equal([...source.matchAll(range)].length, 1)
-          await writeFile(entry, source.replace(range, 'var SUPPORTED_DSH_RANGE = ">=99.0.0";'))
-        }
-        await assertNoListener(port)
-        command = packedCommand(f.home, ['web', '--no-open', '--port', String(port)], f.cwd)
-        const diagnostic =
-          fault === 'loader-requirement'
-            ? /skipping profile bundle "dsh-auth-remote":.*incompatible with dsh/u
-            : /auth-remote: unsupported @deepseek-ai\/dsh-host-webserver version/u
-        for (let attempt = 0; attempt < 150; attempt++) {
-          const { stdout, stderr } = command.output()
-          if (diagnostic.test(stdout + stderr)) break
-          if (command.child.exitCode !== null) break
-          await new Promise((resolve) => setTimeout(resolve, 100))
-        }
-        const { stdout, stderr } = command.output()
-        assert.match(stdout + stderr, diagnostic)
-        if (fault === 'loader-requirement') {
-          assert.match(stderr, /"engines.dsh":">=99\.0\.0"/u)
-          assert.doesNotMatch(stdout, new RegExp(marker, 'u'))
-        } else {
-          assert.ok(stdout.includes(marker), stdout + stderr)
-          assert.ok(stderr.includes(`version ${dshVersion}`), stderr)
-        }
-        // Recheck over time: a skipped bundle must not permit delayed fallback.
-        for (let attempt = 0; attempt < 5; attempt++) {
-          await assertNoListener(port)
-          await new Promise((resolve) => setTimeout(resolve, 100))
-        }
-        let timer: ReturnType<typeof setTimeout> | undefined
-        try {
-          const result = await Promise.race([
-            command.done,
-            new Promise<never>((_, reject) => {
-              timer = setTimeout(
-                () => reject(new Error('Rejected DSH startup did not settle')),
-                20_000,
-              )
-            }),
-          ])
-          assert.notEqual(result.code, 0, result.stdout + result.stderr)
-          assert.notEqual(result.code, null, 'startup must fail before the fixture terminates it')
-        } finally {
-          clearTimeout(timer)
-        }
-        await assertNoListener(port)
-        assert.doesNotMatch(command.output().stdout, /dsh web start at|public access at/u)
-        assert.equal(await readFile(patchPath, 'utf8'), patch)
-      } finally {
-        await command?.stop()
-        await f.cleanup()
+for (const fault of ['loader-requirement', 'runtime-admission'] as const)
+  test(`DSH ${dshVersion} keeps the native listener disabled after ${fault} rejection`, async () => {
+    const f = await packedProfile({})
+    const port = await vacantPort()
+    let command: ReturnType<typeof packedCommand> | undefined
+    try {
+      const patchPath = join(f.profile, 'cordis.patch.yml')
+      await appendFile(patchPath, '- id: webserver\n  disabled: true\n')
+      const patch = await readFile(patchPath, 'utf8')
+      const plugin = join(f.profile, 'node_modules/dsh-auth-remote')
+      const entry = join(plugin, 'dist/index.js')
+      const manifestPath = join(plugin, 'package.json')
+      assert.equal((await stat(entry)).nlink, 1)
+      assert.equal((await stat(manifestPath)).nlink, 1)
+      const marker = 'auth-remote rejection probe module imported'
+      await appendFile(entry, '\nconsole.info(' + JSON.stringify(marker) + ');\n')
+      if (fault === 'loader-requirement') {
+        const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+        if (dshVersion === '0.2.1-alpha.3')
+          manifest.peerDependencies['@deepseek-ai/dsh-host-webserver'] = '>=99.0.0'
+        else manifest.engines.dsh = '>=99.0.0'
+        await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
+      } else {
+        const source = await readFile(entry, 'utf8')
+        const range = /\bvar SUPPORTED_DSH_RANGE = ">=0\.2\.1-alpha\.3";/gu
+        assert.equal([...source.matchAll(range)].length, 1)
+        await writeFile(entry, source.replace(range, 'var SUPPORTED_DSH_RANGE = ">=99.0.0";'))
       }
-    })
+      await assertNoListener(port)
+      command = packedCommand(f.home, ['web', '--no-open', '--port', String(port)], f.cwd)
+      const diagnostic =
+        fault === 'loader-requirement'
+          ? /skipping profile bundle "dsh-auth-remote":.*incompatible with dsh/u
+          : /auth-remote: unsupported @deepseek-ai\/dsh-host-webserver version/u
+      for (let attempt = 0; attempt < 150; attempt++) {
+        const { stdout, stderr } = command.output()
+        if (diagnostic.test(stdout + stderr)) break
+        if (command.child.exitCode !== null) break
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      }
+      const { stdout, stderr } = command.output()
+      assert.match(stdout + stderr, diagnostic)
+      if (fault === 'loader-requirement') {
+        assert.match(
+          stderr,
+          dshVersion === '0.2.1-alpha.3'
+            ? /peerDependencies.*"@deepseek-ai\/dsh-host-webserver":">=99\.0\.0"/u
+            : /"engines.dsh":">=99\.0\.0"/u,
+        )
+        assert.doesNotMatch(stdout, new RegExp(marker, 'u'))
+      } else {
+        assert.ok(stdout.includes(marker), stdout + stderr)
+        assert.ok(stderr.includes(`version ${dshVersion}`), stderr)
+      }
+      // Recheck over time: a skipped bundle must not permit delayed fallback.
+      for (let attempt = 0; attempt < 5; attempt++) {
+        await assertNoListener(port)
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      }
+      let timer: ReturnType<typeof setTimeout> | undefined
+      try {
+        const result = await Promise.race([
+          command.done,
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(
+              () => reject(new Error('Rejected DSH startup did not settle')),
+              20_000,
+            )
+          }),
+        ])
+        assert.notEqual(result.code, 0, result.stdout + result.stderr)
+        assert.notEqual(result.code, null, 'startup must fail before the fixture terminates it')
+      } finally {
+        clearTimeout(timer)
+      }
+      await assertNoListener(port)
+      assert.doesNotMatch(command.output().stdout, /dsh web start at|public access at/u)
+      assert.equal(await readFile(patchPath, 'utf8'), patch)
+    } finally {
+      await command?.stop()
+      await f.cleanup()
+    }
+  })
 
 function get(
   path: string,
@@ -207,12 +211,7 @@ for (const [name, config, cliUrl, message] of [
       ]
       const result = await packedCommand(f.home, args, f.cwd).done
       assert.notEqual(result.code, 0)
-      assert.match(
-        result.stderr,
-        cliUrl && !getRuntimeCapabilities(dshVersion).publicUrl
-          ? /unknown option.*--public-url/u
-          : message,
-      )
+      assert.match(result.stderr, message)
       await assert.rejects(nativeHttp('http://127.0.0.1:13139/', '/auth-remote/ready'))
       assert.equal(await readFile(join(f.profile, 'cordis.patch.yml'), 'utf8'), patch)
     } finally {
@@ -323,21 +322,6 @@ for (const scenario of [
         '',
       ].join('\n')
       await writeFile(join(profile, 'cordis.patch.yml'), patch)
-      const { getRuntimeCapabilities } =
-        await import('../../src/adapters/dsh/runtime-capabilities.js')
-      const nativePublicUrl = getRuntimeCapabilities(dshVersion).publicUrl
-      if (scenario === 'cli-public-url' && !nativePublicUrl) {
-        const unsupported = spawn(
-          dsh,
-          ['web', '--no-open', '--public-url', 'http://final.example:8080'],
-          { cwd: home, env: isolatedDshEnv(home), stdio: ['ignore', 'pipe', 'pipe'] },
-        )
-        let error = ''
-        unsupported.stderr.on('data', (chunk: Buffer) => (error += chunk.toString('utf8')))
-        assert.notEqual((await once(unsupported, 'close'))[0], 0)
-        assert.match(error, /unknown option.*--public-url/u)
-        return
-      }
       server = spawn(
         dsh,
         [
@@ -390,6 +374,8 @@ for (const scenario of [
             shellUrl: string
             webPrompt: string
             webContext?: string
+            sectionsHavePublicUrl: boolean
+            sectionsHaveToken: boolean
           }
         | undefined
       for (let attempt = 0; attempt < 50; attempt++) {
@@ -403,21 +389,18 @@ for (const scenario of [
       assert.ok(observation, 'native shell registry must be observed')
       assert.equal(observation.version, dshVersion)
       assert.equal(observation.publicUrl, publicUrl)
-      assert.equal(
-        observation.shellUrl,
-        nativePublicUrl ? publicUrl : `http://127.0.0.1:${backend.port}`,
-      )
-      const runtimeContext = semver.gte(dshVersion, '0.2.1-alpha.3')
-      const modelUrlText = runtimeContext ? observation.webContext : observation.webPrompt
+      assert.equal(observation.shellUrl, publicUrl)
+      assert.equal(observation.sectionsHavePublicUrl, false)
+      assert.equal(observation.sectionsHaveToken, false)
       assert.ok(
-        modelUrlText?.includes(observation.shellUrl),
-        'native model-facing Web address must match DSH_WEB_URL',
+        observation.webContext?.includes(publicUrl),
+        'native model-facing Web context must match DSH_WEB_URL',
       )
-      if (runtimeContext) assert.equal(observation.webPrompt.includes(observation.shellUrl), false)
+      assert.equal(observation.webPrompt.includes(publicUrl), false)
       assert.equal(observation.webPrompt.includes('?token='), false)
-      assert.equal(observation.webContext?.includes('?token=') ?? false, false)
+      assert.equal(observation.webContext.includes('?token='), false)
       if (scenario === 'cli-public-url')
-        assert.equal(modelUrlText.includes('https://file.example'), false)
+        assert.equal(observation.webContext.includes('https://file.example'), false)
       assert.equal(stdout.includes('?token='), false)
       assert.equal(stderr.includes('?token='), false)
       assert.equal(

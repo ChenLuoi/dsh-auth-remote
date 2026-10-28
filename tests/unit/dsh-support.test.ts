@@ -13,7 +13,7 @@ import {
 const manifest = createRequire(import.meta.url)('../../package.json')
 const declared = new Set<string>(Object.keys(manifest.dsh.compatibility.dshReleases))
 
-test('the six announced legacy records remain declared with exact dates and no actual retirement', () => {
+test('three announced legacy records and six explicit retirements match the candidate contract', () => {
   assert.deepEqual(
     LEGACY_DSH_RELEASES.map(({ version, legacySince, windowDays, eligibleRetirement }) => [
       version,
@@ -22,15 +22,23 @@ test('the six announced legacy records remain declared with exact dates and no a
       eligibleRetirement,
     ]),
     [
-      ['0.1.7-rc.1', '2026-10-19', 14, '2026-11-02'],
-      ['0.1.7-rc.2', '2026-10-19', 14, '2026-11-02'],
-      ['0.2.0-rc.1', '2026-10-19', 21, '2026-11-09'],
-      ['0.2.0-rc.2', '2026-10-19', 21, '2026-11-09'],
-      ['0.2.1-alpha.1', '2026-10-19', 21, '2026-11-09'],
-      ['0.2.1-alpha.2', '2026-10-19', 21, '2026-11-09'],
+      ['0.2.1-alpha.3', '2026-10-28', 14, '2026-11-11'],
+      ['0.2.1-alpha.4', '2026-10-28', 14, '2026-11-11'],
+      ['0.2.1-alpha.5', '2026-10-28', 14, '2026-11-11'],
     ],
   )
-  assert.deepEqual(RETIRED_DSH_RELEASES, [])
+  assert.deepEqual(
+    RETIRED_DSH_RELEASES.map(({ version }) => version),
+    ['0.1.7-rc.1', '0.1.7-rc.2', '0.2.0-rc.1', '0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2'],
+  )
+  for (const record of RETIRED_DSH_RELEASES) {
+    assert(!declared.has(record.version))
+    assert.equal(classifyDshSupport(record.version, declared).state, 'retired')
+    assert.equal(record.retiredOn, '2026-10-28')
+    assert.equal(record.effectivePlugin, '0.3.1')
+    assert.equal(record.lastSupportedPlugin, '0.2.0')
+    assert.equal(record.migrationTarget, '0.2.1-rc.4')
+  }
   for (const record of LEGACY_DSH_RELEASES) {
     assert(declared.has(record.version))
     const status = classifyDshSupport(record.version, declared)
@@ -42,14 +50,15 @@ test('the six announced legacy records remain declared with exact dates and no a
       record.migrationTarget,
       'Asia/Shanghai',
       'docs/support-history.md',
+      'README.md',
     ])
       assert(warning.includes(fact), fact)
   }
 })
 
-test('crossing either eligibility date or a future year never retires a declared legacy version', (t) => {
+test('crossing the eligibility date or a future year never retires a declared legacy version', (t) => {
   t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-18T16:00:00Z') })
-  for (const date of ['2026-11-01T16:00:00Z', '2026-11-08T16:00:00Z', '2050-01-01T00:00:00Z']) {
+  for (const date of ['2026-11-10T15:59:59Z', '2026-11-10T16:00:00Z', '2050-01-01T00:00:00Z']) {
     t.mock.timers.setTime(Date.parse(date))
     assert.equal(new Date().toISOString(), date.replace('Z', '.000Z'))
     for (const { version } of LEGACY_DSH_RELEASES)
@@ -58,20 +67,14 @@ test('crossing either eligibility date or a future year never retires a declared
 })
 
 test('normal declarations stay supported while absent exact versions remain unverified', () => {
-  for (const version of [
-    '0.2.1-alpha.3',
-    '0.2.1-alpha.4',
-    '0.2.1-alpha.5',
-    '0.2.1-rc.1',
-    '0.2.1-rc.2',
-  ]) {
+  for (const version of ['0.2.1-rc.1', '0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4']) {
     const status = classifyDshSupport(version, declared)
     assert.equal(status.state, 'supported')
     assert.equal(dshSupportWarning(status), undefined)
   }
   for (const version of ['0.1.6', '0.2.1-rc.2+unassessed', '9.0.0-test.1', 'invalid'])
     assert.equal(classifyDshSupport(version, declared).state, 'unverified')
-  assert.equal(classifyDshSupport('0.1.7-rc.1', new Set()).state, 'unverified')
+  assert.equal(classifyDshSupport('0.1.7-rc.1', new Set()).state, 'retired')
 })
 
 test('explicit fictional retirement is advisory and cannot override a current declaration', () => {

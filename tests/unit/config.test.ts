@@ -130,53 +130,32 @@ test('TLS chooses whole CLI or file pair and resolves paths against their own ba
     )
 })
 
-test('eleven exact versions enforce native transport capabilities and concrete bindings', async () => {
+test('seven exact versions enforce native transport capabilities and concrete bindings', async () => {
   const { resolveStartupConfig } = await api()
   assert.equal(typeof resolveStartupConfig, 'function')
   for (const version of [
-    '0.1.7-rc.1',
-    '0.1.7-rc.2',
-    '0.2.0-rc.1',
-    '0.2.0-rc.2',
-    '0.2.1-alpha.1',
-    '0.2.1-alpha.2',
     '0.2.1-alpha.3',
     '0.2.1-alpha.4',
     '0.2.1-alpha.5',
     '0.2.1-rc.1',
     '0.2.1-rc.2',
+    '0.2.1-rc.3',
+    '0.2.1-rc.4',
   ]) {
     const options = { ...context, version }
     assert.equal(resolveStartupConfig({ host: '192.0.2.10' }, {}, options).host, '192.0.2.10')
     for (const host of ['0.0.0.0', '::', '::ffff:0.0.0.0', 'localhost', 'app.example'])
       assert.throws(() => resolveStartupConfig({ host }, {}, options))
-    if (
-      [
-        '0.2.1-alpha.2',
-        '0.2.1-alpha.3',
-        '0.2.1-alpha.4',
-        '0.2.1-alpha.5',
-        '0.2.1-rc.1',
-        '0.2.1-rc.2',
-      ].includes(version)
-    ) {
-      assert.equal(resolveStartupConfig({ host: '::1' }, {}, options).host, '::1')
-      assert.equal(
-        resolveStartupConfig({ host: '::ffff:127.0.0.1' }, {}, options).host,
-        '::ffff:127.0.0.1',
-      )
-      assert.equal(
-        resolveStartupConfig({ tlsCert: 'not-read.pem', tlsKey: 'not-read.key' }, {}, options)
-          .tlsSource,
-        'file',
-      )
-    } else {
-      assert.throws(() => resolveStartupConfig({ host: '::1' }, {}, options), /IPv4|IPv6/u)
-      assert.throws(
-        () => resolveStartupConfig({ tlsCert: 'cert.pem', tlsKey: 'key.pem' }, {}, options),
-        /TLS.*support|support.*TLS/u,
-      )
-    }
+    assert.equal(resolveStartupConfig({ host: '::1' }, {}, options).host, '::1')
+    assert.equal(
+      resolveStartupConfig({ host: '::ffff:127.0.0.1' }, {}, options).host,
+      '::ffff:127.0.0.1',
+    )
+    assert.equal(
+      resolveStartupConfig({ tlsCert: 'not-read.pem', tlsKey: 'not-read.key' }, {}, options)
+        .tlsSource,
+      'file',
+    )
   }
 })
 
@@ -200,47 +179,40 @@ test('startup parser rejects aliases, nested TLS, unsafe ports and auth policy',
     )
 })
 
-test('version capabilities distinguish public URL projection from native transport', async () => {
-  const { getRuntimeCapabilities } =
-    await import('../../src/adapters/dsh/runtime-capabilities.js').catch((error: unknown) =>
-      assert.fail(String(error)),
-    )
-  for (const [version, publicUrl, nativeTransport] of [
-    ['0.1.7-rc.1', false, false],
-    ['0.1.7-rc.2', false, false],
-    ['0.2.0-rc.1', false, false],
-    ['0.2.0-rc.2', false, false],
-    ['0.2.1-alpha.1', true, false],
-    ['0.2.1-alpha.2', true, true],
-    ['0.2.1-alpha.3', true, true],
-    ['0.2.1-alpha.4', true, true],
-    ['0.2.1-alpha.5', true, true],
-    ['0.2.1-rc.1', true, true],
-    ['0.2.1-rc.2', true, true],
-    ['1.0.0', true, true],
-  ] as const) {
-    const result = getRuntimeCapabilities(version)
-    assert.equal(result.publicUrl, publicUrl)
-    assert.equal(result.nativeTransport, nativeTransport)
-  }
-  for (const version of ['0.1.6', 'invalid'])
-    assert.throws(() => getRuntimeCapabilities(version), /unsupported/u)
+test('version admission remains independent of native API validation', async () => {
+  const { assertRuntimeVersion } = await import('../../src/adapters/dsh/runtime-capabilities.js')
+  for (const version of [
+    '0.2.1-alpha.3',
+    '0.2.1-alpha.4',
+    '0.2.1-alpha.5',
+    '0.2.1-rc.1',
+    '0.2.1-rc.2',
+    '0.2.1-rc.3',
+    '0.2.1-rc.4',
+    '1.0.0',
+  ])
+    assert.doesNotThrow(() => assertRuntimeVersion(version))
+  for (const version of [
+    '0.1.7-rc.1',
+    '0.1.7-rc.2',
+    '0.2.0-rc.1',
+    '0.2.0-rc.2',
+    '0.2.1-alpha.1',
+    '0.2.1-alpha.2',
+    'invalid',
+  ])
+    assert.throws(() => assertRuntimeVersion(version), /unsupported/u)
 })
 
-test('modern capability branches fail closed if the loaded host lost native APIs', async () => {
-  const { getRuntimeCapabilities, validateListenerConfig, listenerProtocol } =
+test('native transport fails closed if the loaded host lost required APIs', async () => {
+  const { validateListenerConfig, listenerProtocol } =
     await import('../../src/adapters/dsh/runtime-capabilities.js')
   const native = await import('@deepseek-ai/dsh-host-webserver')
   const { normalizeBindAddress: _unused, ...missingApi } = native
-  const modern = getRuntimeCapabilities('0.2.1-alpha.2')
-  assert.throws(
-    () => validateListenerConfig(modern, { host: '::1', port: 0 }, missingApi),
-    /lacks native/u,
-  )
-  assert.equal(listenerProtocol({}, getRuntimeCapabilities('0.2.1-alpha.1')), 'http:')
-  assert.equal(listenerProtocol({ protocol: 'https:' }, modern), 'https:')
+  assert.throws(() => validateListenerConfig({ host: '::1', port: 0 }, missingApi), /lacks native/u)
+  assert.equal(listenerProtocol({ protocol: 'https:' }), 'https:')
   for (const protocol of [undefined, 'ws:', 'http'])
-    assert.throws(() => listenerProtocol({ protocol }, modern), /native protocol/u)
+    assert.throws(() => listenerProtocol({ protocol }), /native protocol/u)
 })
 
 test('finalization admits only the effective root and uses the actual listener port', async () => {
@@ -331,17 +303,30 @@ test('native authority normalizes mapped and scoped binds while public URLs stay
   assert.equal(final.listenerUrl, 'http://[fe80::10%eth0]:13137/')
 })
 
-test('old runtime retains the loopback bridge while exposing its concrete IPv4 public root', async () => {
-  const { resolveStartupConfig, finalizeAuthConfig } = await api()
-  const pending = resolveStartupConfig(
-    { host: '192.0.2.10', port: 0 },
-    {},
-    { ...context, version: '0.1.7-rc.1' },
-  )
-  const final = finalizeAuthConfig(pending, { host: '192.0.2.10', port: 13138, protocol: 'http:' })
-  assert.equal(final.publicUrl, 'http://192.0.2.10:13138/')
-  assert.equal(final.nativeAuthority, '127.0.0.1:13138')
-  assert.equal(final.nativeOrigin, 'http://127.0.0.1:13138')
+test('retired runtimes fail before configuration with concrete migration guidance', async () => {
+  const { resolveStartupConfig } = await api()
+  for (const version of [
+    '0.1.7-rc.1',
+    '0.1.7-rc.2',
+    '0.2.0-rc.1',
+    '0.2.0-rc.2',
+    '0.2.1-alpha.1',
+    '0.2.1-alpha.2',
+  ]) {
+    assert.throws(
+      () => resolveStartupConfig({ host: '192.0.2.10', port: 0 }, {}, { ...context, version }),
+      (error: Error) => {
+        for (const text of [
+          version,
+          'minimum DSH 0.2.1-alpha.3',
+          'DSH 0.2.1-rc.4',
+          'plugin for older DSH: 0.2.0',
+        ])
+          assert(error.message.includes(text))
+        return true
+      },
+    )
+  }
 })
 
 test('manual login raw values validate while Loader updates retain the exact reference', async () => {

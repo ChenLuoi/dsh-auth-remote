@@ -27,6 +27,8 @@ import {
   clickThroughDshPrompts,
   dsh,
   launchBrowser,
+  isolatedDshEnv,
+  localModelEndpoint,
   openDshSettings,
   project,
   selectDshTheme,
@@ -34,14 +36,6 @@ import {
 import { dshVersion } from '../../scripts/runtime.mjs'
 import { classifyDshSupport, dshSupportWarning } from '../../src/shared/dsh-support.js'
 import { accountPlatform } from '../helpers/account-platform.js'
-
-const hasAccount = [
-  '0.2.1-alpha.3',
-  '0.2.1-alpha.4',
-  '0.2.1-alpha.5',
-  '0.2.1-rc.1',
-  '0.2.1-rc.2',
-].includes(dshVersion)
 
 async function fixture({
   keepOnboarding = false,
@@ -53,6 +47,7 @@ async function fixture({
 } = {}) {
   const home = await mkdtemp(join(tmpdir(), 'auth-remote-manual-browser-'))
   const platform = await accountPlatform()
+  const model = await localModelEndpoint()
   const portProbe = createServer().listen(0, '127.0.0.1')
   await once(portProbe, 'listening')
   const address = portProbe.address()
@@ -60,8 +55,7 @@ async function fixture({
   const port = address.port
   await new Promise<void>((resolve) => portProbe.close(() => resolve()))
   const origin = `http://${loopback ? '127.0.0.1' : 'account-remote.test'}:${port}`
-  const env: NodeJS.ProcessEnv = { ...process.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' }
-  delete env.DEEPSEEK_API_KEY
+  const env: NodeJS.ProcessEnv = isolatedDshEnv(home)
   let child: ReturnType<typeof spawn> | undefined
   let browser: Awaited<ReturnType<typeof launchBrowser>> | undefined
   let output = ''
@@ -97,6 +91,7 @@ async function fixture({
     await writeFile(
       join(profile, 'cordis.patch.yml'),
       [
+        ...model.patch,
         '- id: webserver',
         '  disabled: true',
         ...(!preferenceOnly
@@ -125,14 +120,10 @@ async function fixture({
               '    root: [support-reload-package/dist]',
             ]
           : []),
-        ...(hasAccount
-          ? [
-              '- id: deepseek-account',
-              '  config:',
-              `    platformOrigin: ${platform.origin}`,
-              '    allowLoopbackHttp: true',
-            ]
-          : []),
+        '- id: deepseek-account',
+        '  config:',
+        `    platformOrigin: ${platform.origin}`,
+        '    allowLoopbackHttp: true',
         ...(hmrProbeEnabled
           ? [
               '- insert:',
@@ -202,6 +193,10 @@ async function fixture({
     await context.addCookies([{ name: AUTH_COOKIE, value: token!, url: origin }])
     const page = await context.newPage()
     const errors: string[] = []
+    const resources: { path: string; status: number }[] = []
+    page.on('response', (response) =>
+      resources.push({ path: new URL(response.url()).pathname, status: response.status() }),
+    )
     page.on('pageerror', (error) => errors.push(error.message))
     await page.goto(origin, { waitUntil: 'load' })
     try {
@@ -209,6 +204,7 @@ async function fixture({
     } catch (error) {
       console.error('Account fixture startup output:', output)
       console.error('Account fixture browser errors:', errors)
+      console.error('Account fixture responses:', resources)
       console.error('Account fixture page:', await page.locator('body').innerText())
       throw error
     }
@@ -237,12 +233,12 @@ async function fixture({
     }
     // Dismiss first-run onboarding without ever initiating Platform authorization.
     const manual = page.getByRole('dialog', { name: '登录 DeepSeek 账号', exact: true })
-    if (hasAccount && manualEnabled && !keepOnboarding) {
+    if (manualEnabled && !keepOnboarding) {
       await manual.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
       if (await manual.isVisible())
         await manual.getByRole('button', { name: '关闭', exact: true }).click()
     }
-    if (hasAccount && !manualEnabled && !keepOnboarding) {
+    if (!manualEnabled && !keepOnboarding) {
       const welcome = page.getByRole('dialog', { name: '开始使用', exact: true })
       await welcome.waitFor({ state: 'visible', timeout: 5000 })
       await welcome.getByRole('button', { name: '关闭', exact: true }).click()
@@ -253,6 +249,7 @@ async function fixture({
       page,
       context,
       platform,
+      model,
       origin,
       errors,
       output: () => output,
@@ -282,6 +279,7 @@ async function fixture({
           await once(child, 'exit')
         }
         await platform.close()
+        await model.close()
         await rm(home, { recursive: true, force: true })
       },
     }
@@ -292,6 +290,7 @@ async function fixture({
       await once(child, 'exit')
     }
     await platform.close()
+    await model.close()
     await rm(home, { recursive: true, force: true })
     throw error
   }
@@ -358,7 +357,7 @@ test(
       await settings.getByRole('button', { name: '重试', exact: true }).click()
       await expect.poll(() => reads).toBeGreaterThan(before)
       await expect(toggle).toBeChecked()
-      if (hasAccount) await expect(toggle).toBeEnabled()
+      await expect(toggle).toBeEnabled()
       await expect(settings.getByText('登录配置暂时不可用。')).toHaveCount(0)
       assert.deepEqual(f.errors, [])
     } finally {
@@ -490,627 +489,593 @@ if (classifyDshSupport(dshVersion, new Set([dshVersion])).state === 'legacy')
     },
   )
 
-if (hasAccount) {
-  test(
-    'manual switch remains writable after native HMR replaces the installed plugin',
-    { timeout: 90000 },
-    async () => {
-      const f = await fixture()
-      try {
-        let { settings, toggle } = await openSecurity(f.page)
-        await expect(toggle).toBeChecked()
-        const marker = 'auth-remote real HMR regression replacement loaded'
-        await appendFile(
-          join(f.profile, 'node_modules/dsh-auth-remote/dist/index.js'),
-          '\nconsole.info(' + JSON.stringify(marker) + ');\n',
+test(
+  'manual switch remains writable after native HMR replaces the installed plugin',
+  { timeout: 90000 },
+  async () => {
+    const f = await fixture()
+    try {
+      let { settings, toggle } = await openSecurity(f.page)
+      await expect(toggle).toBeChecked()
+      const marker = 'auth-remote real HMR regression replacement loaded'
+      await appendFile(
+        join(f.profile, 'node_modules/dsh-auth-remote/dist/index.js'),
+        '\nconsole.info(' + JSON.stringify(marker) + ');\n',
+      )
+      await toggle.click()
+      await expect(toggle).not.toBeChecked()
+      await expect.poll(f.output, { timeout: 20000 }).toContain(marker)
+      await expect
+        .poll(
+          async () => {
+            try {
+              const target = new URL(f.origin)
+              const response = await fetch(
+                'http://127.0.0.1:' + target.port + '/auth-remote/ready',
+                {
+                  headers: { host: target.host },
+                  signal: AbortSignal.timeout(1000),
+                },
+              )
+              return response.status
+            } catch {
+              return 0
+            }
+          },
+          { timeout: 20000 },
         )
-        await toggle.click()
-        await expect(toggle).not.toBeChecked()
-        await expect.poll(f.output, { timeout: 20000 }).toContain(marker)
-        await expect
-          .poll(
-            async () => {
-              try {
-                const target = new URL(f.origin)
-                const response = await fetch(
-                  'http://127.0.0.1:' + target.port + '/auth-remote/ready',
-                  {
-                    headers: { host: target.host },
-                    signal: AbortSignal.timeout(1000),
-                  },
-                )
-                return response.status
-              } catch {
-                return 0
-              }
-            },
-            { timeout: 20000 },
-          )
-          .toBe(200)
-        await f.page.reload()
-        ;({ settings, toggle } = await openSecurity(f.page))
-        await expect(toggle).not.toBeChecked()
+        .toBe(200)
+      await f.page.reload()
+      ;({ settings, toggle } = await openSecurity(f.page))
+      await expect(toggle).not.toBeChecked()
+      const answered = f.page.waitForResponse(
+        (response) => new URL(response.url()).pathname === '/api/settings/mutate',
+      )
+      await toggle.click()
+      const reply = await (await answered).json()
+      assert.equal(reply.result.ok, true, JSON.stringify(reply))
+      await expect(toggle).toBeChecked()
+      await expect(toggle).toBeEnabled()
+      await expect(settings.getByRole('alert').filter({ hasText: '配置保存失败' })).toHaveCount(0)
+    } finally {
+      await f.close()
+    }
+  },
+)
+
+test(
+  'manual switch enables an initially disabled profile and keeps the accepted value after refresh',
+  { timeout: 90000 },
+  async () => {
+    const f = await fixture({ manualEnabled: false })
+    try {
+      let { settings, toggle } = await openSecurity(f.page)
+      await expect(toggle).not.toBeChecked()
+      for (const enabled of [true, false, true]) {
         const answered = f.page.waitForResponse(
           (response) => new URL(response.url()).pathname === '/api/settings/mutate',
         )
         await toggle.click()
         const reply = await (await answered).json()
         assert.equal(reply.result.ok, true, JSON.stringify(reply))
-        await expect(toggle).toBeChecked()
+        await expect(toggle).toBeChecked({ checked: enabled })
         await expect(toggle).toBeEnabled()
         await expect(settings.getByRole('alert').filter({ hasText: '配置保存失败' })).toHaveCount(0)
-      } finally {
-        await f.close()
       }
-    },
-  )
-
-  test(
-    'manual switch enables an initially disabled profile and keeps the accepted value after refresh',
-    { timeout: 90000 },
-    async () => {
-      const f = await fixture({ manualEnabled: false })
-      try {
-        let { settings, toggle } = await openSecurity(f.page)
-        await expect(toggle).not.toBeChecked()
-        for (const enabled of [true, false, true]) {
-          const answered = f.page.waitForResponse(
-            (response) => new URL(response.url()).pathname === '/api/settings/mutate',
-          )
-          await toggle.click()
-          const reply = await (await answered).json()
-          assert.equal(reply.result.ok, true, JSON.stringify(reply))
-          await expect(toggle).toBeChecked({ checked: enabled })
-          await expect(toggle).toBeEnabled()
-          await expect(settings.getByRole('alert').filter({ hasText: '配置保存失败' })).toHaveCount(
-            0,
-          )
-        }
-        await f.page.reload()
-        ;({ settings, toggle } = await openSecurity(f.page))
-        await expect(toggle).toBeChecked()
-        await expect(toggle).toBeEnabled()
-      } finally {
-        await f.close()
-      }
-    },
-  )
-  test(
-    'manual switch can re-enable when it is the only auth profile override',
-    { timeout: 90000 },
-    async () => {
-      const f = await fixture({ preferenceOnly: true })
-      try {
-        const { settings, toggle } = await openSecurity(f.page)
-        await expect(toggle).toBeChecked()
-        for (const enabled of [false, true, false, true]) {
-          const answered = f.page.waitForResponse(
-            (response) => new URL(response.url()).pathname === '/api/settings/mutate',
-          )
-          await toggle.click()
-          const reply = await (await answered).json()
-          assert.equal(reply.result.ok, true, JSON.stringify(reply))
-          await expect(toggle).toBeChecked({ checked: enabled })
-          await expect(toggle).toBeEnabled()
-          await expect(settings.getByRole('alert').filter({ hasText: '配置保存失败' })).toHaveCount(
-            0,
-          )
-        }
-      } finally {
-        await f.close()
-      }
-    },
-  )
-
-  test(
-    'native configuration saves immediately, restores native entries, preserves failure values and survives refresh',
-    { timeout: 90000 },
-    async () => {
-      const f = await fixture()
-      try {
-        let { settings, toggle } = await openSecurity(f.page)
-        await expect(toggle).toBeChecked()
-        await expect(toggle).toBeEnabled()
-        assert.equal(await toggle.evaluate((node) => node.tagName), 'BUTTON')
-        await expect(settings.getByRole('checkbox')).toHaveCount(0)
-        await expect(
-          settings
-            .locator('.auth-remote-manual-copy')
-            .getByText('在新标签页授权后，粘贴回调地址登录。'),
-        ).toBeVisible()
-        await toggle.focus()
-        await toggle.press('Space')
-        await expect(toggle).not.toBeChecked()
-        await expect(toggle).toBeEnabled()
-        await toggle.press('Space')
-        await expect(toggle).toBeChecked()
-        await expect(toggle).toBeEnabled()
-        await f.page.route('**/api/settings/mutate', (route) => route.abort('failed'))
-        await toggle.click()
-        await expect(settings.getByRole('alert').filter({ hasText: '配置保存失败' })).toBeVisible()
-        await expect(toggle).toBeEnabled()
-        await expect(toggle).toBeChecked()
-        await f.page.unroute('**/api/settings/mutate')
-        let release!: () => void
-        const held = new Promise<void>((resolve) => {
-          release = resolve
-        })
-        await f.page.route('**/api/settings/mutate', async (route) => {
-          await held
-          await route.continue()
-        })
-        try {
-          await toggle.click()
-          await expect(toggle).toBeDisabled()
-          await expect(toggle).toBeChecked()
-        } finally {
-          release()
-        }
-        await expect(toggle).not.toBeChecked()
-        await expect(toggle).toBeEnabled()
-        await f.page.unroute('**/api/settings/mutate')
-        assert.match(
-          await (
-            await import('node:fs/promises')
-          ).readFile(join(f.profile, 'cordis.patch.yml'), 'utf8'),
-          /manualAccountLogin: false/u,
+      await f.page.reload()
+      ;({ settings, toggle } = await openSecurity(f.page))
+      await expect(toggle).toBeChecked()
+      await expect(toggle).toBeEnabled()
+    } finally {
+      await f.close()
+    }
+  },
+)
+test(
+  'manual switch can re-enable when it is the only auth profile override',
+  { timeout: 90000 },
+  async () => {
+    const f = await fixture({ preferenceOnly: true })
+    try {
+      const { settings, toggle } = await openSecurity(f.page)
+      await expect(toggle).toBeChecked()
+      for (const enabled of [false, true, false, true]) {
+        const answered = f.page.waitForResponse(
+          (response) => new URL(response.url()).pathname === '/api/settings/mutate',
         )
-        await settings.getByRole('button', { name: '关闭', exact: true }).click()
-        await f.page.getByRole('button', { name: '账号菜单', exact: true }).click()
-        await f.page.getByRole('menuitem', { name: '登录', exact: true }).click()
-        const native = f.page.getByRole('dialog', { name: '登录失败', exact: true })
-        await expect(native).toBeVisible()
-        await expect(f.page.locator('.auth-remote-account-dialog')).toHaveCount(0)
-        await native.getByRole('button', { name: '关闭', exact: true }).click()
-        await f.page.reload()
-        ;({ settings, toggle } = await openSecurity(f.page))
-        await expect(toggle).not.toBeChecked()
         await toggle.click()
+        const reply = await (await answered).json()
+        assert.equal(reply.result.ok, true, JSON.stringify(reply))
+        await expect(toggle).toBeChecked({ checked: enabled })
+        await expect(toggle).toBeEnabled()
+        await expect(settings.getByRole('alert').filter({ hasText: '配置保存失败' })).toHaveCount(0)
+      }
+    } finally {
+      await f.close()
+    }
+  },
+)
+
+test(
+  'native configuration saves immediately, restores native entries, preserves failure values and survives refresh',
+  { timeout: 90000 },
+  async () => {
+    const f = await fixture()
+    try {
+      let { settings, toggle } = await openSecurity(f.page)
+      await expect(toggle).toBeChecked()
+      await expect(toggle).toBeEnabled()
+      assert.equal(await toggle.evaluate((node) => node.tagName), 'BUTTON')
+      await expect(settings.getByRole('checkbox')).toHaveCount(0)
+      await expect(
+        settings
+          .locator('.auth-remote-manual-copy')
+          .getByText('在新标签页授权后，粘贴回调地址登录。'),
+      ).toBeVisible()
+      await toggle.focus()
+      await toggle.press('Space')
+      await expect(toggle).not.toBeChecked()
+      await expect(toggle).toBeEnabled()
+      await toggle.press('Space')
+      await expect(toggle).toBeChecked()
+      await expect(toggle).toBeEnabled()
+      await f.page.route('**/api/settings/mutate', (route) => route.abort('failed'))
+      await toggle.click()
+      await expect(settings.getByRole('alert').filter({ hasText: '配置保存失败' })).toBeVisible()
+      await expect(toggle).toBeEnabled()
+      await expect(toggle).toBeChecked()
+      await f.page.unroute('**/api/settings/mutate')
+      let release!: () => void
+      const held = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      await f.page.route('**/api/settings/mutate', async (route) => {
+        await held
+        await route.continue()
+      })
+      try {
+        await toggle.click()
+        await expect(toggle).toBeDisabled()
         await expect(toggle).toBeChecked()
-        await expect(toggle).toBeEnabled()
-        await settings.getByRole('button', { name: '关闭', exact: true }).click()
-        const dialog = await f.open()
-        await expect(dialog.getByLabel('完整回调地址')).toBeVisible()
-        assert.equal(f.platform.attempts.length, 0)
       } finally {
-        await f.close()
+        release()
       }
-    },
-  )
+      await expect(toggle).not.toBeChecked()
+      await expect(toggle).toBeEnabled()
+      await f.page.unroute('**/api/settings/mutate')
+      assert.match(
+        await (
+          await import('node:fs/promises')
+        ).readFile(join(f.profile, 'cordis.patch.yml'), 'utf8'),
+        /manualAccountLogin: false/u,
+      )
+      await settings.getByRole('button', { name: '关闭', exact: true }).click()
+      await f.page.getByRole('button', { name: '账号菜单', exact: true }).click()
+      await f.page.getByRole('menuitem', { name: '登录', exact: true }).click()
+      const native = f.page.getByRole('dialog', { name: '登录失败', exact: true })
+      await expect(native).toBeVisible()
+      await expect(f.page.locator('.auth-remote-account-dialog')).toHaveCount(0)
+      await native.getByRole('button', { name: '关闭', exact: true }).click()
+      await f.page.reload()
+      ;({ settings, toggle } = await openSecurity(f.page))
+      await expect(toggle).not.toBeChecked()
+      await toggle.click()
+      await expect(toggle).toBeChecked()
+      await expect(toggle).toBeEnabled()
+      await settings.getByRole('button', { name: '关闭', exact: true }).click()
+      const dialog = await f.open()
+      await expect(dialog.getByLabel('完整回调地址')).toBeVisible()
+      assert.equal(f.platform.attempts.length, 0)
+    } finally {
+      await f.close()
+    }
+  },
+)
 
-  test(
-    'disabling from Settings preserves an admitted manual dialog through successful native exchange',
-    { timeout: 90000 },
-    async () => {
-      const f = await fixture()
-      try {
-        const other = await f.context.newPage()
-        await other.goto(f.origin)
-        const { toggle } = await openSecurity(other)
-        const dialog = await f.open()
-        const opened = f.context.waitForEvent('page')
-        await dialog.getByRole('button', { name: '打开登录页' }).click()
-        const popup = await opened
-        await expect(dialog.getByLabel('完整回调地址')).toBeEnabled()
-        await toggle.click()
-        await expect(toggle).not.toBeChecked()
-        await expect(toggle).toBeEnabled()
-        await expect(dialog.getByLabel('完整回调地址')).toBeEnabled()
-        const denied = await other.evaluate(async () => {
-          const response = await fetch('/auth-remote/account/start', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ locale: 'en', timezoneOffsetSeconds: 0 }),
-          })
-          return { status: response.status, body: await response.json() }
+test(
+  'disabling from Settings preserves an admitted manual dialog through successful native exchange',
+  { timeout: 90000 },
+  async () => {
+    const f = await fixture()
+    try {
+      const other = await f.context.newPage()
+      await other.goto(f.origin)
+      const { toggle } = await openSecurity(other)
+      const dialog = await f.open()
+      const opened = f.context.waitForEvent('page')
+      await dialog.getByRole('button', { name: '打开登录页' }).click()
+      const popup = await opened
+      await expect(dialog.getByLabel('完整回调地址')).toBeEnabled()
+      await toggle.click()
+      await expect(toggle).not.toBeChecked()
+      await expect(toggle).toBeEnabled()
+      await expect(dialog.getByLabel('完整回调地址')).toBeEnabled()
+      const denied = await other.evaluate(async () => {
+        const response = await fetch('/auth-remote/account/start', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ locale: 'en', timezoneOffsetSeconds: 0 }),
         })
-        assert.equal(denied.status, 403)
-        assert.equal(denied.body.error, 'account_disabled')
-        const callback = popup.waitForRequest(
-          (request) => new URL(request.url()).pathname === '/oauth/callback',
-        )
-        await popup.getByRole('button', { name: 'Authorize test account' }).click()
-        await dialog.getByLabel('完整回调地址').fill((await callback).url())
-        await dialog.getByRole('button', { name: '确认登录' }).click()
-        await expect(dialog).not.toBeVisible()
-        assert.equal(f.platform.exchanges.length, 1)
-        assert.deepEqual(f.errors, [])
-      } finally {
-        await f.close()
-      }
-    },
-  )
+        return { status: response.status, body: await response.json() }
+      })
+      assert.equal(denied.status, 403)
+      assert.equal(denied.body.error, 'account_disabled')
+      const callback = popup.waitForRequest(
+        (request) => new URL(request.url()).pathname === '/oauth/callback',
+      )
+      await popup.getByRole('button', { name: 'Authorize test account' }).click()
+      await dialog.getByLabel('完整回调地址').fill((await callback).url())
+      await dialog.getByRole('button', { name: '确认登录' }).click()
+      await expect(dialog).not.toBeVisible()
+      assert.equal(f.platform.exchanges.length, 1)
+      assert.deepEqual(f.errors, [])
+    } finally {
+      await f.close()
+    }
+  },
+)
 
-  test(
-    'a stale instructions dialog reports disabled instead of starting a new authorization',
-    { timeout: 90000 },
-    async () => {
-      const f = await fixture()
-      try {
-        const other = await f.context.newPage()
-        await other.goto(f.origin)
-        const { toggle } = await openSecurity(other)
-        const dialog = await f.open()
-        await toggle.click()
-        await expect(toggle).not.toBeChecked()
-        await dialog.getByRole('button', { name: '打开登录页' }).click()
-        await expect(dialog.getByRole('alert')).toContainText('请刷新页面')
-        assert.equal(f.platform.attempts.length, 0)
-      } finally {
-        await f.close()
-      }
-    },
-  )
+test(
+  'a stale instructions dialog reports disabled instead of starting a new authorization',
+  { timeout: 90000 },
+  async () => {
+    const f = await fixture()
+    try {
+      const other = await f.context.newPage()
+      await other.goto(f.origin)
+      const { toggle } = await openSecurity(other)
+      const dialog = await f.open()
+      await toggle.click()
+      await expect(toggle).not.toBeChecked()
+      await dialog.getByRole('button', { name: '打开登录页' }).click()
+      await expect(dialog.getByRole('alert')).toContainText('请刷新页面')
+      assert.equal(f.platform.attempts.length, 0)
+    } finally {
+      await f.close()
+    }
+  },
+)
 
-  test(
-    'enabling while a native authorization is open preserves its dialog and provider attempt',
-    { timeout: 90000 },
-    async () => {
-      const f = await fixture({ manualEnabled: false, loopback: true })
-      try {
-        const other = await f.context.newPage()
-        await other.goto(f.origin)
-        const { toggle } = await openSecurity(other)
-        const opened = f.context.waitForEvent('page')
-        await f.page.getByRole('button', { name: '账号菜单', exact: true }).click()
-        await f.page.getByRole('menuitem', { name: '登录', exact: true }).click()
-        const popup = await opened
-        const native = f.page.getByRole('dialog', { name: '等待登录', exact: true })
-        await expect(native).toBeVisible()
-        await expect(native.getByRole('button', { name: '复制登录链接' })).toBeEnabled()
-        await toggle.click()
-        await expect(toggle).toBeChecked()
-        await expect(native).toBeVisible()
-        await expect(f.page.locator('.auth-remote-account-dialog')).toHaveCount(0)
-        assert.equal(popup.isClosed(), false)
-        assert.equal(f.platform.attempts.length, 1)
-        const state = await f.page.evaluate(async () =>
-          (await fetch('/auth-remote/account/state')).json(),
-        )
-        assert.equal(
-          state.attempt,
-          null,
-          'a native attempt must not become owned by the manual adapter',
-        )
-        await native.getByRole('button', { name: '取消', exact: true }).click()
-      } finally {
-        await f.close()
-      }
-    },
-  )
+test(
+  'enabling while a native authorization is open preserves its dialog and provider attempt',
+  { timeout: 90000 },
+  async () => {
+    const f = await fixture({ manualEnabled: false, loopback: true })
+    try {
+      const other = await f.context.newPage()
+      await other.goto(f.origin)
+      const { toggle } = await openSecurity(other)
+      const opened = f.context.waitForEvent('page')
+      await f.page.getByRole('button', { name: '账号菜单', exact: true }).click()
+      await f.page.getByRole('menuitem', { name: '登录', exact: true }).click()
+      const popup = await opened
+      const native = f.page.getByRole('dialog', { name: '等待登录', exact: true })
+      await expect(native).toBeVisible()
+      await expect(native.getByRole('button', { name: '复制登录链接' })).toBeEnabled()
+      await toggle.click()
+      await expect(toggle).toBeChecked()
+      await expect(native).toBeVisible()
+      await expect(f.page.locator('.auth-remote-account-dialog')).toHaveCount(0)
+      assert.equal(popup.isClosed(), false)
+      assert.equal(f.platform.attempts.length, 1)
+      const state = await f.page.evaluate(async () =>
+        (await fetch('/auth-remote/account/state')).json(),
+      )
+      assert.equal(
+        state.attempt,
+        null,
+        'a native attempt must not become owned by the manual adapter',
+      )
+      await native.getByRole('button', { name: '取消', exact: true }).click()
+    } finally {
+      await f.close()
+    }
+  },
+)
 
-  test(
-    'configuration retry restores a temporarily missing namespace through its injected transport',
-    { timeout: 90000 },
-    async () => {
-      const f = await fixture()
-      try {
-        let hide = true
-        let reads = 0
-        await f.page.route('**/api/settings/describe', async (route) => {
-          reads++
-          const local = new URL(route.request().url())
-          local.hostname = '127.0.0.1'
-          const response = await route.fetch({
-            url: local.href,
-            headers: { ...route.request().headers(), host: new URL(f.origin).host },
-          })
-          const body = await response.json()
-          if (hide)
-            body.result.value.namespaces = body.result.value.namespaces.filter(
-              (entry: any) => entry.ns !== 'auth-remote',
-            )
-          await route.fulfill({ response, json: body })
+test(
+  'configuration retry restores a temporarily missing namespace through its injected transport',
+  { timeout: 90000 },
+  async () => {
+    const f = await fixture()
+    try {
+      let hide = true
+      let reads = 0
+      await f.page.route('**/api/settings/describe', async (route) => {
+        reads++
+        const local = new URL(route.request().url())
+        local.hostname = '127.0.0.1'
+        const response = await route.fetch({
+          url: local.href,
+          headers: { ...route.request().headers(), host: new URL(f.origin).host },
         })
-        await f.page.reload()
-        const { settings, toggle } = await openSecurity(f.page)
-        await expect(settings.getByText('登录配置暂时不可用。')).toBeVisible()
-        await expect(toggle).toHaveCount(0)
-        const before = reads
-        hide = false
-        await settings.getByRole('button', { name: '重试', exact: true }).click()
-        await expect.poll(() => reads).toBeGreaterThan(before)
-        await expect(toggle).toBeChecked()
-        await expect(toggle).toBeEnabled()
-        await toggle.click()
-        await expect(toggle).not.toBeChecked()
-        await expect(toggle).toBeEnabled()
-        assert.deepEqual(f.errors, [])
-      } finally {
-        await f.close()
-      }
-    },
-  )
-
-  for (const manualEnabled of [true, false])
-    test(
-      `sign-in waits for the initial preference before choosing ${manualEnabled ? 'manual' : 'native'} routing`,
-      { timeout: 90000 },
-      async () => {
-        const f = await fixture({ manualEnabled })
-        let release!: () => void
-        const held = new Promise<void>((resolve) => {
-          release = resolve
-        })
-        try {
-          let reads = 0
-          let nativeStarts = 0
-          f.page.on('request', (request) => {
-            if (new URL(request.url()).pathname === '/api/account/startSignIn') nativeStarts++
-          })
-          await f.page.route('**/api/settings/describe', async (route) => {
-            reads++
-            await held
-            await route.continue()
-          })
-          await f.page.reload()
-          await expect.poll(() => reads).toBeGreaterThan(0)
-          await f.page.getByRole('button', { name: '账号菜单', exact: true }).click()
-          await f.page.getByRole('menuitem', { name: '登录', exact: true }).click()
-          await f.page.waitForTimeout(250)
-          assert.equal(nativeStarts, 0, 'unknown preference must not start native authorization')
-          await expect(f.page.locator('.auth-remote-account-dialog')).toHaveCount(0)
-          release()
-          if (manualEnabled) {
-            await expect(
-              f.page.getByRole('dialog', { name: '登录 DeepSeek 账号', exact: true }),
-            ).toBeVisible()
-            assert.equal(nativeStarts, 0)
-          } else {
-            await expect.poll(() => nativeStarts).toBe(1)
-            await expect(
-              f.page.getByRole('dialog', { name: '登录失败', exact: true }),
-            ).toBeVisible()
-            await expect(f.page.locator('.auth-remote-account-dialog')).toHaveCount(0)
-          }
-          assert.equal(f.platform.attempts.length, 0)
-          assert.deepEqual(f.errors, [])
-        } finally {
-          release()
-          await f.close()
-        }
-      },
-    )
-
-  test(
-    'an unavailable native configuration form keeps authentication and native entries available without a local substitute',
-    { timeout: 90000 },
-    async () => {
-      const f = await fixture()
-      try {
-        await f.page.route('**/api/settings/describe', async (route) => {
-          const local = new URL(route.request().url())
-          local.hostname = '127.0.0.1'
-          const response = await route.fetch({
-            url: local.href,
-            headers: { ...route.request().headers(), host: new URL(f.origin).host },
-          })
-          const body = await response.json()
+        const body = await response.json()
+        if (hide)
           body.result.value.namespaces = body.result.value.namespaces.filter(
             (entry: any) => entry.ns !== 'auth-remote',
           )
-          await route.fulfill({ response, json: body })
+        await route.fulfill({ response, json: body })
+      })
+      await f.page.reload()
+      const { settings, toggle } = await openSecurity(f.page)
+      await expect(settings.getByText('登录配置暂时不可用。')).toBeVisible()
+      await expect(toggle).toHaveCount(0)
+      const before = reads
+      hide = false
+      await settings.getByRole('button', { name: '重试', exact: true }).click()
+      await expect.poll(() => reads).toBeGreaterThan(before)
+      await expect(toggle).toBeChecked()
+      await expect(toggle).toBeEnabled()
+      await toggle.click()
+      await expect(toggle).not.toBeChecked()
+      await expect(toggle).toBeEnabled()
+      assert.deepEqual(f.errors, [])
+    } finally {
+      await f.close()
+    }
+  },
+)
+
+for (const manualEnabled of [true, false])
+  test(
+    `sign-in waits for the initial preference before choosing ${manualEnabled ? 'manual' : 'native'} routing`,
+    { timeout: 90000 },
+    async () => {
+      const f = await fixture({ manualEnabled })
+      let release!: () => void
+      const held = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      try {
+        let reads = 0
+        let nativeStarts = 0
+        f.page.on('request', (request) => {
+          if (new URL(request.url()).pathname === '/api/account/startSignIn') nativeStarts++
+        })
+        await f.page.route('**/api/settings/describe', async (route) => {
+          reads++
+          await held
+          await route.continue()
         })
         await f.page.reload()
-        const { settings, toggle } = await openSecurity(f.page)
-        await expect(settings.getByText('登录配置暂时不可用。')).toBeVisible()
-        await expect(toggle).toHaveCount(0)
-        await expect(settings.getByText('手动登录已关闭，已开始的授权仍可继续。')).toHaveCount(0)
-        assert.equal(
-          await f.page.evaluate(async () => (await fetch('/auth-remote/me')).status),
-          200,
-        )
+        await expect.poll(() => reads).toBeGreaterThan(0)
+        await f.page.getByRole('button', { name: '账号菜单', exact: true }).click()
+        await f.page.getByRole('menuitem', { name: '登录', exact: true }).click()
+        await f.page.waitForTimeout(250)
+        assert.equal(nativeStarts, 0, 'unknown preference must not start native authorization')
+        await expect(f.page.locator('.auth-remote-account-dialog')).toHaveCount(0)
+        release()
+        if (manualEnabled) {
+          await expect(
+            f.page.getByRole('dialog', { name: '登录 DeepSeek 账号', exact: true }),
+          ).toBeVisible()
+          assert.equal(nativeStarts, 0)
+        } else {
+          await expect.poll(() => nativeStarts).toBe(1)
+          await expect(f.page.getByRole('dialog', { name: '登录失败', exact: true })).toBeVisible()
+          await expect(f.page.locator('.auth-remote-account-dialog')).toHaveCount(0)
+        }
         assert.equal(f.platform.attempts.length, 0)
+        assert.deepEqual(f.errors, [])
       } finally {
+        release()
         await f.close()
       }
     },
   )
 
-  test(
-    'credential-free onboarding preserves native API-key setup without starting account authorization',
-    { timeout: 90000 },
-    async () => {
-      const f = await fixture({ keepOnboarding: true })
-      try {
-        const dialog = f.page.getByRole('dialog', { name: '登录 DeepSeek 账号', exact: true })
-        await expect(dialog).toBeVisible()
-        await dialog
-          .getByRole('button', { name: '使用 API Key', exact: true })
-          .click({ timeout: 5000 })
-        await expect(dialog).not.toBeVisible()
-        const editor = f.page.getByRole('dialog', {
-          name: '添加一个 API Key 开始使用',
-          exact: true,
+test(
+  'an unavailable native configuration form keeps authentication and native entries available without a local substitute',
+  { timeout: 90000 },
+  async () => {
+    const f = await fixture()
+    try {
+      await f.page.route('**/api/settings/describe', async (route) => {
+        const local = new URL(route.request().url())
+        local.hostname = '127.0.0.1'
+        const response = await route.fetch({
+          url: local.href,
+          headers: { ...route.request().headers(), host: new URL(f.origin).host },
         })
-        await expect(editor).toBeVisible()
-        await expect(editor.getByRole('button', { name: '保存并继续' })).toBeDisabled()
-        assert.equal(f.platform.attempts.length, 0)
-        assert.equal(f.context.pages().length, 1)
-        await editor
-          .getByRole('textbox', { name: 'API 密钥', exact: true })
-          .fill('onboarding-test-key')
-        const saved = f.page.waitForResponse(
-          (response) => new URL(response.url()).pathname === '/api/credentials/set',
+        const body = await response.json()
+        body.result.value.namespaces = body.result.value.namespaces.filter(
+          (entry: any) => entry.ns !== 'auth-remote',
         )
-        await editor.getByRole('button', { name: '保存并继续' }).click()
-        const response = await saved
-        assert.equal(response.status(), 200)
-        assert.equal((await response.json()).result.ok, true)
-        await expect(editor).not.toBeVisible()
-        // The account menu must reopen the native editor even after a provider is configured.
-        await f.open()
-        await dialog.getByRole('button', { name: '使用 API Key', exact: true }).click()
-        await expect(dialog).not.toBeVisible()
-        await expect(editor).toBeVisible()
-        await editor.getByRole('button', { name: '稍后配置', exact: true }).click()
-        await expect(editor).not.toBeVisible()
-        assert.equal(f.platform.attempts.length, 0)
-        assert.deepEqual(f.errors, [])
-      } finally {
-        await f.close()
-      }
-    },
-  )
+        await route.fulfill({ response, json: body })
+      })
+      await f.page.reload()
+      const { settings, toggle } = await openSecurity(f.page)
+      await expect(settings.getByText('登录配置暂时不可用。')).toBeVisible()
+      await expect(toggle).toHaveCount(0)
+      await expect(settings.getByText('手动登录已关闭，已开始的授权仍可继续。')).toHaveCount(0)
+      assert.equal(await f.page.evaluate(async () => (await fetch('/auth-remote/me')).status), 200)
+      assert.equal(f.platform.attempts.length, 0)
+    } finally {
+      await f.close()
+    }
+  },
+)
 
-  test(
-    'account menu opens instructions first and a pasted failed-navigation URL completes native sign-in',
-    { timeout: 90000 },
-    async () => {
-      const f = await fixture()
-      try {
-        const dialog = await f.open()
-        await expect(dialog.getByLabel('完整回调地址')).toBeDisabled()
-        await expect(dialog.getByRole('listitem')).toHaveCount(2)
-        assert.equal(f.platform.attempts.length, 0)
-        assert.equal(f.context.pages().length, 1)
-        const screenshotDir = join(project, '.cache/ui-review', dshVersion)
-        await mkdir(screenshotDir, { recursive: true })
-        await f.page.screenshot({ path: join(screenshotDir, 'account-login-light-desktop.png') })
-        const opened = f.context.waitForEvent('page')
-        await dialog.getByRole('button', { name: '打开登录页' }).click()
-        const popup = await opened
-        await popup.getByRole('button', { name: 'Authorize test account' }).waitFor()
-        await expect(dialog.getByLabel('完整回调地址')).toBeEnabled()
-        await expect(dialog.getByRole('listitem')).toHaveCount(0)
-        await expect(dialog.getByRole('button', { name: '使用 API Key', exact: true })).toHaveCount(
-          0,
-        )
-        await expect(dialog.getByRole('button', { name: '取消', exact: true })).toBeEnabled()
-        // Changing sidebar layout must not unmount/cancel pending authorization.
-        await f.page.setViewportSize({ width: 390, height: 844 })
-        await expect(dialog.getByLabel('完整回调地址')).toBeEnabled()
-        await f.page.setViewportSize({ width: 1280, height: 900 })
-        const callback = popup.waitForRequest(
-          (request) => new URL(request.url()).pathname === '/oauth/callback',
-        )
-        await popup.getByRole('button', { name: 'Authorize test account' }).click()
-        const address = (await callback).url()
-        assert.equal(address, f.platform.callback())
-        await dialog
-          .getByLabel('完整回调地址')
-          .fill(address.replace(new URL(address).searchParams.get('state')!, 'wrong-state'))
-        await dialog.getByRole('button', { name: '确认登录' }).click()
-        await expect(dialog.getByRole('alert')).toContainText('回调地址与当前授权不匹配')
-        assert.equal(f.platform.exchanges.length, 0)
-        await dialog.getByLabel('完整回调地址').fill(address)
-        const submit = f.page.waitForResponse(
-          (response) => new URL(response.url()).pathname === '/auth-remote/account/submit',
-        )
-        await dialog.getByRole('button', { name: '确认登录' }).click()
-        assert.equal((await submit).status(), 200)
-        await expect(dialog).not.toBeVisible()
-        await expect(f.page.getByText('Manual Test Account', { exact: true })).toBeVisible()
-        assert.equal(f.platform.exchanges.length, 1)
-        assert.deepEqual(f.errors, [])
-        assert.equal(
-          (
-            await f.page.evaluate(() =>
-              JSON.stringify({ local: localStorage, session: sessionStorage }),
-            )
-          ).includes('dsh_mock_manual_account'),
-          false,
-        )
-      } catch (error) {
-        console.error(
-          'Manual account browser diagnostics:',
-          JSON.stringify({
-            url: f.page.url(),
-            body: (await f.page.locator('body').innerText()).slice(-5000),
-            state: await f.page
-              .evaluate(async () => (await fetch('/auth-remote/account/state')).json())
-              .catch(() => null),
-            errors: f.errors,
-            exchanges: f.platform.exchanges.length,
-          }),
-        )
-        throw error
-      } finally {
-        await f.close()
-      }
-    },
-  )
+test(
+  'credential-free onboarding preserves native API-key setup without starting account authorization',
+  { timeout: 90000 },
+  async () => {
+    const f = await fixture({ keepOnboarding: true })
+    try {
+      const dialog = f.page.getByRole('dialog', { name: '登录 DeepSeek 账号', exact: true })
+      await expect(dialog).toBeVisible()
+      await dialog
+        .getByRole('button', { name: '使用 API Key', exact: true })
+        .click({ timeout: 5000 })
+      await expect(dialog).not.toBeVisible()
+      const editor = f.page.getByRole('dialog', {
+        name: '添加一个 API Key 开始使用',
+        exact: true,
+      })
+      await expect(editor).toBeVisible()
+      await expect(editor.getByRole('button', { name: '保存并继续' })).toBeDisabled()
+      assert.equal(f.platform.attempts.length, 0)
+      assert.equal(f.context.pages().length, 1)
+      await editor
+        .getByRole('textbox', { name: 'API 密钥', exact: true })
+        .fill('onboarding-test-key')
+      const saved = f.page.waitForResponse(
+        (response) => new URL(response.url()).pathname === '/api/credentials/set',
+      )
+      await editor.getByRole('button', { name: '保存并继续' }).click()
+      const response = await saved
+      assert.equal(response.status(), 200)
+      assert.equal((await response.json()).result.ok, true)
+      await expect(editor).not.toBeVisible()
+      // The account menu must reopen the native editor even after a provider is configured.
+      await f.open()
+      await dialog.getByRole('button', { name: '使用 API Key', exact: true }).click()
+      await expect(dialog).not.toBeVisible()
+      await expect(editor).toBeVisible()
+      await editor.getByRole('button', { name: '稍后配置', exact: true }).click()
+      await expect(editor).not.toBeVisible()
+      assert.equal(f.platform.attempts.length, 0)
+      assert.deepEqual(f.errors, [])
+    } finally {
+      await f.close()
+    }
+  },
+)
 
-  test(
-    'manual sign-in supports blocked popups, cancellation, expiry, live language and narrow dark layout',
-    { timeout: 90000 },
-    async () => {
-      const f = await fixture()
-      try {
-        let dialog = await f.open()
-        await f.page.evaluate(() => {
-          window.open = () => null
-        })
-        await dialog.getByRole('button', { name: '打开登录页' }).click()
-        await expect(dialog.getByText('新标签页被浏览器拦截。')).toBeVisible()
-        await expect(dialog.getByRole('link', { name: '重新打开授权页' })).toBeVisible()
-        const cancel = f.page.waitForResponse(
-          (response) => new URL(response.url()).pathname === '/auth-remote/account/cancel',
-        )
-        await dialog.getByRole('button', { name: '取消', exact: true }).click()
-        assert.equal((await cancel).status(), 200)
-        await expect(dialog).not.toBeVisible()
-        assert.equal(f.platform.exchanges.length, 0)
-        await openDshSettings(f.page)
-        const settings = f.page.getByRole('dialog', { name: '设置', exact: true })
-        await settings.getByRole('button', { name: '通用设置', exact: true }).click()
-        await selectDshTheme(f.page, 'dark')
-        await settings.getByRole('button', { name: '中文', exact: true }).click()
-        await f.page.getByRole('menuitem', { name: 'English', exact: true }).click()
-        await f.page
-          .getByRole('dialog', { name: 'Settings', exact: true })
-          .getByRole('button', { name: 'Close', exact: true })
-          .click()
-        dialog = await f.open('en')
-        await expect(dialog.getByLabel('Full callback address')).toBeVisible()
-        await expect(dialog.getByRole('button', { name: 'Use API key', exact: true })).toBeVisible()
-        await f.page.setViewportSize({ width: 390, height: 844 })
-        await f.page.screenshot({
-          path: join(project, '.cache/ui-review', dshVersion, 'account-login-dark-mobile.png'),
-        })
-        const dimensions = await dialog.evaluate((node) => ({
-          width: node.scrollWidth,
-          client: node.clientWidth,
-        }))
-        assert.ok(dimensions.width <= dimensions.client + 1)
-        await f.page.setViewportSize({ width: 390, height: 480 })
-        await expect(
-          dialog.getByRole('button', { name: 'Use API key', exact: true }),
-        ).toBeInViewport({ ratio: 1 })
-        await expect(
-          dialog.getByRole('button', { name: /^(?:Start again|Open sign-in page)$/u }),
-        ).toBeInViewport({ ratio: 1 })
-        await f.page.setViewportSize({ width: 390, height: 844 })
-        f.platform.expiresIn(0.15)
-        await dialog.getByRole('button', { name: /^(?:Start again|Open sign-in page)$/u }).click()
-        await expect(dialog.getByRole('alert')).toContainText('expired', { timeout: 5000 })
-        await expect(dialog.getByRole('button', { name: 'Start again', exact: true })).toBeEnabled()
-        assert.equal(f.platform.exchanges.length, 0)
-        assert.deepEqual(f.errors, [])
-      } finally {
-        await f.close()
-      }
-    },
-  )
-} else {
-  test(
-    'older DSH retains its settings UI and reports official-account sign-in as unavailable',
-    { timeout: 90000 },
-    async () => {
-      const f = await fixture()
-      try {
-        const state = await f.page.evaluate(async () =>
-          (await fetch('/auth-remote/account/state')).json(),
-        )
-        assert.equal(state.supported, false)
-        const { settings, toggle } = await openSecurity(f.page)
-        await expect(toggle).toBeDisabled()
-        await expect(settings.getByText('当前 DSH 环境不支持手动账号登录。')).toBeVisible()
-        assert.equal(f.platform.attempts.length, 0)
-        assert.deepEqual(f.errors, [])
-      } finally {
-        await f.close()
-      }
-    },
-  )
-}
+test(
+  'account menu opens instructions first and a pasted failed-navigation URL completes native sign-in',
+  { timeout: 90000 },
+  async () => {
+    const f = await fixture()
+    try {
+      const dialog = await f.open()
+      await expect(dialog.getByLabel('完整回调地址')).toBeDisabled()
+      await expect(dialog.getByRole('listitem')).toHaveCount(2)
+      assert.equal(f.platform.attempts.length, 0)
+      assert.equal(f.context.pages().length, 1)
+      const screenshotDir = join(project, '.cache/ui-review', dshVersion)
+      await mkdir(screenshotDir, { recursive: true })
+      await f.page.screenshot({ path: join(screenshotDir, 'account-login-light-desktop.png') })
+      const opened = f.context.waitForEvent('page')
+      await dialog.getByRole('button', { name: '打开登录页' }).click()
+      const popup = await opened
+      await popup.getByRole('button', { name: 'Authorize test account' }).waitFor()
+      await expect(dialog.getByLabel('完整回调地址')).toBeEnabled()
+      await expect(dialog.getByRole('listitem')).toHaveCount(0)
+      await expect(dialog.getByRole('button', { name: '使用 API Key', exact: true })).toHaveCount(0)
+      await expect(dialog.getByRole('button', { name: '取消', exact: true })).toBeEnabled()
+      // Changing sidebar layout must not unmount/cancel pending authorization.
+      await f.page.setViewportSize({ width: 390, height: 844 })
+      await expect(dialog.getByLabel('完整回调地址')).toBeEnabled()
+      await f.page.setViewportSize({ width: 1280, height: 900 })
+      const callback = popup.waitForRequest(
+        (request) => new URL(request.url()).pathname === '/oauth/callback',
+      )
+      await popup.getByRole('button', { name: 'Authorize test account' }).click()
+      const address = (await callback).url()
+      assert.equal(address, f.platform.callback())
+      await dialog
+        .getByLabel('完整回调地址')
+        .fill(address.replace(new URL(address).searchParams.get('state')!, 'wrong-state'))
+      await dialog.getByRole('button', { name: '确认登录' }).click()
+      await expect(dialog.getByRole('alert')).toContainText('回调地址与当前授权不匹配')
+      assert.equal(f.platform.exchanges.length, 0)
+      await dialog.getByLabel('完整回调地址').fill(address)
+      const submit = f.page.waitForResponse(
+        (response) => new URL(response.url()).pathname === '/auth-remote/account/submit',
+      )
+      await dialog.getByRole('button', { name: '确认登录' }).click()
+      assert.equal((await submit).status(), 200)
+      await expect(dialog).not.toBeVisible()
+      await expect(f.page.getByText('Manual Test Account', { exact: true })).toBeVisible()
+      assert.equal(f.platform.exchanges.length, 1)
+      assert.deepEqual(f.errors, [])
+      assert.equal(
+        (
+          await f.page.evaluate(() =>
+            JSON.stringify({ local: localStorage, session: sessionStorage }),
+          )
+        ).includes('dsh_mock_manual_account'),
+        false,
+      )
+    } catch (error) {
+      console.error(
+        'Manual account browser diagnostics:',
+        JSON.stringify({
+          url: f.page.url(),
+          body: (await f.page.locator('body').innerText()).slice(-5000),
+          state: await f.page
+            .evaluate(async () => (await fetch('/auth-remote/account/state')).json())
+            .catch(() => null),
+          errors: f.errors,
+          exchanges: f.platform.exchanges.length,
+        }),
+      )
+      throw error
+    } finally {
+      await f.close()
+    }
+  },
+)
+
+test(
+  'manual sign-in supports blocked popups, cancellation, expiry, live language and narrow dark layout',
+  { timeout: 90000 },
+  async () => {
+    const f = await fixture()
+    try {
+      let dialog = await f.open()
+      await f.page.evaluate(() => {
+        window.open = () => null
+      })
+      await dialog.getByRole('button', { name: '打开登录页' }).click()
+      await expect(dialog.getByText('新标签页被浏览器拦截。')).toBeVisible()
+      await expect(dialog.getByRole('link', { name: '重新打开授权页' })).toBeVisible()
+      const cancel = f.page.waitForResponse(
+        (response) => new URL(response.url()).pathname === '/auth-remote/account/cancel',
+      )
+      await dialog.getByRole('button', { name: '取消', exact: true }).click()
+      assert.equal((await cancel).status(), 200)
+      await expect(dialog).not.toBeVisible()
+      assert.equal(f.platform.exchanges.length, 0)
+      await openDshSettings(f.page)
+      const settings = f.page.getByRole('dialog', { name: '设置', exact: true })
+      await settings.getByRole('button', { name: '通用设置', exact: true }).click()
+      await selectDshTheme(f.page, 'dark')
+      await settings.getByRole('button', { name: '中文', exact: true }).click()
+      await f.page.getByRole('menuitem', { name: 'English', exact: true }).click()
+      await f.page
+        .getByRole('dialog', { name: 'Settings', exact: true })
+        .getByRole('button', { name: 'Close', exact: true })
+        .click()
+      dialog = await f.open('en')
+      await expect(dialog.getByLabel('Full callback address')).toBeVisible()
+      await expect(dialog.getByRole('button', { name: 'Use API key', exact: true })).toBeVisible()
+      await f.page.setViewportSize({ width: 390, height: 844 })
+      await f.page.screenshot({
+        path: join(project, '.cache/ui-review', dshVersion, 'account-login-dark-mobile.png'),
+      })
+      const dimensions = await dialog.evaluate((node) => ({
+        width: node.scrollWidth,
+        client: node.clientWidth,
+      }))
+      assert.ok(dimensions.width <= dimensions.client + 1)
+      await f.page.setViewportSize({ width: 390, height: 480 })
+      await expect(dialog.getByRole('button', { name: 'Use API key', exact: true })).toBeInViewport(
+        { ratio: 1 },
+      )
+      await expect(
+        dialog.getByRole('button', { name: /^(?:Start again|Open sign-in page)$/u }),
+      ).toBeInViewport({ ratio: 1 })
+      await f.page.setViewportSize({ width: 390, height: 844 })
+      f.platform.expiresIn(0.15)
+      await dialog.getByRole('button', { name: /^(?:Start again|Open sign-in page)$/u }).click()
+      await expect(dialog.getByRole('alert')).toContainText('expired', { timeout: 5000 })
+      await expect(dialog.getByRole('button', { name: 'Start again', exact: true })).toBeEnabled()
+      assert.equal(f.platform.exchanges.length, 0)
+      assert.deepEqual(f.errors, [])
+    } finally {
+      await f.close()
+    }
+  },
+)
