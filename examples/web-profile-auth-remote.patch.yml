@@ -2,7 +2,7 @@
 # model and plugin rows. Install this package into the same profile first.
 # Replace dsh.example.com in the unique public root URL. This example uses
 # HTTP behind a TLS proxy. CLI --host/--port override the file individually.
-# All seven DSH targets of plugin 0.3.1 support native TLS; see README.
+# All eight DSH targets of plugin 0.3.2 support native TLS; see README.
 # Supply both tlsCert and tlsKey; relative file paths
 # resolve from this profile directory, while CLI TLS paths resolve from cwd.
 # This independent disable is required for a protected remote deployment:

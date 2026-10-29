@@ -1,0 +1,176 @@
+import type { en } from './en.js'
+
+export const es = {
+  errorNetwork: 'No se pudo conectar. Comprueba la red y vuelve a intentarlo.',
+  errorRateLimited: 'Demasiados intentos. Vuelve a intentarlo en unos {seconds} segundos.',
+  errorUnauthorized: 'Tu sesión ha caducado. Inicia sesión de nuevo.',
+  errorServiceUnavailable: 'El servicio no está disponible temporalmente. Inténtalo más tarde.',
+  errorGeneric: 'No se pudo completar la operación. Vuelve a intentarlo.',
+  accountLoginDisabled:
+    'El inicio de sesión manual está desactivado. Actualiza la página para usar el acceso nativo.',
+  settingsLoginConfiguration: 'Preferencias de inicio de sesión',
+  settingsManualDescription: 'Autoriza en una pestaña nueva y pega la dirección de retorno.',
+  settingsManualAccountLogin: 'Inicio de sesión remoto en DeepSeek',
+  settingsManualConfigUnavailable:
+    'Las preferencias de inicio de sesión no están disponibles temporalmente.',
+  settingsManualUnavailable: 'El inicio de sesión manual no está disponible en este entorno DSH.',
+  settingsManualSaveFailed:
+    'No se pudo guardar esta preferencia. Comprueba el valor actual y vuelve a intentarlo.',
+  settingsSaving: 'Guardando…',
+  settingsRetry: 'Reintentar',
+  accountLoginTitle: 'Iniciar sesión en DeepSeek',
+  accountLoginStepOpen: 'Inicia sesión en DeepSeek en una pestaña nueva.',
+  accountLoginStepCopy: 'Copia la dirección completa tras la autorización y pégala aquí.',
+  accountLoginCallbackLabel: 'Dirección de retorno completa',
+  accountLoginCallbackHint:
+    'Es normal ver un error de conexión o 404 tras autorizar. Copia la dirección completa.',
+  accountLoginOpen: 'Abrir página de acceso',
+  accountLoginConfirm: 'Confirmar inicio de sesión',
+  accountLoginCancel: 'Cancelar',
+  accountLoginUseApiKey: 'Usar clave de API',
+  accountLoginClose: 'Cerrar',
+  accountLoginRetry: 'Empezar de nuevo',
+  accountLoginReopen: 'Reabrir página de autorización',
+  accountLoginPopupBlocked: 'Se ha bloqueado la pestaña nueva.',
+  accountLoginInitializing: 'Preparando autorización…',
+  accountLoginWaiting: 'La autorización dura un máximo de 10 minutos.',
+  accountLoginExchanging: 'Completando inicio de sesión…',
+  accountLoginInvalidCallback:
+    'Esta dirección no coincide con la autorización actual. Copia la dirección completa, incluidos code y state, de la última pestaña de autorización.',
+  accountLoginExpired: 'Esta autorización ha caducado. Empieza de nuevo.',
+  accountLoginMismatch:
+    'Esta autorización ya no está disponible en esta sesión. Cierra el diálogo y empieza de nuevo.',
+  accountLoginBusy:
+    'Hay otra autorización en curso. Complétala o cancélala antes de volver a empezar.',
+  accountLoginUnavailable: 'Esta versión de DSH no ofrece un inicio de sesión compatible.',
+  accountLoginFailed:
+    'No se pudo completar la autorización. Empieza de nuevo y envía la dirección de la nueva pestaña.',
+  accountLoginNoResponse:
+    'La plataforma DeepSeek no respondió. Comprueba la conexión de red del servidor DSH y empieza de nuevo.',
+  loginInitialTitle: 'Iniciar sesión',
+  loginInitialLoading: 'Comprobando estado de acceso…',
+  loginSetupTitle: 'Primero configura tu cuenta',
+  loginSetupDescription:
+    'Ejecuta este comando en un terminal del servidor donde se ejecuta DSH y crea un nombre de usuario y una contraseña cuando se soliciten. La página web no puede crear la cuenta.',
+  loginSetupCopy: 'Copiar comando',
+  loginSetupRecheck: 'He terminado la configuración',
+  loginSetupCopied: 'Comando copiado.',
+  loginSetupCopyFallback: 'Selecciona el comando y cópialo manualmente.',
+  loginSetupNotFound:
+    'No se encontró ninguna cuenta. Comprueba que el comando usó este perfil y vuelve a intentarlo.',
+  loginTitle: 'Iniciar sesión',
+  loginUsername: 'Nombre de usuario',
+  loginPassword: 'Contraseña',
+  loginContinue: 'Continuar',
+  loginMfaTitle: 'Verifica el segundo factor',
+  loginMfaDescription:
+    'Introduce el código de seis dígitos de tu aplicación de autenticación o un código de respaldo de un solo uso. Esta verificación caduca en cinco minutos.',
+  loginMfaCode: 'Código de verificación o de respaldo',
+  loginMfaSubmit: 'Verificar e iniciar sesión',
+  loginBackToPassword: 'Volver al acceso con contraseña',
+  loginMfaExhausted:
+    'Se han agotado los intentos de verificación. Introduce tu contraseña de nuevo.',
+  loginBindingTitle: 'Vincula una aplicación de autenticación',
+  loginBindingDescription:
+    'Escanea el código QR con tu aplicación de autenticación o introduce el secreto de abajo. Tras confirmar, aparecerán diez códigos de respaldo de un solo uso y tendrás que iniciar sesión de nuevo.',
+  loginBindingQrAlt: 'Código QR de configuración del autenticador',
+  loginBindingManualSecret: 'Secreto para entrada manual',
+  loginBindingCode: 'Código de seis dígitos del autenticador',
+  loginBindingConfirm: 'Confirmar configuración',
+  loginBindingRestart: 'Iniciar sesión de nuevo',
+  loginBindingQrUnavailable: 'El código QR no está disponible. Usa el secreto de arriba.',
+  loginBindingExhausted:
+    'Se han agotado los intentos de configuración. Introduce tu contraseña de nuevo.',
+  loginBackupTitle: 'Guarda tus códigos de respaldo',
+  loginBackupDescription:
+    'Estos códigos se muestran una sola vez. Guárdalos en un lugar seguro; cada código solo se puede usar una vez. Inicia sesión de nuevo después de guardarlos.',
+  loginBackupSaved: 'Ya los guardé; iniciar sesión',
+  loginOptionalTitle: 'Protege tu cuenta',
+  loginOptionalDescription:
+    'Este perfil permite vincular un autenticador más tarde. Vincularlo ahora añade protección; también puedes hacerlo en los ajustes de seguridad.',
+  loginOptionalBindNow: 'Vincular TOTP ahora',
+  loginOptionalSkip: 'Omitir y entrar en DSH',
+  loginOptionalVerifyTitle: 'Verifica de nuevo antes de configurar',
+  loginOptionalVerifyDescription: 'Introduce tu contraseña actual para proteger tu cuenta.',
+  loginOptionalCurrentPassword: 'Contraseña actual',
+  loginOptionalStart: 'Iniciar configuración',
+  loginOptionalSkipLater: 'Vincular más tarde y entrar en DSH',
+  loginReasonExpired: 'Tu sesión ha caducado. Inicia sesión de nuevo.',
+  loginReasonUpdated: 'Los ajustes de seguridad han cambiado. Inicia sesión de nuevo.',
+  loginReasonSignedOut: 'Has cerrado esta sesión.',
+  loginUnavailableTitle: 'El inicio de sesión no está disponible temporalmente',
+  loginUnavailableDescription:
+    'No se puede consultar el estado del servicio. Comprueba la conexión y vuelve a intentarlo.',
+  loginRetry: 'Comprobar de nuevo',
+  loginErrorInvalidCredentials:
+    'El nombre de usuario o la contraseña son incorrectos. Vuelve a intentarlo.',
+  loginErrorInvalidFactor:
+    'El código de verificación o de respaldo es incorrecto. Tras cinco intentos fallidos tendrás que introducir tu contraseña de nuevo.',
+  loginErrorChallenge:
+    'Esta verificación ha caducado. Introduce de nuevo tu nombre de usuario y contraseña.',
+  loginErrorUninitialized:
+    'La cuenta no está configurada. Ejecuta el comando de configuración en el terminal del servidor.',
+  settingsClose: 'Cerrar',
+  settingsCancel: 'Cancelar',
+  settingsOverview: 'Resumen de la cuenta',
+  settingsUsername: 'Usuario de acceso a DSH',
+  settingsCreatedAt: 'Inicio de sesión',
+  settingsExpiresAt: 'Caducidad de la sesión',
+  settingsActiveSessions: 'Sesiones activas',
+  settingsTotpRequired: 'La configuración exige TOTP y no permite desactivarlo.',
+  settingsPasswordTitle: 'Contraseña',
+  settingsSignOutCurrentDescription:
+    '¿Cerrar esta sesión? Las demás sesiones permanecerán abiertas.',
+  settingsSectionLabel: 'Seguridad y acceso',
+  settingsSectionAria: 'Ajustes de seguridad y acceso',
+  settingsTitle: 'Seguridad y acceso',
+  settingsAccountSummary: 'Cuenta: {username} · TOTP: {totp}',
+  settingsTotpEnabled: 'Activado',
+  settingsTotpNotBound: 'Sin vincular',
+  settingsLoading: 'Cargando estado de la cuenta…',
+  settingsChangePassword: 'Cambiar contraseña',
+  settingsBindTotp: 'Activar TOTP',
+  settingsRebindTotp: 'Volver a vincular TOTP',
+  settingsSessions: 'Gestión de sesiones',
+  settingsPasswordMismatch: 'Las contraseñas nuevas no coinciden.',
+  settingsPasswordDescription:
+    'Tras este cambio, todos los dispositivos tendrán que iniciar sesión de nuevo.',
+  settingsCurrentPassword: 'Contraseña actual',
+  settingsCurrentCode: 'Código de verificación o de respaldo actual',
+  settingsNewPassword: 'Contraseña nueva',
+  settingsConfirmPassword: 'Confirmar contraseña nueva',
+  settingsSavePassword: 'Guardar contraseña nueva',
+  settingsBindDescription:
+    'Introduce tus credenciales actuales. Tras vincular el nuevo autenticador, todos los dispositivos tendrán que iniciar sesión de nuevo.',
+  settingsStartBinding: 'Iniciar configuración',
+  settingsDisableTotp: 'Desactivar TOTP',
+  settingsDisableDescription:
+    'Tras desactivar TOTP, todos los dispositivos tendrán que iniciar sesión de nuevo.',
+  settingsScanQr: 'Escanea el código QR',
+  settingsQrAlt: 'Código QR de configuración del autenticador',
+  settingsQrUnavailable: 'El código QR no está disponible. Usa el secreto de abajo.',
+  settingsQrLoading: 'Generando el código QR; también puedes usar el secreto de abajo.',
+  settingsManualSecret: 'Secreto para entrada manual:',
+  settingsNewCode: 'Código de seis dígitos del nuevo autenticador',
+  settingsConfirmBinding: 'Confirmar configuración',
+  settingsRestartBinding: 'Empezar de nuevo',
+  settingsSignOutCurrent: 'Cerrar esta sesión',
+  settingsSignOutAll: 'Cerrar todas las sesiones',
+  settingsSignOutAllDescription:
+    'Introduce tus credenciales actuales. Se revocarán todas las sesiones, incluida esta, y las conexiones abiertas.',
+  settingsOldBackupInvalid: 'Tus códigos de respaldo anteriores dejarán de funcionar.',
+  settingsCopyAll: 'Copiar todo',
+  settingsBackupCopied: 'Códigos de respaldo copiados.',
+  settingsBackupCopyFailed: 'No se pudo copiar. Selecciona los códigos y cópialos manualmente.',
+  settingsBackupTitle: 'Guarda tus códigos de respaldo',
+  settingsBackupDescription:
+    'Estos códigos se muestran una sola vez. Guárdalos en un lugar seguro; cada código solo se puede usar una vez.',
+  settingsBackupSaved: 'Ya los guardé; iniciar sesión',
+  settingsErrorInvalidCredentials: 'La contraseña actual es incorrecta.',
+  settingsErrorInvalidFactor: 'El código de verificación o de respaldo actual es incorrecto.',
+  settingsErrorInvalidInput:
+    'La entrada no es válida. La contraseña debe cumplir los límites de longitud del servidor.',
+  settingsErrorChallenge:
+    'La verificación de configuración ha caducado. Inicia la configuración de nuevo.',
+  settingsErrorTotpRequired: 'Este perfil exige TOTP, por lo que no se puede desactivar.',
+} as const satisfies { [Key in keyof typeof en]: string }

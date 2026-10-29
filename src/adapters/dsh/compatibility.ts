@@ -28,7 +28,7 @@ function packageManifest(
     !semver.satisfies(manifest.version, SUPPORTED_DSH_RANGE, { includePrerelease: true })
   ) {
     throw new Error(
-      `auth-remote: unsupported ${packageName} version ${manifest.version}; minimum DSH 0.2.1-alpha.3. Upgrade to DSH 0.2.1-rc.4; last supported plugin for older DSH: 0.2.0. See README.md and docs/support-history.md.`,
+      `auth-remote: unsupported ${packageName} version ${manifest.version}; minimum DSH 0.2.1-alpha.3. Upgrade to DSH 0.2.2-alpha.2; last supported plugin for older DSH: 0.2.0. See README.md and docs/support-history.md.`,
     )
   }
   return { path, manifest }

@@ -568,3 +568,188 @@ test('public origins need native trust only when a path preserves their authorit
     await ctx.fiber.dispose()
   }
 })
+
+test('native named and fallback resources use one instance gate, including mixed registration', async () => {
+  const ctx = new Context()
+  let admitted = false
+  let gates = 0
+  let resources = 0
+  const nativeBoundary = Reflect.get(WebServer.prototype, 'serveResource')
+  const gate: WebGate = {
+    ready: () => admitted,
+    async http(_req, res, next) {
+      gates++
+      if (!admitted) {
+        res.writeHead(503)
+        res.end()
+        return
+      }
+      await next()
+    },
+    async upgrade(_req, _socket, _head, next) {
+      await next()
+    },
+  }
+  class TestServer extends GuardedWebServer {
+    constructor(context: Context) {
+      super(context, config, gate)
+    }
+  }
+  try {
+    await ctx.plugin(TestServer, config)
+    await ctx.fiber.await()
+    const server = ctx.webServer
+    assert(Object.hasOwn(server, 'serveResource'))
+    assert.equal(Reflect.get(WebServer.prototype, 'serveResource'), nativeBoundary)
+    const resource = async () => {
+      resources++
+      return new Response('resource')
+    }
+    let handlerCalled = false
+    server.register({
+      kind: 'exact',
+      path: '/mixed',
+      resource,
+      handler() {
+        handlerCalled = true
+      },
+    })
+    const dispose = server.registerFallback({ resource })
+    assert.equal((await request(server.port, '/mixed')).status, 503)
+    assert.equal((await request(server.port, '/fallback')).status, 503)
+    assert.equal(resources, 0)
+    admitted = true
+    assert.equal(await (await request(server.port, '/mixed')).text(), 'resource')
+    assert.equal(await (await request(server.port, '/fallback')).text(), 'resource')
+    assert.equal(handlerCalled, false)
+    assert.equal(gates, 4)
+    assert.equal(resources, 2)
+    dispose()
+    assert.equal((await request(server.port, '/fallback')).status, 404)
+  } finally {
+    await ctx.fiber.dispose()
+  }
+})
+
+test('native resource reads retain peer, match order, handler shadowing, HEAD and disposal without HTTP gate', async () => {
+  const ctx = new Context()
+  class TestServer extends GuardedWebServer {
+    constructor(context: Context) {
+      super(context, config)
+    }
+  }
+  try {
+    await ctx.plugin(TestServer, config)
+    await ctx.fiber.await()
+    const server = ctx.webServer
+    const peer = { principal: { kind: 'viewer', shareId: 'native-read' } }
+    let lastPeer: unknown
+    let canceled = 0
+    const resource = (label: string) => async (_request: Request, current: unknown) => {
+      lastPeer = current
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(label))
+          },
+          cancel() {
+            canceled++
+          },
+        }),
+        { headers: { 'x-route': label } },
+      )
+    }
+    const fallback = server.registerFallback({ resource: resource('fallback') })
+    const prefix = server.register({ kind: 'prefix', path: '/r', resource: resource('prefix') })
+    const longest = server.register({
+      kind: 'prefix',
+      path: '/r/deep',
+      resource: resource('longest'),
+    })
+    const exact = server.register({
+      kind: 'exact',
+      path: '/r/deep/exact',
+      resource: resource('exact'),
+    })
+    const read = (path: string, method = 'GET') =>
+      server.readResource(new Request('http://x' + path, { method }), peer as never)
+    for (const [path, expected] of [
+      ['/other', 'fallback'],
+      ['/r', 'prefix'],
+      ['/r/deep/x', 'longest'],
+      ['/r/deep/exact', 'exact'],
+    ]) {
+      const response = await read(path!)
+      assert.equal(response.headers.get('x-route'), expected)
+      assert.equal(lastPeer, peer)
+      await response.body!.cancel()
+    }
+    exact()
+    assert.equal((await read('/r/deep/exact', 'HEAD')).headers.get('x-route'), 'longest')
+    const head = await read('/r', 'HEAD')
+    assert.equal(await head.text(), '')
+    assert.equal(canceled, 6)
+    const shadow = server.register({
+      kind: 'exact',
+      path: '/r/deep/exact',
+      handler() {
+        assert.fail('readResource called handler')
+      },
+    })
+    assert.equal((await read('/r/deep/exact')).status, 404)
+    const unsupported = await read('/r', 'POST')
+    assert.equal(unsupported.status, 405)
+    assert.equal(unsupported.headers.get('allow'), 'GET, HEAD')
+    shadow()
+    longest()
+    prefix()
+    fallback()
+    assert.equal((await read('/r')).status, 404)
+    const handlerFallback = server.registerFallback(() =>
+      assert.fail('readResource called fallback handler'),
+    )
+    assert.equal((await read('/other')).status, 404)
+    handlerFallback()
+    server.register({
+      kind: 'exact',
+      path: '/throws',
+      resource: async () => {
+        throw new Error('native resource error')
+      },
+    })
+    await assert.rejects(read('/throws'), /native resource error/u)
+    assert.equal((await request(server.port, '/throws')).status, 503)
+  } finally {
+    await ctx.fiber.dispose()
+  }
+})
+
+test('resource admission fails for missing or un-installable private native boundaries before listening', async () => {
+  const install = Reflect.get(GuardedWebServer.prototype, 'installResourceBoundary')
+  for (const shape of ['missing', 'invalid', 'locked', 'handler-only'] as const) {
+    const ctx = new Context()
+    try {
+      const native = new WebServer(ctx, config)
+      const serve = Reflect.get(native, 'serveResource')
+      assert.equal(native.port, undefined)
+      Object.defineProperty(native, 'serveResource', {
+        value: shape === 'locked' ? serve : shape === 'invalid' ? null : undefined,
+        configurable: shape !== 'locked',
+      })
+      if (shape === 'handler-only') {
+        Object.defineProperty(native, 'readResource', { value: undefined })
+        assert.equal(Reflect.apply(install, native, []), false)
+      } else if (shape === 'locked') {
+        assert.throws(() => Reflect.apply(install, native, []), TypeError)
+      } else {
+        assert.throws(
+          () => Reflect.apply(install, native, []),
+          /resource HTTP boundary serveResource/u,
+        )
+      }
+      assert.equal(native.port, undefined)
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  }
+})

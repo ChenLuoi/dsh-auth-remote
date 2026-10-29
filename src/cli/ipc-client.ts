@@ -7,7 +7,7 @@ import {
   type AdminRequest,
   type AdminResponse,
 } from '../shared/admin-contract.js'
-import { CliDiagnostic } from './language.js'
+import { CliDiagnostic } from './messages.js'
 
 type AdminResult = Extract<AdminResponse, { ok: true }>['result']
 
@@ -46,10 +46,7 @@ async function inspectSocket(path: string): Promise<boolean> {
     directory.uid !== process.getuid?.() ||
     (directory.mode & 0o777) !== 0o700
   )
-    throw new CliDiagnostic(
-      'cliErrorUnsafeManagementDirectory',
-      'dsh-auth-remote: unsafe management directory',
-    )
+    throw new CliDiagnostic('cliErrorUnsafeManagementDirectory')
   let socket
   try {
     socket = await lstat(path)
@@ -58,10 +55,7 @@ async function inspectSocket(path: string): Promise<boolean> {
     throw error
   }
   if (!socket.isSocket() || socket.uid !== process.getuid?.() || (socket.mode & 0o777) !== 0o600)
-    throw new CliDiagnostic(
-      'cliErrorUnsafeManagementSocket',
-      'dsh-auth-remote: unsafe management socket',
-    )
+    throw new CliDiagnostic('cliErrorUnsafeManagementSocket')
   return true
 }
 

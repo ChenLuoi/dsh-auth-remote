@@ -1,5 +1,5 @@
 import type { ReadStream, WriteStream } from 'node:tty'
-import { CliDiagnostic } from './language.js'
+import { CliDiagnostic } from './messages.js'
 
 /** One terminal session; secret input is read in raw mode and never echoed. */
 export class TerminalPrompt {
@@ -16,10 +16,7 @@ export class TerminalPrompt {
     private readonly output = process.stdout as WriteStream,
   ) {
     if (!input.isTTY || !output.isTTY || typeof input.setRawMode !== 'function')
-      throw new CliDiagnostic(
-        'cliErrorTerminalRequired',
-        'dsh-auth-remote: an interactive terminal is required',
-      )
+      throw new CliDiagnostic('cliErrorTerminalRequired')
     this.previousRaw = input.isRaw
     input.setRawMode(true)
     input.resume()
@@ -41,8 +38,7 @@ export class TerminalPrompt {
 
   private async take(): Promise<string> {
     while (this.pending.length === 0) {
-      if (this.closed || this.ended)
-        throw new CliDiagnostic('cliErrorTerminalClosed', 'dsh-auth-remote: terminal input closed')
+      if (this.closed || this.ended) throw new CliDiagnostic('cliErrorTerminalClosed')
       await new Promise<void>((resolve) => {
         this.wake = resolve
       })
@@ -56,8 +52,7 @@ export class TerminalPrompt {
   }
 
   async ask(label: string, secret = false, maxCharacters = 256): Promise<string> {
-    if (this.closed)
-      throw new CliDiagnostic('cliErrorTerminalClosed', 'dsh-auth-remote: terminal input closed')
+    if (this.closed) throw new CliDiagnostic('cliErrorTerminalClosed')
     this.output.write(label)
     const answer: string[] = []
     let escape = false
@@ -71,10 +66,8 @@ export class TerminalPrompt {
         escape = true
         continue
       }
-      if (char === '\u0003')
-        throw new CliDiagnostic('cliErrorCancelled', 'dsh-auth-remote: cancelled')
-      if (char === '\u0004')
-        throw new CliDiagnostic('cliErrorTerminalClosed', 'dsh-auth-remote: terminal input closed')
+      if (char === '\u0003') throw new CliDiagnostic('cliErrorCancelled')
+      if (char === '\u0004') throw new CliDiagnostic('cliErrorTerminalClosed')
       if (char === '\r' || char === '\n') {
         if (char === '\r') this.skipLf = true
         this.output.write('\n')

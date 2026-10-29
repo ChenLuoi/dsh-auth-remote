@@ -8,9 +8,13 @@ import { ACCOUNT_LOGIN_CAPABILITY, supportsManualAccountLogin } from '../../shar
  * Remote; neither service can be repaired after its constructor caches it.
  */
 export function installAuthenticatedHostCapability(ctx: Context, version?: string): void {
-  ctx.on('webserver/index-inject', (table: IndexInjection[]) => {
-    table.push({ kind: 'global', name: '__DSH_TRANSPORT__', value: { ownsHost: true } })
-    if (version && supportsManualAccountLogin(version))
-      table.push({ kind: 'global', name: ACCOUNT_LOGIN_CAPABILITY, value: true })
-  })
+  ctx.on(
+    'webserver/index-inject',
+    (table: IndexInjection[], peer?: { principal: { kind: string } }) => {
+      if (peer !== undefined && peer?.principal?.kind !== 'owner') return
+      table.push({ kind: 'global', name: '__DSH_TRANSPORT__', value: { ownsHost: true } })
+      if (version && supportsManualAccountLogin(version))
+        table.push({ kind: 'global', name: ACCOUNT_LOGIN_CAPABILITY, value: true })
+    },
+  )
 }

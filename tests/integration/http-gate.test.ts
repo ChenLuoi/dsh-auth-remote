@@ -1316,3 +1316,298 @@ test('native credential rejection fails closed without replaying a protected POS
     await f.cleanup()
   }
 })
+
+test('native HTTP resources retain authentication, raw headers, target, methods, cookies and ETag', async () => {
+  const f = await fixture(false, origin, '127.0.0.1', [])
+  try {
+    await f.server.authentication.initialize('alice', password)
+    const cookie = await login(f.port)
+    let calls = 0
+    const resource = async (req: Request) => {
+      calls++
+      assert.equal(req.headers.get('host'), `127.0.0.1:${f.port}`)
+      assert.equal(req.headers.get('origin'), `http://127.0.0.1:${f.port}`)
+      assert.equal(req.headers.get('cookie')?.includes('dsh_auth_remote'), false)
+      if (req.headers.get('if-none-match') === '"resource-v1"')
+        return new Response(null, { status: 304, headers: { etag: '"resource-v1"' } })
+      const headers = new Headers({ etag: '"resource-v1"' })
+      headers.append('set-cookie', 'one=1; HttpOnly')
+      headers.append('set-cookie', 'two=2; HttpOnly')
+      return new Response(new URL(req.url).pathname + new URL(req.url).search, { headers })
+    }
+    const route = f.server.register({ kind: 'exact', path: '/resource', resource })
+    const fallback = f.server.registerFallback({ resource })
+    for (const path of ['/resource', '/fallback']) {
+      assert.equal((await request(f.port, path)).status, 401)
+      assert.equal(
+        (await request(f.port, path, { cookie, origin: 'https://evil.example' })).status,
+        403,
+      )
+      assert.equal((await request(f.port, path, { cookie, host: 'forged.example' })).status, 403)
+      assert.equal(
+        (await request(f.port, path, { cookie, headers: { 'sec-fetch-site': 'cross-site' } }))
+          .status,
+        403,
+      )
+      const response = await request(f.port, path, { cookie })
+      assert.equal(response.status, 200)
+      assert.equal(response.body, path)
+      assert.deepEqual(response.headers['set-cookie'], ['one=1; HttpOnly', 'two=2; HttpOnly'])
+      assert.equal((await request(f.port, path, { cookie, method: 'HEAD' })).body, '')
+      const unsupported = await request(f.port, path, { cookie, method: 'POST', body: '{}' })
+      assert.equal(unsupported.status, 405)
+      assert.equal(unsupported.headers.allow, 'GET, HEAD')
+      const cached = await request(f.port, path, {
+        cookie,
+        headers: { 'if-none-match': '"resource-v1"' },
+      })
+      assert.equal(cached.status, 304)
+      assert.equal(cached.body, '')
+      assert.equal(
+        (await request(f.port, path, { headers: { 'if-none-match': '"resource-v1"' } })).status,
+        401,
+      )
+    }
+    assert.equal((await request(f.port, '/?token=secret&keep=yes', { cookie })).body, '/?keep=yes')
+    const beforeRaw = calls
+    for (const extra of [
+      `Origin: ${origin}\r\nOrigin: ${origin}`,
+      `Host: ${host}`,
+      'Origin: null',
+    ]) {
+      const socket = connect(f.port, '127.0.0.1')
+      try {
+        await once(socket, 'connect')
+        const answer = once(socket, 'data')
+        socket.write(
+          `GET /resource HTTP/1.1\r\nHost: ${host}\r\nCookie: ${cookie}\r\n${extra}\r\n\r\n`,
+        )
+        assert.match(String((await answer)[0]), /HTTP\/1.1 (400|403) /u)
+      } finally {
+        socket.destroy()
+      }
+    }
+    assert.equal(calls, beforeRaw)
+    await f.server.authentication.revokeAll()
+    assert.equal(
+      (
+        await request(f.port, '/resource', {
+          cookie,
+          headers: { 'if-none-match': '"resource-v1"' },
+        })
+      ).status,
+      401,
+    )
+    await f.connectionFiber.dispose()
+    assert.equal((await request(f.port, '/resource', { cookie })).status, 503)
+    route()
+    fallback()
+  } finally {
+    await f.cleanup()
+  }
+})
+
+test('native resource PWA exception stays limited to three exact GET/HEAD paths', async () => {
+  const f = await fixture()
+  try {
+    f.server.registerFallback({ resource: async () => new Response('pwa') })
+    for (const path of ['/manifest.webmanifest', '/favicon.svg', '/favicon-dark.svg']) {
+      for (const method of ['GET', 'HEAD']) {
+        assert.equal((await request(f.port, path, { method, origin: null })).status, 200)
+        assert.equal(
+          (await request(f.port, path, { method, origin: 'https://evil.example' })).status,
+          403,
+        )
+      }
+      assert.equal((await request(f.port, path, { method: 'POST' })).status, 401)
+      assert.equal((await request(f.port, path + '/extra')).status, 401)
+    }
+    assert.equal((await request(f.port, '/assets/private.js')).status, 401)
+  } finally {
+    await f.cleanup()
+  }
+})
+
+test('native resource HTTP exceptions retain the native 400 response', async () => {
+  const f = await fixture()
+  try {
+    await f.server.authentication.initialize('alice', password)
+    const cookie = await login(f.port)
+    f.server.register({
+      kind: 'exact',
+      path: '/throws',
+      resource: async () => {
+        throw new Error('expected resource failure')
+      },
+    })
+    assert.equal((await request(f.port, '/throws', { cookie })).status, 400)
+  } finally {
+    await f.cleanup()
+  }
+})
+
+test(
+  'revocation aborts a native resource before Response settlement and cancels its late body',
+  { timeout: 15_000 },
+  async () => {
+    const f = await fixture()
+    let settle: ((response: Response) => void) | undefined
+    try {
+      await f.server.authentication.initialize('alice', password)
+      const cookie = await login(f.port)
+      let entered!: () => void
+      const started = new Promise<void>((resolve) => {
+        entered = resolve
+      })
+      let aborted!: () => void
+      const abort = new Promise<void>((resolve) => {
+        aborted = resolve
+      })
+      let canceled!: () => void
+      const cancel = new Promise<void>((resolve) => {
+        canceled = resolve
+      })
+      f.server.register({
+        kind: 'exact',
+        path: '/pending-resource',
+        resource: (req) => {
+          req.signal.addEventListener('abort', aborted, { once: true })
+          entered()
+          return new Promise<Response>((resolve) => {
+            settle = resolve
+          })
+        },
+      })
+      const req = httpRequest({
+        hostname: '127.0.0.1',
+        port: f.port,
+        path: '/pending-resource',
+        headers: { host, origin, cookie },
+      })
+      const closed = new Promise<void>((resolve) => {
+        req.once('close', resolve)
+      })
+      req.on('error', () => undefined)
+      req.end()
+      await started
+      await f.server.authentication.revokeAll()
+      await Promise.all([abort, closed])
+      settle!(
+        new Response(
+          new ReadableStream({
+            cancel() {
+              canceled()
+            },
+          }),
+        ),
+      )
+      await cancel
+    } finally {
+      settle?.(new Response(null))
+      await f.cleanup()
+    }
+  },
+)
+
+test(
+  'native resource streams preserve bytes, HEAD cancellation, backpressure and disconnect cancellation',
+  { timeout: 15_000 },
+  async () => {
+    const f = await fixture()
+    try {
+      await f.server.authentication.initialize('alice', password)
+      const cookie = await login(f.port)
+      const chunk = new Uint8Array(64 * 1024).fill(97)
+      let pulls = 0
+      f.server.register({
+        kind: 'exact',
+        path: '/finite-resource',
+        resource: async () =>
+          new Response(
+            new ReadableStream({
+              pull(controller) {
+                if (pulls++ < 64) controller.enqueue(chunk)
+                else controller.close()
+              },
+            }),
+          ),
+      })
+      const body = await request(f.port, '/finite-resource', { cookie })
+      assert.equal(body.body, 'a'.repeat(64 * chunk.length))
+      for (const action of ['client', 'revoke', 'head'] as const) {
+        let cancel!: () => void
+        const canceled = new Promise<void>((resolve) => {
+          cancel = resolve
+        })
+        let abort!: () => void
+        const aborted = new Promise<void>((resolve) => {
+          abort = resolve
+        })
+        let produced = 0
+        f.server.register({
+          kind: 'exact',
+          path: '/resource-' + action,
+          resource: async (req) => {
+            req.signal.addEventListener('abort', abort, { once: true })
+            return new Response(
+              new ReadableStream({
+                pull(controller) {
+                  produced++
+                  controller.enqueue(chunk)
+                },
+                cancel,
+              }),
+            )
+          },
+        })
+        if (action === 'head') {
+          assert.equal(
+            (
+              await request(f.port, '/resource-head', {
+                method: 'HEAD',
+                cookie: await login(f.port),
+              })
+            ).body,
+            '',
+          )
+          await canceled
+          assert(produced <= 1)
+          continue
+        }
+        const currentCookie = await login(f.port)
+        const response = await new Promise<import('node:http').IncomingMessage>(
+          (resolve, reject) => {
+            const req = httpRequest(
+              {
+                hostname: '127.0.0.1',
+                port: f.port,
+                path: '/resource-' + action,
+                headers: { host, origin, cookie: currentCookie },
+              },
+              resolve,
+            )
+            req.on('error', reject)
+            req.end()
+          },
+        )
+        response.on('error', () => undefined)
+        const closed = new Promise<void>((resolve) => {
+          response.once('close', resolve)
+        })
+        // Leave the real client paused until the native socket's write queue fills.
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        const stalled = produced
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        assert.equal(produced, stalled, 'native stream did not apply backpressure')
+        if (action === 'client') response.destroy()
+        else {
+          await f.server.authentication.revokeAll()
+          response.resume()
+        }
+        await Promise.all([canceled, aborted, closed])
+      }
+    } finally {
+      await f.cleanup()
+    }
+  },
+)

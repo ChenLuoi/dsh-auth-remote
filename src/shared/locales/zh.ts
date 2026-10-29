@@ -44,7 +44,6 @@ export const zh = {
 
   loginInitialTitle: '登录',
   loginInitialLoading: '正在检查登录状态…',
-  loginLanguageLabel: '语言',
   loginSetupTitle: '先初始化账号',
   loginSetupDescription:
     '请在运行 DSH 的服务器终端输入下列命令，然后按提示创建用户名和密码。网页不会创建账号。',
@@ -157,71 +156,4 @@ export const zh = {
   settingsErrorInvalidInput: '输入不符合要求；密码需符合服务端长度规则。',
   settingsErrorChallenge: '绑定挑战已失效，请重新开始绑定。',
   settingsErrorTotpRequired: '当前 profile 要求 TOTP，无法关闭。',
-
-  cliHelp: `dsh-auth-remote {version}
-
-用法：
-  dsh plugin --profile web exec dsh-auth-remote [--lang en|zh] COMMAND
-
-命令：
-  init              在终端交互初始化单用户账号
-  status [--json]   查看不含秘密的认证状态
-  reset-password    重置密码并撤销全部会话
-  reset-totp        清除 TOTP、备用码及全部会话
-  revoke-sessions   退出所有设备
-
-选项：
-  --lang en|zh      选择人类可读输出的语言
-  --help, -h        显示帮助
-  --version, -v     显示包版本
-
-命令使用 dsh plugin exec 选定的 profile 和调用者的 DSH_HOME。
-`,
-  cliPromptUsername: '用户名: ',
-  cliPromptPassword: '密码: ',
-  cliPromptPasswordAgain: '再次输入密码: ',
-  cliPromptNewPassword: '新密码: ',
-  cliPromptNewPasswordAgain: '再次输入新密码: ',
-  cliPromptConfirmTarget: '输入 {profile} 以确认 {command}: ',
-  cliTargetProfile: '目标 profile: {profile}',
-  cliDataFile: '数据文件: {path}',
-  cliStatusProfile: 'profile: {profile}',
-  cliStatusAccount: '账号: {state}',
-  cliStatusTotp: 'TOTP: {state}',
-  cliStatusSessions: '有效会话: {count}',
-  cliStatusService: '服务: {state}',
-  cliInitialized: '已初始化',
-  cliNotInitialized: '未初始化',
-  cliTotpEnabled: '已启用',
-  cliTotpDisabled: '未启用',
-  cliOnlineReady: '在线且就绪',
-  cliOnlineNotReady: '在线但未就绪',
-  cliOffline: '离线',
-  cliCompleted: '{command} 已完成；变更已持久化并生效。',
-  cliErrorInvalidArguments: '命令或参数无效，请使用 --help。',
-  cliErrorInvalidLanguage: '--lang 的值无效，请使用 en 或 zh。',
-  cliErrorDuplicateLanguage: '--lang 只能指定一次。',
-  cliErrorMissingLanguage: '--lang 缺少值，请使用 en 或 zh。',
-  cliErrorPasswordsMismatch: '两次输入的密码不一致。',
-  cliErrorConfirmationMismatch: '确认输入与目标 profile 不一致。',
-  cliErrorPasswordLength: '密码须包含 12–256 个 Unicode 字符。',
-  cliErrorTerminalRequired: '此操作需要交互终端。',
-  cliErrorTerminalClosed: '终端输入已关闭。',
-  cliErrorCancelled: '已取消。',
-  cliErrorProfileDirectory: '当前目录不是 DSH_HOME 下选定的 DSH profile。',
-  cliErrorProfileManifest: '缺少 profile 的 package.json。',
-  cliErrorUnsafeManagementDirectory: '管理目录权限不安全。',
-  cliErrorUnsafeManagementSocket: '管理 socket 权限不安全。',
-  cliErrorManagementUnavailable: '管理 socket 不可用。',
-  cliErrorOutcomeUnknown: '管理请求已断开或超时，结果未知；再次操作前请先检查状态。',
-  cliErrorOfflineLock: '服务仍持有 profile 锁且管理 socket 不可用，已拒绝离线操作。',
-  cliErrorInvalidCredentials: '当前凭证不正确。',
-  cliErrorAlreadyInitialized: '账号已初始化。',
-  cliErrorInvalidInput: '输入无效。',
-  cliErrorInvalidFactor: '验证码或备用码不正确。',
-  cliErrorUninitialized: '账号尚未初始化。',
-  cliErrorTotpRequired: '此 profile 要求 TOTP。',
-  cliErrorConflict: '账号状态已变化，请检查状态后重试。',
-  cliErrorBusy: '服务正忙，请稍后重试。',
-  cliErrorUnknown: '操作失败；再次操作前请先检查状态。',
 } as const satisfies { [Key in keyof typeof en]: string }

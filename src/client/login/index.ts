@@ -5,7 +5,13 @@ import type {
   LoginResponse,
   PublicStateResponse,
 } from '../../shared/auth-contract.js'
-import { formatMessage, parseExactLocale, type Locale, type MessageKey } from '../../shared/i18n.js'
+import {
+  formatMessage,
+  localeMemoryKey,
+  matchLocale,
+  type Locale,
+  type MessageKey,
+} from '../../shared/i18n.js'
 import './style.css'
 
 const root = document.getElementById('login-root')
@@ -24,8 +30,7 @@ class RequestFailure extends Error {
 let state: PublicStateResponse | undefined
 let busy = false
 let lastUsername = ''
-const localeKey = 'dsh-auth-remote.locale'
-let locale: Locale = readLocale()
+const locale: Locale = readLocale()
 let titleKey: MessageKey = 'loginInitialTitle'
 type Message = {
   key: MessageKey
@@ -36,22 +41,12 @@ let currentMessage: Message | null = null
 
 function readLocale(): Locale {
   try {
-    return parseExactLocale(localStorage.getItem(localeKey)) ?? 'en'
+    const stored = matchLocale(localStorage.getItem(localeMemoryKey))
+    if (stored) return stored
   } catch {
-    return 'en'
+    // Browser language is still available when storage is blocked.
   }
-}
-
-function setLocale(value: string): void {
-  const next = parseExactLocale(value)
-  if (!next) return
-  locale = next
-  try {
-    localStorage.setItem(localeKey, next)
-  } catch {
-    // The current page can still switch when storage is unavailable.
-  }
-  localize()
+  return matchLocale(navigator.language) ?? 'en'
 }
 
 function t(key: MessageKey, params?: Record<string, string | number>): string {
@@ -67,8 +62,6 @@ function localize(): void {
   for (const node of root!.querySelectorAll<HTMLElement>('[data-i18n-aria-label]')) {
     node.setAttribute('aria-label', t(node.dataset.i18nAriaLabel as MessageKey))
   }
-  const select = document.getElementById('language') as HTMLSelectElement | null
-  if (select) select.value = locale
   paintMessage()
 }
 
@@ -170,10 +163,7 @@ async function perform(action: () => Promise<void>): Promise<void> {
 function shell(nextTitleKey: MessageKey, content: string): void {
   titleKey = nextTitleKey
   currentMessage = null
-  root!.innerHTML = `<div class="login-page"><section class="login-card"><div class="login-header"><h1 data-i18n="${nextTitleKey}"></h1><div class="language-control"><label for="language" data-i18n="loginLanguageLabel"></label><select id="language"><option value="en">English</option><option value="zh">中文</option></select></div></div>${content}<p id="message" class="message" role="alert" aria-live="assertive"></p></section></div>`
-  element<HTMLSelectElement>('language').addEventListener('change', (event) => {
-    setLocale((event.currentTarget as HTMLSelectElement).value)
-  })
+  root!.innerHTML = `<div class="login-page"><section class="login-card"><h1 data-i18n="${nextTitleKey}"></h1>${content}<p id="message" class="message" role="alert" aria-live="assertive"></p></section></div>`
   localize()
 }
 
@@ -383,6 +373,7 @@ function renderOptional(): void {
 }
 
 async function start(): Promise<void> {
+  shell('loginInitialTitle', '<p data-i18n="loginInitialLoading"></p>')
   try {
     state = await api<PublicStateResponse>('/auth-remote/state')
     if (!state.initialized) {

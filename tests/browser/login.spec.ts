@@ -14,6 +14,7 @@ import {
   type Request,
   type Locator,
 } from '@playwright/test'
+import { dictionaries, type Locale } from '../../src/shared/i18n.js'
 import { totpCode } from '../../src/auth/totp.js'
 import {
   archive,
@@ -25,9 +26,11 @@ import {
   localModelEndpoint,
   openDshSettings,
   selectDshTheme,
+  setDshLocale as setNativeLocale,
   waitForAnimations,
 } from '../helpers/runtime.js'
 import { dshVersion, project } from '../../scripts/runtime.mjs'
+import { nativeHttp } from '../helpers/native-http.js'
 
 const password = 'browser test password 123'
 const hostName = 'auth-remote.test'
@@ -51,26 +54,16 @@ async function command(bin: string, args: string[], home: string): Promise<void>
 }
 
 async function initialize(home: string): Promise<void> {
-  const args = [
-    dsh,
-    'plugin',
-    '--profile',
-    'web',
-    'exec',
-    'dsh-auth-remote',
-    'init',
-    '--lang',
-    'zh',
-  ]
+  const args = [dsh, 'plugin', '--profile', 'web', 'exec', 'dsh-auth-remote', 'init']
   const child = spawn('script', ['-q', '-e', '-f', '-c', args.map(quote).join(' '), '/dev/null'], {
     cwd: home,
     env: isolatedDshEnv(home),
     stdio: ['pipe', 'pipe', 'pipe'],
   })
   const prompts = [
-    ['用户名: ', 'alice'],
-    ['密码: ', password],
-    ['再次输入密码: ', password],
+    ['Username: ', 'alice'],
+    ['Password: ', password],
+    ['Enter password again: ', password],
   ] as const
   let output = ''
   let cursor = 0
@@ -112,11 +105,7 @@ async function probe(port: number): Promise<number> {
   })
 }
 
-async function fixture(
-  requireTotp: boolean,
-  port: number,
-  storedLocale: 'en' | 'zh' | null = 'zh',
-) {
+async function fixture(requireTotp: boolean, port: number, storedLocale: string | null = 'zh') {
   const home = await mkdtemp(join(tmpdir(), 'dsh-auth-remote-browser-login-'))
   const profile = join(home, 'profiles/web')
   const origin = `http://${hostName}:${port}`
@@ -172,8 +161,8 @@ async function fixture(
     if (storedLocale) {
       await context.addInitScript((value) => {
         try {
-          if (localStorage.getItem('dsh-auth-remote.locale') === null)
-            localStorage.setItem('dsh-auth-remote.locale', value)
+          if (localStorage.getItem('dsh-auth-remote-lang') === null)
+            localStorage.setItem('dsh-auth-remote-lang', value)
         } catch {
           /* opaque origins */
         }
@@ -207,43 +196,6 @@ async function fixture(
     await rm(home, { recursive: true, force: true })
     throw error
   }
-}
-
-async function setNativeLocale(page: Page, preference: 'zh' | 'en'): Promise<void> {
-  const result = await page.evaluate(async (preference) => {
-    const described = await (
-      await fetch('/api/settings/describe', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          type: 'client-request',
-          rpcId: 'locale-read-' + Date.now(),
-          method: 'settings/describe',
-          payload: { args: {} },
-        }),
-      })
-    ).json()
-    const locale = described.result.value.namespaces.find((entry: any) => entry.ns === 'locale')
-    return (
-      await fetch('/api/settings/mutate', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          type: 'client-request',
-          rpcId: 'locale-write-' + Date.now(),
-          method: 'settings/mutate',
-          payload: {
-            args: {
-              ns: 'locale',
-              ops: [{ op: 'set', path: ['preference'], value: preference }],
-              expectedRevision: locale.revision,
-            },
-          },
-        }),
-      })
-    ).json()
-  }, preference)
-  assert.equal(result.result.ok, true)
 }
 
 async function openSecurity(page: Page): Promise<void> {
@@ -281,17 +233,23 @@ async function loginWithBackup(
   origin: string,
   currentPassword: string,
   code: string,
+  locale: Locale = 'zh',
 ): Promise<void> {
+  const text = dictionaries[locale]
   await page.goto(`${origin}/auth-remote/login`)
-  await page.getByRole('heading', { name: '登录', exact: true }).waitFor()
-  await page.getByLabel('用户名').fill('alice')
-  await page.getByLabel('密码').fill(currentPassword)
-  await submitWithRateLimit(page, page.getByRole('button', { name: '继续' }), '/auth-remote/login')
-  await page.getByRole('heading', { name: '验证第二因素' }).waitFor()
-  await page.getByLabel('验证码或备用码').fill(code)
+  await page.getByRole('heading', { name: text.loginTitle, exact: true }).waitFor()
+  await page.getByLabel(text.loginUsername).fill('alice')
+  await page.getByLabel(text.loginPassword).fill(currentPassword)
   await submitWithRateLimit(
     page,
-    page.getByRole('button', { name: '验证并登录' }),
+    page.getByRole('button', { name: text.loginContinue }),
+    '/auth-remote/login',
+  )
+  await page.getByRole('heading', { name: text.loginMfaTitle }).waitFor()
+  await page.getByLabel(text.loginMfaCode).fill(code)
+  await submitWithRateLimit(
+    page,
+    page.getByRole('button', { name: text.loginMfaSubmit }),
     '/auth-remote/mfa/verify',
   )
   await page.waitForURL(`${origin}/`, { timeout: 8000 }).catch(async () => {
@@ -466,67 +424,205 @@ test('login and security settings follow DSH themes and fit narrow screens', asy
   }
 })
 
-test('standalone login defaults to English and persists only its own language choice', async () => {
+test(
+  'eight languages render login and native security tasks at desktop and narrow widths',
+  { timeout: 150000 },
+  async () => {
+    const f = await fixture(false, 13152)
+    const review = join(project, '.cache/ui-review', dshVersion, 'languages')
+    await mkdir(review, { recursive: true })
+    try {
+      await initialize(f.home)
+      const locales = Object.keys(dictionaries) as Locale[]
+      for (const locale of locales) {
+        const t = dictionaries[locale]
+        await f.page.goto(`${f.origin}/auth-remote/login`)
+        await f.page.evaluate(
+          (value) => localStorage.setItem('dsh-auth-remote-lang', value),
+          locale,
+        )
+        await f.page.reload()
+        await expect(f.page.getByLabel(t.loginUsername, { exact: true })).toBeVisible()
+        for (const theme of ['light', 'dark'] as const) {
+          await f.page.emulateMedia({ colorScheme: theme })
+          for (const width of [1280, 390]) {
+            await f.page.setViewportSize({ width, height: 900 })
+            assert.equal(
+              await f.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+              true,
+              `${locale} login ${width}`,
+            )
+            await expect(
+              f.page.getByRole('button', { name: t.loginContinue, exact: true }),
+            ).toBeInViewport()
+            await f.page.screenshot({ path: join(review, `${locale}-login-${theme}-${width}.png`) })
+          }
+        }
+      }
+      await f.page.evaluate(() => localStorage.setItem('dsh-auth-remote-lang', 'zh'))
+      await f.page.setViewportSize({ width: 1280, height: 900 })
+      await optionalSignIn(f.page, f.origin)
+      await openSecurity(f.page)
+      // Older hosts retain their own language catalog; dictionary registration does not extend it.
+      const nativeLocales: Locale[] = dshVersion === '0.2.2-alpha.2' ? locales : ['zh', 'en']
+      for (const theme of ['light', 'dark'] as const) {
+        await setNativeLocale(f.page, 'zh')
+        await f.page.getByRole('button', { name: '通用设置', exact: true }).click()
+        await selectDshTheme(f.page, theme)
+        await f.page.getByRole('button', { name: '安全与登录', exact: true }).click()
+        for (const locale of nativeLocales) {
+          const t = dictionaries[locale]
+          await setNativeLocale(f.page, locale)
+          const section = f.page.locator('.auth-remote-security')
+          await expect(
+            section.getByRole('heading', { name: t.settingsTitle, exact: true }),
+          ).toBeVisible()
+          for (const width of [1280, 390]) {
+            await f.page.setViewportSize({ width, height: 900 })
+            await waitForAnimations(f.page)
+            assert.equal(
+              await section.evaluate((node) => node.scrollWidth <= node.clientWidth),
+              true,
+              `${locale} overview ${width}`,
+            )
+            await f.page.screenshot({
+              path: join(review, `${locale}-security-${theme}-${width}.png`),
+            })
+          }
+          await section.getByRole('button', { name: t.settingsChangePassword, exact: true }).click()
+          const passwordTask = f.page.getByRole('dialog', {
+            name: t.settingsChangePassword,
+            exact: true,
+          })
+          await expect(
+            passwordTask.getByLabel(t.settingsCurrentPassword, { exact: true }),
+          ).toBeVisible()
+          for (const width of [1280, 390]) {
+            await f.page.setViewportSize({ width, height: 900 })
+            assert.equal(
+              await passwordTask.evaluate((node) => node.scrollWidth <= node.clientWidth),
+              true,
+              `${locale} password ${width}`,
+            )
+            await f.page.screenshot({
+              path: join(review, `${locale}-password-${theme}-${width}.png`),
+            })
+          }
+          await passwordTask.getByRole('button', { name: t.settingsCancel, exact: true }).click()
+          if (theme === 'light') {
+            await section.getByRole('button', { name: t.settingsBindTotp, exact: true }).click()
+            const credentials = f.page.getByRole('dialog', {
+              name: t.settingsBindTotp,
+              exact: true,
+            })
+            await credentials.getByLabel(t.settingsCurrentPassword).fill(password)
+            await credentials
+              .getByRole('button', { name: t.settingsStartBinding, exact: true })
+              .click()
+            const qr = f.page.getByRole('dialog', { name: t.settingsScanQr, exact: true })
+            await expect(qr.getByRole('img', { name: t.settingsQrAlt })).toBeVisible()
+            await expect(qr.getByLabel(t.settingsNewCode)).toBeVisible()
+            assert.equal(
+              await qr.evaluate((node) => node.scrollWidth <= node.clientWidth),
+              true,
+              `${locale} QR`,
+            )
+            await f.page.screenshot({ path: join(review, `${locale}-totp-light-390.png`) })
+            await qr.getByRole('button', { name: t.settingsCancel, exact: true }).click()
+          }
+        }
+      }
+    } finally {
+      await f.cleanup()
+    }
+  },
+)
+
+test('standalone locale uses new memory then navigator.language, ignores old memory and stays fixed per page', async () => {
   const f = await fixture(false, 13110, null)
   try {
     await initialize(f.home)
-    const response = await f.page.goto(`${f.origin}/auth-remote/login`)
-    assert.match(await response!.text(), /<html lang="en">/u)
-    await f.page.getByRole('heading', { name: 'Sign in', exact: true }).waitFor()
-    assert.equal(await f.page.title(), 'Sign in')
-    await expect(f.page.locator('h1')).toHaveCount(1)
-    await expect(f.page.locator('.brand, [data-i18n="loginDescription"]')).toHaveCount(0)
-    await expect(
-      f.page.getByText('Enter the single-user account created in the server terminal.'),
-    ).toHaveCount(0)
-    assert.equal(await f.page.locator('html').getAttribute('lang'), 'en')
-    await f.page.evaluate(() => localStorage.setItem('dsh-auth-remote.locale', 'invalid'))
-    await f.page.reload()
-    await f.page.getByRole('heading', { name: 'Sign in', exact: true }).waitFor()
-    await f.page.getByLabel('Username').fill('alice')
-    await f.page.getByLabel('Password').fill('unsent secret')
-    let loginPosts = 0
-    f.page.on('request', (request) => {
-      if (new URL(request.url()).pathname === '/auth-remote/login' && request.method() === 'POST')
-        loginPosts++
-    })
-    await f.page.getByLabel('Language').selectOption('zh')
-    await f.page.getByRole('heading', { name: '登录', exact: true }).waitFor()
-    await expect(f.page.locator('h1')).toHaveText('登录')
-    await expect(f.page.getByText('DSH · 远程登录')).toHaveCount(0)
-    await expect(f.page.getByText('输入服务器终端创建的单用户账号。')).toHaveCount(0)
-    assert.equal(await f.page.getByLabel('用户名').inputValue(), 'alice')
-    assert.equal(await f.page.getByLabel('密码').inputValue(), 'unsent secret')
-    assert.equal(loginPosts, 0)
-    assert.equal(await f.page.locator('html').getAttribute('lang'), 'zh')
-    assert.equal(await f.page.title(), '登录')
-    assert.deepEqual(
-      await f.page.evaluate(() =>
-        Object.keys(localStorage).filter((key) => key.startsWith('dsh-auth-remote')),
-      ),
-      ['dsh-auth-remote.locale'],
-    )
-    await f.page.reload()
-    await f.page.getByRole('heading', { name: '登录', exact: true }).waitFor()
-    assert.equal(await f.page.getByLabel('密码').inputValue(), '')
-    await f.page.getByLabel('语言').selectOption('en')
-    await f.page.getByRole('heading', { name: 'Sign in', exact: true }).waitFor()
-    await f.page.getByLabel('Username').fill('alice')
-    await f.page.getByLabel('Password').fill(password)
-    await f.page.getByRole('button', { name: 'Continue' }).click()
-    await f.page.getByRole('heading', { name: 'Protect your account' }).waitFor()
-    await f.page.getByRole('button', { name: 'Skip and enter DSH' }).click()
-    await f.page.waitForSelector('[class*="frame"]')
+    for (const [stored, browserLanguage, expected] of [
+      ['DE-de', 'ja-JP', 'de'],
+      ['ZH-hans-CN', 'en-US', 'zh'],
+      ['pt-PT', 'en-US', 'pt'],
+      ['ko-KR', 'pt-BR', 'pt'],
+      ['en--US', 'ja-JP', 'ja'],
+      [null, 'es-ES', 'es'],
+      [null, 'fr-CA', 'fr'],
+      [null, 'ko-KR', 'en'],
+    ] as const) {
+      const context = await f.context.browser()!.newContext({ locale: browserLanguage })
+      let releaseState: (() => void) | undefined
+      try {
+        await context.addInitScript((value) => {
+          localStorage.setItem('dsh-auth-remote.locale', 'ru')
+          if (value !== null) localStorage.setItem('dsh-auth-remote-lang', value)
+          ;(window as any).__oldLocaleReads = 0
+          const original = Storage.prototype.getItem
+          Storage.prototype.getItem = function (key) {
+            if (key === 'dsh-auth-remote.locale') (window as any).__oldLocaleReads++
+            return original.call(this, key)
+          }
+          Object.defineProperty(navigator, 'languages', { get: () => ['ru-RU'] })
+        }, stored)
+        const page = await context.newPage()
+        const heldState = new Promise<void>((resolve) => {
+          releaseState = resolve
+        })
+        await page.route('**/auth-remote/state', async (route) => {
+          await heldState
+          await route.continue()
+        })
+        const apiRequests: string[] = []
+        page.on('request', (request) => {
+          if (new URL(request.url()).pathname.startsWith('/api/')) apiRequests.push(request.url())
+        })
+        await page.goto(`${f.origin}/auth-remote/login`)
+        const t = dictionaries[expected]
+        await expect(page.getByText(t.loginInitialLoading, { exact: true })).toBeVisible()
+        await expect(page.locator('html')).toHaveAttribute('lang', expected)
+        releaseState!()
+        await expect(page.getByLabel(t.loginUsername, { exact: true })).toBeVisible()
+        await expect(page.locator('html')).toHaveAttribute('lang', expected)
+        assert.equal(await page.title(), t.loginTitle)
+        await expect(page.locator('select, #language, .language-control')).toHaveCount(0)
+        assert.equal(await page.evaluate(() => localStorage['dsh-auth-remote.locale']), 'ru')
+        assert.equal(
+          await page.evaluate(() => localStorage.getItem('dsh-auth-remote-lang')),
+          stored,
+        )
+        await page.getByLabel(t.loginUsername, { exact: true }).fill('alice')
+        await page.getByLabel(t.loginPassword, { exact: true }).fill('unsent secret')
+        await page.evaluate(() => {
+          localStorage.setItem('dsh-auth-remote-lang', 'ru')
+          window.dispatchEvent(
+            new StorageEvent('storage', { key: 'dsh-auth-remote-lang', newValue: 'ru' }),
+          )
+        })
+        await expect(page.locator('html')).toHaveAttribute('lang', expected)
+        assert.equal(
+          await page.getByLabel(t.loginPassword, { exact: true }).inputValue(),
+          'unsent secret',
+        )
+        assert.deepEqual(apiRequests, [])
+        assert.equal(await page.evaluate(() => (window as any).__oldLocaleReads), 0)
+      } finally {
+        releaseState?.()
+        await context.close()
+      }
+    }
   } finally {
     await f.cleanup()
   }
 })
 
-test('standalone language switch works when localStorage is blocked', async () => {
+test('standalone locale falls back to navigator.language when localStorage is blocked', async () => {
   const f = await fixture(false, 13111, null)
+  const context = await f.context.browser()!.newContext({ locale: 'pt-BR' })
   try {
     await initialize(f.home)
-    await f.context.addInitScript(() => {
+    await context.addInitScript(() => {
       Object.defineProperty(window, 'localStorage', {
         configurable: true,
         get() {
@@ -534,31 +630,361 @@ test('standalone language switch works when localStorage is blocked', async () =
         },
       })
     })
-    await f.page.goto(`${f.origin}/auth-remote/login`)
-    await f.page.getByRole('heading', { name: 'Sign in', exact: true }).waitFor()
-    await f.page.getByLabel('Language').selectOption('zh')
-    await f.page.getByRole('heading', { name: '登录', exact: true }).waitFor()
-    await f.page.reload()
-    await f.page.getByRole('heading', { name: 'Sign in', exact: true }).waitFor()
+    const page = await context.newPage()
+    await page.route(
+      '**/auth-remote/state',
+      (route) => route.fulfill({ status: 503, json: { error: 'service_unavailable' } }),
+      { times: 1 },
+    )
+    await page.goto(`${f.origin}/auth-remote/login`)
+    await expect(
+      page.getByRole('heading', { name: dictionaries.pt.loginUnavailableTitle, exact: true }),
+    ).toBeVisible()
+    await page.getByRole('button', { name: dictionaries.pt.loginRetry, exact: true }).click()
+    await expect(
+      page.getByRole('heading', { name: dictionaries.pt.loginTitle, exact: true }),
+    ).toBeVisible()
+    await expect(page.locator('select')).toHaveCount(0)
+    await page.getByLabel(dictionaries.pt.loginUsername).fill('alice')
+    await page.getByLabel(dictionaries.pt.loginPassword).fill(password)
+    await page.getByRole('button', { name: dictionaries.pt.loginContinue, exact: true }).click()
+    await expect(
+      page.getByRole('heading', { name: dictionaries.pt.loginOptionalTitle, exact: true }),
+    ).toBeVisible()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'pt')
   } finally {
+    await context.close()
     await f.cleanup()
   }
 })
+
+test(
+  'locale memory waits for native acceptance, survives failed saves and logout, and clears explicit absence',
+  { timeout: 90000 },
+  async () => {
+    const f = await fixture(false, 13153, null)
+    let releaseRead: (() => void) | undefined
+    let releaseWrite: (() => void) | undefined
+    try {
+      await initialize(f.home)
+      await f.context.addInitScript(() => {
+        ;(window as any).__observeAuthRemoteForms = true
+      })
+      await f.context.addInitScript({
+        path: new URL('../fixtures/liveshare-client-observer.js', import.meta.url).pathname,
+      })
+      await f.page.goto(`${f.origin}/auth-remote/login`)
+      await f.page.getByLabel('用户名').fill('alice')
+      await f.page.getByLabel('密码').fill(password)
+      await f.page.getByRole('button', { name: '继续', exact: true }).click()
+      await f.page
+        .getByRole('heading', { name: dictionaries.zh.loginOptionalTitle, exact: true })
+        .waitFor()
+      // Real Host preference is written before the native client/form is loaded.
+      await setNativeLocale(f.page, 'en')
+      await f.page.evaluate(() => {
+        localStorage.setItem('dsh-auth-remote-lang', 'DE-de')
+        localStorage.setItem('dsh-auth-remote.locale', 'old-value')
+      })
+      let reads = 0
+      const heldRead = new Promise<void>((resolve) => {
+        releaseRead = resolve
+      })
+      await f.page.route('**/api/settings/describe', async (route) => {
+        reads++
+        await heldRead
+        await route.continue()
+      })
+      await f.page
+        .getByRole('button', { name: dictionaries.zh.loginOptionalSkip, exact: true })
+        .click()
+      await expect.poll(() => reads).toBeGreaterThan(0)
+      await f.page.waitForFunction(
+        () => (window as any).__authRemoteContext && (window as any).__authRemoteConfigContext,
+      )
+      const memory = () => f.page.evaluate(() => localStorage.getItem('dsh-auth-remote-lang'))
+      assert.equal(await memory(), 'DE-de')
+      assert.equal(
+        await f.page.evaluate(
+          () =>
+            (window as any).__authRemoteConfigContext.configForms.get('locale').getSnapshot()
+              .status,
+        ),
+        'loading',
+      )
+      releaseRead!()
+      await expect.poll(memory).toBe('en')
+      await expect
+        .poll(() =>
+          f.page.evaluate(() => (window as any).__authRemoteContext.locale.getSnapshot().active),
+        )
+        .toBe('en')
+      let action: 'pass' | 'fail' | 'hold' = 'pass'
+      await f.page.route('**/api/settings/mutate', async (route) => {
+        if (route.request().postDataJSON()?.payload?.args?.ns !== 'locale') return route.continue()
+        if (action === 'hold')
+          await new Promise<void>((resolve) => {
+            releaseWrite = resolve
+          })
+        if (action === 'fail')
+          return route.fulfill({
+            json: {
+              type: 'server-response',
+              rpcId: route.request().postDataJSON().rpcId,
+              result: {
+                ok: false,
+                error: { code: 'settings/unavailable', message: 'Temporary save failure' },
+              },
+            },
+          })
+        await route.continue()
+      })
+      action = 'hold'
+      // A later native mirror notification can restore the accepted locale while this write waits.
+      assert.deepEqual(
+        await f.page.evaluate(() => {
+          const locale = (window as any).__authRemoteContext.locale
+          locale.setLocale('zh')
+          return {
+            active: locale.getSnapshot().active,
+            memory: localStorage.getItem('dsh-auth-remote-lang'),
+          }
+        }),
+        { active: 'zh', memory: 'en' },
+      )
+      await expect.poll(() => Boolean(releaseWrite)).toBe(true)
+      assert.equal(
+        await memory(),
+        'en',
+        'optimistic active locale must not overwrite accepted memory',
+      )
+      action = 'fail'
+      releaseWrite!()
+      await expect
+        .poll(() =>
+          f.page.evaluate(() => (window as any).__authRemoteContext.locale.getSnapshot().active),
+        )
+        .toBe('en')
+      assert.equal(await memory(), 'en')
+      action = 'pass'
+      assert.equal(
+        await f.page.evaluate(() =>
+          (window as any).__authRemoteConfigContext.configForms
+            .get('locale')
+            .set('preference', 'PT-br'),
+        ),
+        true,
+      )
+      await expect.poll(memory).toBe('PT-br')
+      assert.equal(
+        await f.page.evaluate(() =>
+          (window as any).__authRemoteConfigContext.configForms
+            .get('locale')
+            .set('preference', 'ko-KR'),
+        ),
+        true,
+      )
+      await expect.poll(memory).toBe('ko-KR')
+      assert.equal(
+        await f.page.evaluate(() =>
+          (window as any).__authRemoteConfigContext.configForms.get('locale').unset('preference'),
+        ),
+        true,
+      )
+      await expect.poll(memory).toBe(null)
+      assert.equal(
+        await f.page.evaluate(() => localStorage.getItem('dsh-auth-remote.locale')),
+        'old-value',
+      )
+      assert.equal(
+        await f.page.evaluate(() =>
+          (window as any).__authRemoteConfigContext.configForms
+            .get('locale')
+            .set('preference', 'pt-BR'),
+        ),
+        true,
+      )
+      await expect.poll(memory).toBe('pt-BR')
+      assert.equal(
+        await f.page.evaluate(
+          async () => (await fetch('/auth-remote/logout', { method: 'POST' })).status,
+        ),
+        200,
+      )
+      await f.page.goto(`${f.origin}/auth-remote/login`)
+      await expect(
+        f.page.getByRole('heading', { name: dictionaries.pt.loginTitle, exact: true }),
+      ).toBeVisible()
+      assert.equal(await memory(), 'pt-BR')
+      assert.equal(
+        await f.page.evaluate(() => localStorage.getItem('dsh-auth-remote.locale')),
+        'old-value',
+      )
+      await f.page.getByLabel(dictionaries.pt.loginUsername).fill('alice')
+      await f.page.getByLabel(dictionaries.pt.loginPassword).fill(password)
+      await f.page.getByRole('button', { name: dictionaries.pt.loginContinue, exact: true }).click()
+      await f.page
+        .getByRole('button', { name: dictionaries.pt.loginOptionalSkip, exact: true })
+        .click()
+      await f.page.waitForSelector('[class*="frame"]')
+      await expect.poll(memory).toBe('pt-BR')
+      const publicUrl = new URL(f.origin)
+      const revoked = await nativeHttp(
+        `http://127.0.0.1:${publicUrl.port}`,
+        '/auth-remote/revoke-sessions',
+        {
+          host: publicUrl.host,
+          origin: f.origin,
+          method: 'POST',
+          cookie: (await f.context.cookies(f.origin))
+            .map(({ name, value }) => `${name}=${value}`)
+            .join('; '),
+          body: JSON.stringify({ password }),
+        },
+      )
+      assert.equal(revoked.status, 200, revoked.body)
+      await f.page.goto(`${f.origin}/auth-remote/login`)
+      await expect(
+        f.page.getByRole('heading', { name: dictionaries.pt.loginTitle, exact: true }),
+      ).toBeVisible()
+      assert.equal(
+        await memory(),
+        'pt-BR',
+        'real session revocation must retain accepted language memory',
+      )
+    } finally {
+      releaseRead?.()
+      releaseWrite?.()
+      await f.page.unrouteAll({ behavior: 'wait' })
+      await f.cleanup()
+    }
+  },
+)
+
+test(
+  'locale memory preserves failed or unavailable reads and recovers with the real native mirror',
+  { timeout: 90000 },
+  async () => {
+    const f = await fixture(false, 13154, null)
+    try {
+      await initialize(f.home)
+      await f.context.addInitScript(() => {
+        ;(window as any).__observeAuthRemoteForms = true
+      })
+      await f.context.addInitScript({
+        path: new URL('../fixtures/liveshare-client-observer.js', import.meta.url).pathname,
+      })
+      await f.page.goto(`${f.origin}/auth-remote/login`)
+      await f.page.getByLabel('用户名').fill('alice')
+      await f.page.getByLabel('密码').fill(password)
+      await f.page.getByRole('button', { name: '继续', exact: true }).click()
+      await f.page
+        .getByRole('heading', { name: dictionaries.zh.loginOptionalTitle, exact: true })
+        .waitFor()
+      await setNativeLocale(f.page, 'en')
+      await f.page.evaluate(() => localStorage.setItem('dsh-auth-remote-lang', 'ja-JP'))
+      let mode: 'fail' | 'unavailable' | 'pass' = 'fail'
+      let reads = 0
+      await f.page.route('**/api/settings/describe', async (route) => {
+        reads++
+        if (mode === 'fail')
+          return route.fulfill({
+            json: {
+              type: 'server-response',
+              rpcId: route.request().postDataJSON().rpcId,
+              result: {
+                ok: false,
+                error: { code: 'settings/unavailable', message: 'Temporary read failure' },
+              },
+            },
+          })
+        if (mode === 'unavailable') {
+          const url = new URL(route.request().url())
+          const host = url.host
+          url.hostname = '127.0.0.1'
+          const response = await route.fetch({
+            url: url.href,
+            headers: { ...(await route.request().allHeaders()), host },
+          })
+          const value = await response.json()
+          value.result.value.namespaces = value.result.value.namespaces.filter(
+            (entry: { ns: string }) => entry.ns !== 'locale',
+          )
+          return route.fulfill({ response, json: value })
+        }
+        await route.continue()
+      })
+      await f.page
+        .getByRole('button', { name: dictionaries.zh.loginOptionalSkip, exact: true })
+        .click()
+      await f.page.waitForFunction(
+        () => (window as any).__authRemoteContext && (window as any).__authRemoteConfigContext,
+      )
+      await expect.poll(() => reads).toBeGreaterThan(0)
+      const memory = () => f.page.evaluate(() => localStorage.getItem('dsh-auth-remote-lang'))
+      assert.equal(await memory(), 'ja-JP')
+      // Other native forms may initiate reads; recovery uses their real shared mirror.
+      mode = 'pass'
+      await f.page.evaluate(() =>
+        (window as any).__authRemoteConfigContext.configForms.describe().ensure(),
+      )
+      await expect.poll(memory).toBe('en')
+      mode = 'unavailable'
+      await f.page.evaluate(() => localStorage.setItem('dsh-auth-remote-lang', 'ja-JP'))
+      await f.page.reload()
+      await f.page.waitForFunction(
+        () =>
+          (window as any).__authRemoteConfigContext?.configForms.get('locale').getSnapshot()
+            .status === 'unavailable',
+      )
+      assert.equal(await memory(), 'ja-JP')
+      mode = 'pass'
+      await f.context.addInitScript(() => {
+        const set = Storage.prototype.setItem
+        const remove = Storage.prototype.removeItem
+        Storage.prototype.setItem = function (key, value) {
+          if (key === 'dsh-auth-remote-lang') throw new DOMException('blocked', 'SecurityError')
+          return set.call(this, key, value)
+        }
+        Storage.prototype.removeItem = function (key) {
+          if (key === 'dsh-auth-remote-lang') throw new DOMException('blocked', 'SecurityError')
+          return remove.call(this, key)
+        }
+      })
+      await f.page.reload()
+      await f.page.waitForFunction(
+        () =>
+          (window as any).__authRemoteConfigContext?.configForms.get('locale').getSnapshot().value
+            ?.preference === 'en',
+      )
+      assert.equal(await memory(), 'ja-JP')
+      assert.equal(
+        await f.page.evaluate(() =>
+          (window as any).__authRemoteConfigContext.configForms
+            .get('locale')
+            .set('preference', 'pt'),
+        ),
+        true,
+      )
+      assert.equal(
+        await memory(),
+        'ja-JP',
+        'storage failure must not block a real native settings save',
+      )
+      assert.equal(await f.page.evaluate(async () => (await fetch('/auth-remote/me')).status), 200)
+    } finally {
+      await f.page.unrouteAll({ behavior: 'wait' })
+      await f.cleanup()
+    }
+  },
+)
 
 test('fresh profile guides CLI init, then forces QR binding and full MFA login', async () => {
   const f = await fixture(true, 13094)
   try {
     await f.page.goto(`${f.origin}/?source=login-test`)
     await f.page.getByRole('heading', { name: '先初始化账号' }).waitFor()
-    await f.page.getByLabel('语言').selectOption('en')
-    await f.page.getByRole('heading', { name: 'Set up your account first' }).waitFor()
-    await f.page.getByRole('button', { name: 'Copy command' }).click()
-    assert.match(
-      (await f.page.locator('#message').textContent()) ?? '',
-      /Command copied|Select and copy/u,
-    )
-    await f.page.getByLabel('Language').selectOption('zh')
-    assert.match((await f.page.locator('#message').textContent()) ?? '', /命令已复制|请手动选择/u)
+    await expect(f.page.locator('select')).toHaveCount(0)
     assert.equal(
       await f.page.locator('#setup-command').textContent(),
       'dsh plugin --profile web exec dsh-auth-remote init',
@@ -605,24 +1031,20 @@ test('fresh profile guides CLI init, then forces QR binding and full MFA login',
     await f.page.locator('#totp-qr').evaluate((canvas) => {
       canvas.dataset.probe = 'same-canvas'
     })
-    await f.page.getByLabel('语言').selectOption('en')
-    await f.page.getByRole('heading', { name: 'Connect an authenticator' }).waitFor()
+    await f.page.evaluate(() => localStorage.setItem('dsh-auth-remote-lang', 'en'))
+    await expect(f.page.locator('html')).toHaveAttribute('lang', 'zh')
     assert.equal(await f.page.locator('#totp-secret').textContent(), secret)
-    await f.page.getByLabel('Six-digit code from the authenticator').fill('123456')
-    await f.page.getByLabel('Language').selectOption('zh')
-    assert.equal(await f.page.getByLabel('身份验证器中的 6 位验证码').inputValue(), '123456')
+    await f.page.getByLabel('身份验证器中的 6 位验证码').fill('123456')
     assert.equal(await f.page.locator('#totp-qr').getAttribute('data-probe'), 'same-canvas')
-    await f.page.getByLabel('语言').selectOption('en')
     await f.page
-      .getByLabel('Six-digit code from the authenticator')
+      .getByLabel('身份验证器中的 6 位验证码')
       .fill(totpCode(secret, Math.floor(Date.now() / 30_000)))
-    await f.page.getByRole('button', { name: 'Confirm setup' }).click()
-    await f.page.getByRole('heading', { name: 'Save your backup codes' }).waitFor()
+    await f.page.getByRole('button', { name: '确认绑定' }).click()
+    await f.page.getByRole('heading', { name: '保存备用码' }).waitFor()
     const codes = await f.page.locator('#backup-codes li').allTextContents()
     assert.equal(codes.length, 10)
-    await f.page.getByLabel('Language').selectOption('zh')
-    assert.deepEqual(await f.page.locator('#backup-codes li').allTextContents(), codes)
     assert.equal(await f.context.cookies().then((cookies) => cookies.length), 0)
+    await expect(f.page.locator('select')).toHaveCount(0)
     await f.page.getByRole('button', { name: '我已保存，重新登录' }).click()
     assert.equal(await f.page.locator('#backup-codes').count(), 0)
     await f.page.getByLabel('密码').fill(password)
@@ -747,15 +1169,12 @@ test('fifth failed MFA code returns to password login without a session', async 
     f.page.on('request', (request) => {
       if (new URL(request.url()).pathname === '/auth-remote/mfa/verify') verifyPosts++
     })
-    await f.page.getByLabel('语言').selectOption('en')
-    await f.page.getByRole('heading', { name: 'Verify your second factor' }).waitFor()
-    assert.equal(await f.page.getByLabel('Verification or backup code').inputValue(), '00000000')
+    await f.page.evaluate(() => localStorage.setItem('dsh-auth-remote-lang', 'en'))
+    await expect(f.page.locator('html')).toHaveAttribute('lang', 'zh')
+    await expect(f.page.locator('select')).toHaveCount(0)
+    assert.equal(await f.page.getByLabel('验证码或备用码').inputValue(), '00000000')
     assert.equal(verifyPosts, 0)
-    await f.page.getByRole('button', { name: 'Verify and sign in' }).click()
-    await f.page
-      .getByText('The verification or backup code is incorrect', { exact: false })
-      .waitFor()
-    await f.page.getByLabel('Language').selectOption('zh')
+    await f.page.getByRole('button', { name: '验证并登录' }).click()
     await f.page.getByText('验证码或备用码不正确', { exact: false }).waitFor()
     for (let attempt = 1; attempt < 5; attempt++) {
       await f.page.getByLabel('验证码或备用码').fill('00000000')
@@ -958,7 +1377,7 @@ test(
       // A fresh sign-in in another tab restores the normal native preference channel;
       // the original revoked session has already been rejected above.
       const preferences = await f.context.newPage()
-      await loginWithBackup(preferences, f.origin, changedPassword, codes[0]!)
+      await loginWithBackup(preferences, f.origin, changedPassword, codes[0]!, 'en')
       await setNativeLocale(preferences, 'zh')
       await openDshSettings(preferences)
       const otherSettings = preferences.getByRole('dialog', { name: '设置', exact: true })
@@ -1044,7 +1463,7 @@ test('security settings revoke all sessions in two browsers', async () => {
     secondContext = await f.context.browser()!.newContext({ locale: 'zh-CN' })
     await secondContext.addInitScript(() => {
       try {
-        localStorage.setItem('dsh-auth-remote.locale', 'zh')
+        localStorage.setItem('dsh-auth-remote-lang', 'zh')
       } catch {
         /* opaque origins */
       }
@@ -1179,7 +1598,7 @@ for (const action of ['current', 'all'] as const)
         second = await f.context.browser()!.newContext({ locale: 'zh-CN' })
         await second.addInitScript(() => {
           try {
-            localStorage.setItem('dsh-auth-remote.locale', 'zh')
+            localStorage.setItem('dsh-auth-remote-lang', 'zh')
           } catch {
             /* The standalone page will read this after navigation. */
           }

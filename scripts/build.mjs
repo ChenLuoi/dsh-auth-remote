@@ -1,5 +1,5 @@
 import { build, context } from 'esbuild'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 
 const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
 const common = {
@@ -57,6 +57,8 @@ if (process.argv.includes('--watch')) {
   process.once('SIGINT', () => void shutdown())
   process.once('SIGTERM', () => void shutdown())
 } else {
+  // TypeScript does not remove declarations whose source modules were deleted.
+  await rm('dist', { recursive: true, force: true })
   const results = await Promise.all(builds.map((options) => build({ ...options, metafile: true })))
   await mkdir('.cache', { recursive: true })
   await writeFile(

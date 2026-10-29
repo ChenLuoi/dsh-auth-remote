@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { Context } from '@deepseek-ai/cordis'
-import { assertRemoteHostCapability } from '../../src/client/adapters/dsh.js'
+import { assertRemoteHostCapability, isAdministratorPage } from '../../src/client/adapters/dsh.js'
 import { installAuthenticatedHostCapability } from '../../src/adapters/dsh/browser-capability.js'
 import {
   ACCOUNT_LOGIN_CAPABILITY,
@@ -51,6 +51,8 @@ test('manual adapter admits the SemVer floor including prereleases without an up
     '0.2.1-rc.2',
     '0.2.1-rc.3',
     '0.2.1-rc.4',
+    '0.2.2-alpha.2',
+    '0.2.2-alpha.3',
     '0.2.1',
     '0.3.0',
   ]) {
@@ -113,6 +115,8 @@ test('manual admission uses SemVer ordering for prereleases and invalid input', 
     '0.2.1-rc.2',
     '0.2.1-rc.3',
     '0.2.1-rc.4',
+    '0.2.2-alpha.2',
+    '0.2.2-alpha.3',
     '0.2.1-alpha.10',
     '0.2.1',
     '0.3.0-alpha.1',
@@ -120,4 +124,47 @@ test('manual admission uses SemVer ordering for prereleases and invalid input', 
     assert.equal(supportsManualAccountLogin(version), true)
   for (const version of ['', 'invalid', '0.2.1-alpha.2', '0.2.1-alpha.2+build', '0.2.0'])
     assert.equal(supportsManualAccountLogin(version), false)
+})
+
+test('native peer identity restricts index capabilities to owner while absent peer retains the old contract', async () => {
+  const ctx = new Context()
+  try {
+    installAuthenticatedHostCapability(ctx, '0.2.2-alpha.2')
+    for (const [peer, expected] of [
+      [undefined, 2],
+      [{ principal: { kind: 'owner' } }, 2],
+      [{ principal: { kind: 'share-viewer' } }, 0],
+      [{ principal: { kind: 'future-guest' } }, 0],
+    ] as const) {
+      const table: IndexInjection[] = []
+      ctx.emit('webserver/index-inject', table, peer as never)
+      assert.equal(table.length, expected)
+    }
+  } finally {
+    await ctx.fiber.dispose()
+  }
+})
+
+test('only absent or explicit native owner baseline admits administrator client effects', () => {
+  try {
+    assert.equal(isAdministratorPage(), true)
+    for (const value of [
+      undefined,
+      null,
+      true,
+      [],
+      {},
+      { owner: true },
+      { type: 'delta', owner: true },
+      { type: 'baseline', owner: false, grants: [] },
+      { type: 'baseline', owner: 'true' },
+    ]) {
+      Reflect.set(globalThis, '__DSH_REMOTE_ACCESS__', value)
+      assert.equal(isAdministratorPage(), false, JSON.stringify(value))
+    }
+    Reflect.set(globalThis, '__DSH_REMOTE_ACCESS__', { type: 'baseline', owner: true })
+    assert.equal(isAdministratorPage(), true)
+  } finally {
+    Reflect.deleteProperty(globalThis, '__DSH_REMOTE_ACCESS__')
+  }
 })

@@ -9,21 +9,17 @@ import {
 } from '../shared/admin-contract.js'
 import { AuthStateStore } from '../storage/store.js'
 import { AdminOutcomeUnknown, AdminRejected, AdminUnavailable, requestAdmin } from './ipc-client.js'
-import { CliDiagnostic, cliText, environmentLocale, parseLanguage } from './language.js'
+import { CliDiagnostic, cliText as output, type CliMessageKey } from './messages.js'
 import { resolveProfileTarget, type ProfileTarget } from './profile.js'
 import { TerminalPrompt } from './prompt.js'
-import type { Locale, MessageKey } from '../shared/i18n.js'
 
 const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
   version: string
 }
 
 type Command = AdminRequest['command']
-let currentLocale = environmentLocale(process.env)
-const output = (key: MessageKey, params: Record<string, string | number> = {}): string =>
-  cliText(currentLocale, key, params)
 
-function authErrorKey(code: string): MessageKey {
+function authErrorKey(code: string): CliMessageKey {
   switch (code) {
     case 'already_initialized':
       return 'cliErrorAlreadyInitialized'
@@ -46,19 +42,19 @@ function authErrorKey(code: string): MessageKey {
   }
 }
 
-function errorText(error: unknown, locale: Locale): string {
-  if (error instanceof CliDiagnostic) return cliText(error.locale ?? locale, error.key)
-  if (error instanceof PasswordValidationError) return cliText(locale, 'cliErrorPasswordLength')
-  if (error instanceof AdminOutcomeUnknown) return cliText(locale, 'cliErrorOutcomeUnknown')
-  if (error instanceof AdminUnavailable) return cliText(locale, 'cliErrorManagementUnavailable')
+function errorText(error: unknown): string {
+  if (error instanceof CliDiagnostic) return error.message
+  if (error instanceof PasswordValidationError) return output('cliErrorPasswordLength')
+  if (error instanceof AdminOutcomeUnknown) return output('cliErrorOutcomeUnknown')
+  if (error instanceof AdminUnavailable) return output('cliErrorManagementUnavailable')
   if (error instanceof AdminRejected || error instanceof AuthError) {
     if (error.code === 'rate_limited')
-      return cliText(locale, 'errorRateLimited', {
+      return output('errorRateLimited', {
         seconds: error instanceof AuthError ? (error.retryAfter ?? 1) : 1,
       })
-    return cliText(locale, authErrorKey(error.code))
+    return output(authErrorKey(error.code))
   }
-  return cliText(locale, 'cliErrorUnknown')
+  return output('cliErrorUnknown')
 }
 
 async function offline(
@@ -70,10 +66,7 @@ async function offline(
     store = await AuthStateStore.open(target.dir)
   } catch (error) {
     if (error instanceof Error && /state lock held|state lock is held/u.test(error.message))
-      throw new CliDiagnostic(
-        'cliErrorOfflineLock',
-        'dsh-auth-remote: management socket is unavailable while the service holds the profile lock; refusing offline access',
-      )
+      throw new CliDiagnostic('cliErrorOfflineLock')
     throw error
   }
   const auth = new AuthService(store, { requireTotp: false, sessionHours: 168 })
@@ -122,11 +115,7 @@ async function interactiveRequest(
       const username = await prompt.ask(output('cliPromptUsername'), false, 64)
       const password = await prompt.ask(output('cliPromptPassword'), true, 256)
       const again = await prompt.ask(output('cliPromptPasswordAgain'), true, 256)
-      if (password !== again)
-        throw new CliDiagnostic(
-          'cliErrorPasswordsMismatch',
-          'dsh-auth-remote: passwords do not match',
-        )
+      if (password !== again) throw new CliDiagnostic('cliErrorPasswordsMismatch')
       validatePassword(password)
       return { version: ADMIN_PROTOCOL_VERSION, command, username, password }
     }
@@ -135,19 +124,11 @@ async function interactiveRequest(
       false,
       64,
     )
-    if (confirmation !== target.name)
-      throw new CliDiagnostic(
-        'cliErrorConfirmationMismatch',
-        'dsh-auth-remote: confirmation did not match the target profile',
-      )
+    if (confirmation !== target.name) throw new CliDiagnostic('cliErrorConfirmationMismatch')
     if (command === 'reset-password') {
       const password = await prompt.ask(output('cliPromptNewPassword'), true, 256)
       const again = await prompt.ask(output('cliPromptNewPasswordAgain'), true, 256)
-      if (password !== again)
-        throw new CliDiagnostic(
-          'cliErrorPasswordsMismatch',
-          'dsh-auth-remote: passwords do not match',
-        )
+      if (password !== again) throw new CliDiagnostic('cliErrorPasswordsMismatch')
       validatePassword(password)
       return { version: ADMIN_PROTOCOL_VERSION, command, password }
     }
@@ -158,9 +139,7 @@ async function interactiveRequest(
 }
 
 async function main(): Promise<void> {
-  const parsed = parseLanguage(process.argv.slice(2))
-  currentLocale = parsed.locale
-  const args = parsed.args
+  const args = process.argv.slice(2)
   if (args.length === 0 || (args.length === 1 && ['--help', '-h'].includes(args[0]!))) {
     process.stdout.write(output('cliHelp', { version: manifest.version }))
     return
@@ -178,10 +157,7 @@ async function main(): Promise<void> {
       ? args.length > 2 || (args.length === 2 && args[1] !== '--json')
       : args.length !== 1)
   )
-    throw new CliDiagnostic(
-      'cliErrorInvalidArguments',
-      'dsh-auth-remote: invalid command or arguments; use --help',
-    )
+    throw new CliDiagnostic('cliErrorInvalidArguments')
   const target = await resolveProfileTarget()
   if (command !== 'status')
     process.stdout.write(
@@ -227,6 +203,6 @@ async function main(): Promise<void> {
 }
 
 void main().catch((error: unknown) => {
-  process.stderr.write(`${errorText(error, currentLocale)}\n`)
+  process.stderr.write(`${errorText(error)}\n`)
   process.exitCode = 1
 })

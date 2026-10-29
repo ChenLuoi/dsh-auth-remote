@@ -54,7 +54,7 @@ test('retired selection is independent, exact and rejects malformed inputs befor
   )
 })
 
-test('retired consumer reuses digest, checksum and complete seven-version archive checks before runtime work', async () => {
+test('retired consumer reuses digest, checksum and complete eight-version archive checks before runtime work', async () => {
   const root = await mkdtemp(join(tmpdir(), 'retired-archive-'))
   try {
     const packageRoot = join(root, 'package')
@@ -139,8 +139,7 @@ test('whole-package replacement refuses shared files and external targets while 
 })
 
 test('native refusal requires actual bundle skip and complete peer facts without imposing one log layout', () => {
-  const issue =
-    'Plugin dsh-auth-remote@0.3.1 is incompatible with dsh 0.2.1-alpha.2: peerDependencies {"@deepseek-ai/dsh-host-webserver":">=0.2.1-alpha.3"}'
+  const issue = `Plugin dsh-auth-remote@${packageManifest.version} is incompatible with dsh 0.2.1-alpha.2: peerDependencies {"@deepseek-ai/dsh-host-webserver":">=0.2.1-alpha.3"}`
   for (const output of [
     `skipping profile bundle "dsh-auth-remote": ${issue}`,
     `${issue}\nBundle dsh-auth-remote skipped.`,

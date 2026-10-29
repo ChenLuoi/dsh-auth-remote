@@ -2,10 +2,11 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { SlotCore } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
-import { assertRemoteHostCapability } from './adapters/dsh.js'
+import { assertRemoteHostCapability, isAdministratorPage } from './adapters/dsh.js'
 import { SecuritySection } from './settings/section.js'
 import { monitorSession } from './settings/monitor.js'
-import { en, zh, type MessageKey } from '../shared/i18n.js'
+import { installLocaleMemory } from './settings/locale-memory.js'
+import { dictionaries, type MessageKey } from '../shared/i18n.js'
 import settingsStyles from './settings/style.css'
 import accountStyles from './account/style.css'
 import { manualAccountBinding } from './account/config.js'
@@ -23,7 +24,9 @@ export const name = 'auth-remote'
 export const inject = ['connection', 'slots', 'locale', 'remote.settings']
 
 export function apply(ctx: Context): void {
+  if (!isAdministratorPage()) return
   assertRemoteHostCapability(ctx)
+  installLocaleMemory(ctx)
   ctx.effect(() => {
     const tag = document.createElement('style')
     tag.dataset.plugin = 'dsh-auth-remote'
@@ -32,7 +35,7 @@ export function apply(ctx: Context): void {
     return () => tag.remove()
   }, 'auth-remote: settings styles')
   monitorSession(ctx)
-  ctx.effect(() => ctx.locale.register('auth-remote', { en, zh }), 'auth-remote: dictionaries')
+  ctx.effect(() => ctx.locale.register('auth-remote', dictionaries), 'auth-remote: dictionaries')
   const t = ctx.locale.bind('auth-remote')
   installManualAccountLogin(ctx)
   const slots = ctx.get('slots') as SlotCore & {

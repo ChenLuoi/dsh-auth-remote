@@ -21,7 +21,7 @@ import {
 
 const require = createRequire(import.meta.url)
 
-test('declared compatible DSH releases match the verified runtime targets', () => {
+test('declared compatible DSH releases match the exact runtime targets', () => {
   const manifest = require('../../package.json')
   assert.deepEqual(
     manifest.dsh.compatibility.dshReleases,
@@ -48,6 +48,8 @@ test('DSH loader peer range and runtime gate admit upgrades, including prereleas
     '0.2.1-rc.2',
     '0.2.1-rc.3',
     '0.2.1-rc.4',
+    '0.2.2-alpha.2',
+    '0.2.2-alpha.3',
     '0.3.0-rc.1',
     '1.0.0',
   ]) {

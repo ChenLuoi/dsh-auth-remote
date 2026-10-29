@@ -15,7 +15,7 @@ import { packedCommand, packedProfile } from '../helpers/packed-runtime.js'
 import { clickThroughDshPrompts, launchBrowser } from '../helpers/runtime.js'
 
 // Verify the three-namespace native form on each exact RC target.
-if (['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4'].includes(dshVersion))
+if (['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4', '0.2.2-alpha.2'].includes(dshVersion))
   test(
     `DSH ${dshVersion} native web search settings persist all three namespaces and credentials behind the remote session gate`,
     { timeout: 120_000 },
