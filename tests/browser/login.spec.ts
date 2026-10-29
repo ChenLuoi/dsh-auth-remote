@@ -714,6 +714,11 @@ test(
       )
       releaseRead!()
       await expect.poll(memory).toBe('en')
+      await expect
+        .poll(() =>
+          f.page.evaluate(() => (window as any).__authRemoteContext.locale.getSnapshot().active),
+        )
+        .toBe('en')
       let action: 'pass' | 'fail' | 'hold' = 'pass'
       await f.page.route('**/api/settings/mutate', async (route) => {
         if (route.request().postDataJSON()?.payload?.args?.ns !== 'locale') return route.continue()
@@ -735,14 +740,19 @@ test(
         await route.continue()
       })
       action = 'hold'
-      await f.page.evaluate(() => (window as any).__authRemoteContext.locale.setLocale('zh'))
-      await expect.poll(() => Boolean(releaseWrite)).toBe(true)
-      assert.equal(
-        await f.page.evaluate(
-          () => (window as any).__authRemoteContext.locale.getSnapshot().active,
-        ),
-        'zh',
+      // A later native mirror notification can restore the accepted locale while this write waits.
+      assert.deepEqual(
+        await f.page.evaluate(() => {
+          const locale = (window as any).__authRemoteContext.locale
+          locale.setLocale('zh')
+          return {
+            active: locale.getSnapshot().active,
+            memory: localStorage.getItem('dsh-auth-remote-lang'),
+          }
+        }),
+        { active: 'zh', memory: 'en' },
       )
+      await expect.poll(() => Boolean(releaseWrite)).toBe(true)
       assert.equal(
         await memory(),
         'en',
