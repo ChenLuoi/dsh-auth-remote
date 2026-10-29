@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { request as httpRequest } from 'node:http'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -54,79 +54,89 @@ async function run(
   return { code, stdout, stderr }
 }
 
-test('CLI language precedence, option positions, help, version and JSON remain stable', async () => {
+test('CLI stays English across environment languages and keeps version and JSON stable', async () => {
   const f = await profileFixture()
   try {
-    const zh = await run(process.execPath, [cli, '--help'], f.profile, f.home, {
-      LC_ALL: 'zh_CN.UTF-8',
-      LC_MESSAGES: 'en_US.UTF-8',
-      LANG: 'en_US.UTF-8',
-    })
-    assert.equal(zh.code, 0, zh.stderr)
-    assert.match(zh.stdout, /用法：/u)
-    const messages = await run(process.execPath, [cli, 'status'], f.profile, f.home, {
-      LC_ALL: '',
-      LC_MESSAGES: 'zh-Hans',
-      LANG: 'en_US.UTF-8',
-    })
-    assert.equal(messages.code, 0, messages.stderr)
-    assert.match(messages.stdout, /账号: 未初始化/u)
-    const english = await run(process.execPath, [cli, '--lang=en', '--help'], f.profile, f.home, {
-      LC_ALL: 'zh_CN.UTF-8',
-      LC_MESSAGES: 'zh_CN.UTF-8',
-      LANG: 'zh_CN.UTF-8',
-    })
-    assert.equal(english.code, 0, english.stderr)
-    assert.match(english.stdout, /Usage:/u)
-    const fallback = await run(process.execPath, [cli, '--help'], f.profile, f.home, {
-      LC_ALL: '',
-      LC_MESSAGES: '',
-      LANG: 'fr_FR.UTF-8',
-    })
-    assert.match(fallback.stdout, /Usage:/u)
-    const version = await run(
-      process.execPath,
-      [cli, '--version', '--lang', 'zh'],
-      f.profile,
-      f.home,
-    )
+    let json: unknown
+    for (const localeEnv of [
+      { LC_ALL: 'zh_CN.UTF-8', LC_MESSAGES: 'en_US.UTF-8', LANG: 'en_US.UTF-8' },
+      { LC_ALL: '', LC_MESSAGES: 'zh-Hans', LANG: 'en_US.UTF-8' },
+      { LC_ALL: '', LC_MESSAGES: '', LANG: 'pt_BR.UTF-8' },
+      { LC_ALL: 'ja_JP.UTF-8', LC_MESSAGES: 'de_DE.UTF-8', LANG: 'fr_FR.UTF-8' },
+    ]) {
+      const help = await run(process.execPath, [cli, '--help'], f.profile, f.home, localeEnv)
+      assert.equal(help.code, 0, help.stderr)
+      assert.match(help.stdout, /Usage:/u)
+      assert.equal(help.stdout.includes('--lang'), false)
+      const status = await run(process.execPath, [cli, 'status'], f.profile, f.home, localeEnv)
+      assert.equal(status.code, 0, status.stderr)
+      assert.match(status.stdout, /Account: Not initialized/u)
+      const result = await run(
+        process.execPath,
+        [cli, 'status', '--json'],
+        f.profile,
+        f.home,
+        localeEnv,
+      )
+      assert.equal(result.code, 0, result.stderr)
+      const value: unknown = JSON.parse(result.stdout)
+      if (json === undefined) json = value
+      else assert.deepEqual(value, json)
+    }
+    const version = await run(process.execPath, [cli, '--version'], f.profile, f.home)
     assert.equal(version.code, 0, version.stderr)
     assert.equal(version.stdout, `${packageVersion}\n`)
-    const jsonZh = await run(
-      process.execPath,
-      [cli, 'status', '--json', '--lang', 'zh'],
-      f.profile,
-      f.home,
-    )
-    const jsonEn = await run(
-      process.execPath,
-      [cli, '--lang=en', 'status', '--json'],
-      f.profile,
-      f.home,
-    )
-    assert.equal(jsonZh.code, 0, jsonZh.stderr)
-    assert.equal(jsonEn.code, 0, jsonEn.stderr)
-    assert.deepEqual(JSON.parse(jsonZh.stdout), JSON.parse(jsonEn.stdout))
-    const wrongProfile = await run(process.execPath, [cli, 'status', '--lang=zh'], f.home, f.home)
+    const wrongProfile = await run(process.execPath, [cli, 'status'], f.home, f.home, {
+      LC_ALL: 'zh_CN.UTF-8',
+    })
     assert.notEqual(wrongProfile.code, 0)
-    assert.match(wrongProfile.stderr, /当前目录不是 DSH_HOME/u)
-    for (const [args, message] of [
-      [['--lang', 'zh', '--lang=en', 'status'], /--lang 只能指定一次/u],
-      [['--lang', '--help'], /Missing value for --lang/u],
-      [['status', '--lang=fr'], /Invalid --lang value/u],
-      [['status', '--unknown', '--lang=zh'], /命令或参数无效/u],
-    ] as const) {
-      const result = await run(process.execPath, [cli, ...args], f.profile, f.home)
-      assert.notEqual(result.code, 0)
-      assert.equal(result.stdout, '')
-      assert.match(result.stderr, message)
-    }
+    assert.match(wrongProfile.stderr, /not the selected DSH profile under DSH_HOME/u)
   } finally {
     await f.cleanup()
   }
 })
 
-test('English interactive initialization hides secrets and localizes human status', async () => {
+test('removed language options fail before profile access, terminal prompts or state writes', async () => {
+  const f = await profileFixture()
+  try {
+    const manifest = await readFile(join(f.profile, 'package.json'), 'utf8')
+    for (const args of [
+      ['--lang'],
+      ['--lang='],
+      ['--lang=en'],
+      ['--lang', 'zh', 'status'],
+      ['status', '--lang'],
+      ['status', '--lang=fr'],
+      ['status', '--lang', 'zh'],
+      ['status', '--lang', 'zh', '--json'],
+      ['status', '--json', '--lang=zh'],
+      ['--lang', 'zh', '--lang=en', 'status'],
+      ['--help', '--lang', 'zh'],
+      ['--version', '--lang=en'],
+      ['--lang', '--help'],
+      ...['init', 'reset-password', 'reset-totp', 'revoke-sessions'].map((command) => [
+        command,
+        '--lang',
+        'zh',
+      ]),
+    ]) {
+      for (const cwd of [f.profile, f.home]) {
+        const result = await run(process.execPath, [cli, ...args], cwd, f.home, {
+          LC_ALL: 'zh_CN.UTF-8',
+        })
+        assert.equal(result.code, 1, result.stderr)
+        assert.equal(result.stdout, '')
+        assert.equal(result.stderr, 'Invalid command or arguments. Use --help.\n')
+      }
+    }
+    assert.deepEqual(await readdir(f.profile), ['package.json'])
+    assert.equal(await readFile(join(f.profile, 'package.json'), 'utf8'), manifest)
+  } finally {
+    await f.cleanup()
+  }
+})
+
+test('English interactive initialization hides secrets and reports human status', async () => {
   const f = await profileFixture()
   try {
     const shortPassword = await pty(
@@ -138,7 +148,7 @@ test('English interactive initialization hides secrets and localizes human statu
       ],
       f.profile,
       f.home,
-      'en',
+      { LC_ALL: 'fr_FR.UTF-8' },
     )
     assert.notEqual(shortPassword.code, 0)
     assert.match(shortPassword.stdout + shortPassword.stderr, /Password must contain 12–256/u)
@@ -152,12 +162,12 @@ test('English interactive initialization hides secrets and localizes human statu
       ],
       f.profile,
       f.home,
-      'en',
+      { LC_ALL: 'fr_FR.UTF-8' },
     )
     assert.equal(initialized.code, 0, initialized.stderr + initialized.stdout)
     assert.match(initialized.stdout, /init completed/u)
     assert.equal(initialized.stdout.includes(password), false)
-    const status = await run(process.execPath, [cli, 'status', '--lang=en'], f.profile, f.home)
+    const status = await run(process.execPath, [cli, 'status'], f.profile, f.home)
     assert.equal(status.code, 0, status.stderr)
     assert.match(status.stdout, /Account: Initialized/u)
     assert.match(status.stdout, /Service: Offline/u)
@@ -175,14 +185,14 @@ async function pty(
   prompts: readonly [string, string][],
   cwd: string,
   home: string,
-  language: 'en' | 'zh' = 'zh',
+  localeEnv: NodeJS.ProcessEnv = { LC_ALL: 'zh_CN.UTF-8', LANG: 'ja_JP.UTF-8' },
 ): Promise<Result> {
   const child = spawn(
     'script',
-    ['-q', '-e', '-f', '-c', [...command, '--lang', language].map(quote).join(' '), '/dev/null'],
+    ['-q', '-e', '-f', '-c', command.map(quote).join(' '), '/dev/null'],
     {
       cwd,
-      env: { ...process.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' },
+      env: { ...process.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1', ...localeEnv },
       stdio: ['pipe', 'pipe', 'pipe'],
     },
   )
@@ -293,13 +303,13 @@ test('Unix socket enforces private modes, online ack and offline lock exclusion'
     await chmod(admin.path, 0o644)
     await assert.rejects(
       requestAdmin(admin.path, { version: 1, command: 'status' }),
-      /unsafe management socket/u,
+      /management socket has unsafe permissions/u,
     )
     await chmod(admin.path, 0o600)
     await chmod(join(f.profile, 'auth-remote'), 0o755)
     await assert.rejects(
       requestAdmin(admin.path, { version: 1, command: 'status' }),
-      /unsafe management directory/u,
+      /management directory has unsafe permissions/u,
     )
     await chmod(join(f.profile, 'auth-remote'), 0o700)
     await admin.dispose()
@@ -362,7 +372,7 @@ test('service refuses a non-socket management path without deleting it', async (
     assert.equal(await readFile(path, 'utf8'), 'unexpected')
     await assert.rejects(
       requestAdmin(path, { version: 1, command: 'status' }),
-      /unsafe management socket/u,
+      /management socket has unsafe permissions/u,
     )
   } finally {
     auth.dispose()
@@ -395,13 +405,16 @@ test('a committed mutation with a lost acknowledgement is reported as uncertain'
     await chmod(path, 0o600)
     const result = await pty(
       [process.execPath, cli, 'revoke-sessions'],
-      [['输入 web 以确认 revoke-sessions: ', 'web']],
+      [['Enter web to confirm revoke-sessions: ', 'web']],
       f.profile,
       f.home,
     )
     assert.notEqual(result.code, 0)
-    assert.match(result.stdout + result.stderr, /结果未知/u)
-    assert.equal((result.stdout + result.stderr).includes('已完成；变更已持久化'), false)
+    assert.match(result.stdout + result.stderr, /result is unknown/u)
+    assert.equal(
+      (result.stdout + result.stderr).includes('completed; the change is durable'),
+      false,
+    )
     assert.equal(auth.session(issued.token), null)
     assert.deepEqual(JSON.parse(await readFile(store.path, 'utf8')).sessions, {})
   } finally {
@@ -437,15 +450,15 @@ test('installed DSH profile exec supports hidden interactive CLI and live manage
     const mismatch = await pty(
       [dsh, 'plugin', '--profile', 'web', 'exec', packageName, 'init'],
       [
-        ['用户名: ', 'alice'],
-        ['密码: ', password],
-        ['再次输入密码: ', replacement],
+        ['Username: ', 'alice'],
+        ['Password: ', password],
+        ['Enter password again: ', replacement],
       ],
       home,
       home,
     )
     assert.notEqual(mismatch.code, 0)
-    assert.match(mismatch.stdout + mismatch.stderr, /两次输入的密码不一致/u)
+    assert.match(mismatch.stdout + mismatch.stderr, /passwords do not match/u)
     const afterMismatch = await run(
       dsh,
       ['plugin', '--profile', 'web', 'exec', packageName, 'status', '--json'],
@@ -457,9 +470,9 @@ test('installed DSH profile exec supports hidden interactive CLI and live manage
     const initialized = await pty(
       [dsh, 'plugin', '--profile', 'web', 'exec', packageName, 'init'],
       [
-        ['用户名: ', 'alice'],
-        ['密码: ', password],
-        ['再次输入密码: ', password],
+        ['Username: ', 'alice'],
+        ['Password: ', password],
+        ['Enter password again: ', password],
       ],
       home,
       home,
@@ -474,15 +487,15 @@ test('installed DSH profile exec supports hidden interactive CLI and live manage
     const repeated = await pty(
       [dsh, 'plugin', '--profile', 'web', 'exec', packageName, 'init'],
       [
-        ['用户名: ', 'alice'],
-        ['密码: ', replacement],
-        ['再次输入密码: ', replacement],
+        ['Username: ', 'alice'],
+        ['Password: ', replacement],
+        ['Enter password again: ', replacement],
       ],
       home,
       home,
     )
     assert.notEqual(repeated.code, 0)
-    assert.match(repeated.stdout + repeated.stderr, /账号已初始化/u)
+    assert.match(repeated.stdout + repeated.stderr, /account is already initialized/u)
     assert.equal(repeated.stdout.includes(replacement), false)
     const store = await AuthStateStore.open(profile)
     const auth = new AuthService(store, { requireTotp: false, sessionHours: 1 })
@@ -506,7 +519,7 @@ test('installed DSH profile exec supports hidden interactive CLI and live manage
       assert.equal(JSON.parse(online.stdout).online, true)
       const wrongConfirmation = await pty(
         [dsh, 'plugin', '--profile', 'web', 'exec', packageName, 'revoke-sessions'],
-        [['输入 web 以确认 revoke-sessions: ', 'other']],
+        [['Enter web to confirm revoke-sessions: ', 'other']],
         home,
         home,
       )
@@ -514,7 +527,7 @@ test('installed DSH profile exec supports hidden interactive CLI and live manage
       assert.ok(auth.session(issued.token))
       const revoked = await pty(
         [dsh, 'plugin', '--profile', 'web', 'exec', packageName, 'revoke-sessions'],
-        [['输入 web 以确认 revoke-sessions: ', 'web']],
+        [['Enter web to confirm revoke-sessions: ', 'web']],
         home,
         home,
       )
@@ -534,7 +547,7 @@ test('installed DSH profile exec supports hidden interactive CLI and live manage
       assert.ok(auth.session(boundSession.token))
       const resetTotp = await pty(
         [dsh, 'plugin', '--profile', 'web', 'exec', packageName, 'reset-totp'],
-        [['输入 web 以确认 reset-totp: ', 'web']],
+        [['Enter web to confirm reset-totp: ', 'web']],
         home,
         home,
       )
@@ -549,9 +562,9 @@ test('installed DSH profile exec supports hidden interactive CLI and live manage
     const reset = await pty(
       [dsh, 'plugin', '--profile', 'web', 'exec', packageName, 'reset-password'],
       [
-        ['输入 web 以确认 reset-password: ', 'web'],
-        ['新密码: ', replacement],
-        ['再次输入新密码: ', replacement],
+        ['Enter web to confirm reset-password: ', 'web'],
+        ['New password: ', replacement],
+        ['Enter new password again: ', replacement],
       ],
       home,
       home,
@@ -641,7 +654,7 @@ test('online profile exec acknowledges reset only after persistent revoke and SS
     const stream = await openStream(first.token)
     const revoked = await pty(
       [dsh, 'plugin', '--profile', 'web', 'exec', packageName, 'revoke-sessions'],
-      [['输入 web 以确认 revoke-sessions: ', 'web']],
+      [['Enter web to confirm revoke-sessions: ', 'web']],
       home,
       home,
     )
@@ -658,9 +671,9 @@ test('online profile exec acknowledges reset only after persistent revoke and SS
     const reset = await pty(
       [dsh, 'plugin', '--profile', 'web', 'exec', packageName, 'reset-password'],
       [
-        ['输入 web 以确认 reset-password: ', 'web'],
-        ['新密码: ', replacement],
-        ['再次输入新密码: ', replacement],
+        ['Enter web to confirm reset-password: ', 'web'],
+        ['New password: ', replacement],
+        ['Enter new password again: ', replacement],
       ],
       home,
       home,

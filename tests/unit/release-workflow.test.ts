@@ -46,7 +46,7 @@ test('release producer builds and packs once and publication consumes only the v
 
 test('complete artifact matrices are exact and missing, duplicate or narrowed targets fail', () => {
   const full = fullVerificationPlan()
-  assert.equal(full.versions.length, 7)
+  assert.equal(full.versions.length, 8)
   assert.deepEqual(full.versions, testedDshVersions)
   assert.deepEqual(
     full.browser.include.map(({ dsh }: { dsh: string }) => dsh),

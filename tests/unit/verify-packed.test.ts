@@ -269,6 +269,7 @@ test('complete browser coverage permits only exact zero-registration exceptions 
       'account-login',
       'startup-compatibility',
       'native-transport',
+      'liveshare',
       'unexpected',
     ]) {
       const counts = {
@@ -279,8 +280,19 @@ test('complete browser coverage permits only exact zero-registration exceptions 
         file === 'host-release'
           ? version === '0.2.1-alpha.3'
           : file === 'web-search-settings'
-            ? !['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4'].includes(version)
-            : file === 'rc-navigation' && !['0.2.1-rc.3', '0.2.1-rc.4'].includes(version)
+            ? !['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4', '0.2.2-alpha.2'].includes(version)
+            : file === 'rc-navigation'
+              ? !['0.2.1-rc.3', '0.2.1-rc.4', '0.2.2-alpha.2'].includes(version)
+              : file === 'liveshare' &&
+                [
+                  '0.2.1-alpha.3',
+                  '0.2.1-alpha.4',
+                  '0.2.1-alpha.5',
+                  '0.2.1-rc.1',
+                  '0.2.1-rc.2',
+                  '0.2.1-rc.3',
+                  '0.2.1-rc.4',
+                ].includes(version)
       if (allowed) assert.doesNotThrow(() => assertRegisteredCoverage('browser', version, counts))
       else
         assert.throws(

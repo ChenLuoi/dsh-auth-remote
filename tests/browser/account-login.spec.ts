@@ -18,10 +18,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { promisify } from 'node:util'
+import { pathToFileURL } from 'node:url'
 import { expect, type Page } from '@playwright/test'
 import { AuthService } from '../../src/auth/service.js'
 import { AuthStateStore } from '../../src/storage/store.js'
 import { AUTH_COOKIE } from '../../src/shared/auth-contract.js'
+import { dictionaries, type Locale } from '../../src/shared/i18n.js'
 import {
   archive,
   clickThroughDshPrompts,
@@ -36,6 +38,7 @@ import {
 import { dshVersion } from '../../scripts/runtime.mjs'
 import { classifyDshSupport, dshSupportWarning } from '../../src/shared/dsh-support.js'
 import { accountPlatform } from '../helpers/account-platform.js'
+import { nativeHttp } from '../helpers/native-http.js'
 
 async function fixture({
   keepOnboarding = false,
@@ -44,6 +47,8 @@ async function fixture({
   preferenceOnly = false,
   hmrProbeEnabled = false,
   supportReloadProbe = false,
+  observeClient = false,
+  lifecycleProbe = false,
 } = {}) {
   const home = await mkdtemp(join(tmpdir(), 'auth-remote-manual-browser-'))
   const platform = await accountPlatform()
@@ -59,6 +64,12 @@ async function fixture({
   let child: ReturnType<typeof spawn> | undefined
   let browser: Awaited<ReturnType<typeof launchBrowser>> | undefined
   let output = ''
+  const stopServer = async () => {
+    if (child && child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGTERM')
+      await once(child, 'exit').catch(() => {})
+    }
+  }
   try {
     await promisify(execFile)(dsh, ['plugin', '--profile', 'web', 'add', archive], {
       cwd: home,
@@ -84,6 +95,9 @@ async function fixture({
     const hmrProbe = join(profile, 'hmr-config-probe.mjs')
     if (hmrProbeEnabled)
       await copyFile(new URL('../fixtures/hmr-config-probe.mjs', import.meta.url), hmrProbe)
+    const lifecycle = join(profile, 'hmr-lifecycle-probe.mjs')
+    if (lifecycleProbe)
+      await copyFile(new URL('../fixtures/hmr-lifecycle-probe.mjs', import.meta.url), lifecycle)
     assert.equal(
       (await stat(join(profile, 'node_modules/dsh-auth-remote/dist/client.js'))).nlink,
       1,
@@ -102,14 +116,15 @@ async function fixture({
                     '  disabled: true',
                     '- insert:',
                     '  - id: auth-remote-support-probe',
-                    `    name: ${JSON.stringify(moduleEntry)}`,
+                    `    name: ${JSON.stringify(pathToFileURL(moduleEntry).href)}`,
                     '    inject: [webStartup]',
+                    '- id: auth-remote-support-probe',
                   ]
                 : []),
-              `${supportReloadProbe ? '    ' : '  '}config:`,
-              `${supportReloadProbe ? '      ' : '    '}publicUrl: ${origin}`,
-              `${supportReloadProbe ? '      ' : '    '}requireTotp: false`,
-              `${supportReloadProbe ? '      ' : '    '}manualAccountLogin: ${manualEnabled}`,
+              '  config:',
+              `    publicUrl: ${origin}`,
+              '    requireTotp: false',
+              `    manualAccountLogin: ${manualEnabled}`,
             ]
           : []),
         ...(supportReloadProbe
@@ -130,6 +145,14 @@ async function fixture({
               '    - id: hmr-config-probe',
               '      name: ' + JSON.stringify(hmrProbe),
               '      inject: [webServer, hmr]',
+            ]
+          : []),
+        ...(lifecycleProbe
+          ? [
+              '- insert:',
+              '    - id: hmr-lifecycle-probe',
+              `      name: ${JSON.stringify(lifecycle)}`,
+              '      inject: [profileContext]',
             ]
           : []),
         '',
@@ -190,6 +213,10 @@ async function fixture({
       '--host-resolver-rules=MAP account-remote.test 127.0.0.1',
     ])
     const context = await browser.newContext({ locale: 'zh-CN' })
+    if (observeClient)
+      await context.addInitScript({
+        path: new URL('../fixtures/liveshare-client-observer.js', import.meta.url).pathname,
+      })
     await context.addCookies([{ name: AUTH_COOKIE, value: token!, url: origin }])
     const page = await context.newPage()
     const errors: string[] = []
@@ -253,6 +280,7 @@ async function fixture({
       origin,
       errors,
       output: () => output,
+      stopServer,
       async open(locale: 'zh' | 'en' = 'zh') {
         const menu = page.getByRole('button', {
           name: locale === 'zh' ? '账号菜单' : 'Account menu',
@@ -274,10 +302,7 @@ async function fixture({
         // Finish active route callbacks before disposing their request context.
         await page.unrouteAll({ behavior: 'wait' })
         await browser?.close()
-        if (child && child.exitCode === null && child.signalCode === null) {
-          child.kill('SIGTERM')
-          await once(child, 'exit')
-        }
+        await stopServer()
         await platform.close()
         await model.close()
         await rm(home, { recursive: true, force: true })
@@ -285,10 +310,7 @@ async function fixture({
     }
   } catch (error) {
     await browser?.close()
-    if (child && child.exitCode === null && child.signalCode === null) {
-      child.kill('SIGTERM')
-      await once(child, 'exit')
-    }
+    await stopServer()
     await platform.close()
     await model.close()
     await rm(home, { recursive: true, force: true })
@@ -325,6 +347,74 @@ async function nativeSettingsRpc(page: Page, method: string, args: Record<string
     { method, args, rpcId: randomUUID() },
   )
 }
+
+test(
+  'eight language dictionaries render the real manual account dialog and errors',
+  { timeout: 90000 },
+  async () => {
+    const f = await fixture({ observeClient: true })
+    const review = join(project, '.cache/ui-review', dshVersion, 'languages')
+    await mkdir(review, { recursive: true })
+    try {
+      const dialog = await f.open()
+      const opened = f.context.waitForEvent('page')
+      await dialog.getByRole('button', { name: '打开登录页', exact: true }).click()
+      const popup = await opened
+      await popup.getByRole('button', { name: 'Authorize test account' }).waitFor()
+      await dialog
+        .getByLabel('完整回调地址', { exact: true })
+        .fill('https://example.invalid/?code=wrong&state=wrong')
+      await dialog.getByRole('button', { name: '确认登录', exact: true }).click()
+      await expect(
+        dialog.getByText(dictionaries.zh.accountLoginInvalidCallback, { exact: true }),
+      ).toBeVisible()
+      const locales: Locale[] =
+        dshVersion === '0.2.2-alpha.2' ? (Object.keys(dictionaries) as Locale[]) : ['zh', 'en']
+      assert.deepEqual(
+        await f.page.evaluate(() =>
+          (window as any).__authRemoteContext.locale
+            .getSnapshot()
+            .locales.map((entry: { id: string }) => entry.id)
+            .sort(),
+        ),
+        [...locales].sort(),
+        'plugin dictionaries must preserve the native language catalog',
+      )
+      for (const locale of locales) {
+        const t = dictionaries[locale]
+        await f.page.evaluate(
+          (value) => (window as any).__authRemoteContext.locale.setLocale(value),
+          locale,
+        )
+        await expect
+          .poll(() =>
+            f.page.evaluate(() => (window as any).__authRemoteContext.locale.getSnapshot().active),
+          )
+          .toBe(locale)
+        const task = f.page.getByRole('dialog', { name: t.accountLoginTitle, exact: true })
+        await expect(task.getByLabel(t.accountLoginCallbackLabel)).toBeVisible()
+        await expect(task.getByText(t.accountLoginInvalidCallback, { exact: true })).toBeVisible()
+        for (const width of [1280, 390]) {
+          await f.page.setViewportSize({ width, height: 900 })
+          assert.equal(
+            await task.evaluate(
+              (node) =>
+                node.scrollWidth <= node.clientWidth &&
+                node.getBoundingClientRect().left >= 0 &&
+                node.getBoundingClientRect().right <= innerWidth + 1,
+            ),
+            true,
+            `${locale} manual ${width}`,
+          )
+          await f.page.screenshot({ path: join(review, `${locale}-manual-${width}.png`) })
+        }
+      }
+      assert.deepEqual(f.errors, [])
+    } finally {
+      await f.close()
+    }
+  },
+)
 
 test(
   'configuration retry recovers the shared mirror after its initial describe fails',
@@ -453,6 +543,213 @@ test(
     }
   },
 )
+
+if (dshVersion === '0.2.2-alpha.2')
+  test(
+    'native HMR preserves preflight failures and cleans allocated replacement resources before rollback',
+    { timeout: 150000 },
+    async () => {
+      const f = await fixture({
+        hmrProbeEnabled: true,
+        supportReloadProbe: true,
+        lifecycleProbe: true,
+      })
+      const original = await readFile(f.moduleEntry, 'utf8')
+      const target = new URL(f.origin)
+      const cookie = `${AUTH_COOKIE}=${(await f.context.cookies()).find((entry) => entry.name === AUTH_COOKIE)!.value}`
+      const options = { host: target.host, origin: f.origin, cookie }
+      const observation = async () => {
+        const response = await nativeHttp(
+          `http://127.0.0.1:${target.port}`,
+          '/plugins/hmr-lifecycle/observation',
+          options,
+        )
+        assert.equal(response.status, 200, response.body)
+        return JSON.parse(response.body)
+      }
+      const ready = async () => {
+        try {
+          return await observation()
+        } catch {
+          return undefined
+        }
+      }
+      const openSocket = () =>
+        f.page.evaluate(
+          () =>
+            new Promise<void>((resolve, reject) => {
+              ;(window as any).__hmrSocketClosed = false
+              const socket = new WebSocket(
+                location.origin.replace('http:', 'ws:') + '/api/remote.mux',
+              )
+              const timer = setTimeout(() => {
+                socket.close()
+                reject(new Error('real HMR mux timed out'))
+              }, 5000)
+              socket.onopen = () =>
+                socket.send(
+                  JSON.stringify({
+                    type: 'open',
+                    streamId: 'hmr-lifecycle',
+                    endpoint: '$events',
+                    payload: { args: {} },
+                  }),
+                )
+              socket.onmessage = (event) => {
+                const frame = JSON.parse(String(event.data))
+                if (frame.type !== 'item' || frame.value?.type !== 'ready') return
+                clearTimeout(timer)
+                resolve()
+              }
+              socket.onclose = () => {
+                ;(window as any).__hmrSocketClosed = true
+              }
+              socket.onerror = () => {
+                clearTimeout(timer)
+                reject(new Error('real HMR mux failed'))
+              }
+            }),
+        )
+      try {
+        const before = await observation()
+        const saved = JSON.parse(
+          await readFile(join(f.profile, 'auth-remote/auth-state.json'), 'utf8'),
+        )
+        await assert.rejects(AuthStateStore.open(f.profile), /state lock/u)
+        await openSocket()
+        const importFailure = 'task9 native import failure'
+        await writeFile(
+          f.moduleEntry,
+          original + `\nthrow new Error(${JSON.stringify(importFailure)});\n`,
+        )
+        await expect
+          .poll(async () => (await observation()).diagnostics.join('\n'), { timeout: 20000 })
+          .toContain(importFailure)
+        const preserved = await observation()
+        assert.equal(preserved.current, before.current)
+        assert.equal(preserved.nonce, before.nonce)
+        assert.equal(preserved.entries[0].listening, true)
+        assert.equal(preserved.entries[0].healthy, true)
+        assert.equal(preserved.entries[0].fiberUid, before.entries[0].fiberUid)
+        assert.equal(await f.page.evaluate(() => (window as any).__hmrSocketClosed), false)
+        const allocated = 'task9 replacement allocated real resources'
+        const activationFailure = 'task9 replacement init failure'
+        await writeFile(
+          f.moduleEntry,
+          original +
+            `
+const task9NativeInit = AuthRemoteWebServer.prototype[Service.init];
+AuthRemoteWebServer.prototype[Service.init] = async function () {
+  await task9NativeInit.call(this);
+  globalThis[Symbol.for('dsh-auth-remote.test.hmr-lifecycle')].record(this, 'failed-init');
+  console.info(${JSON.stringify(allocated)});
+  throw new Error(${JSON.stringify(activationFailure)});
+};
+`,
+        )
+        await expect.poll(f.output, { timeout: 20000 }).toContain(allocated)
+        await expect
+          .poll(async () => (await ready())?.diagnostics.join('\n'), { timeout: 30000 })
+          .toContain(activationFailure)
+        await expect
+          .poll(
+            async () => {
+              const value = await ready()
+              return (
+                !!value &&
+                value.current !== before.current &&
+                value.entries.some((entry: any) => entry.kind === 'failed-init') &&
+                value.entries
+                  .filter((entry: any) => entry.id !== value.current)
+                  .every(
+                    (entry: any) =>
+                      !entry.listening && !entry.healthy && entry.fiberUid === null && entry.closed,
+                  )
+              )
+            },
+            { timeout: 30000 },
+          )
+          .toBe(true)
+        const rollback = await observation()
+        assert.match(rollback.diagnostics.join('\n'), /failed to reload plugin at/u)
+        assert.equal(rollback.port, before.port)
+        assert.notEqual(rollback.nonce, before.nonce)
+        assert.equal(
+          rollback.entries.find((entry: any) => entry.id === rollback.current).healthy,
+          true,
+        )
+        await expect.poll(() => f.page.evaluate(() => (window as any).__hmrSocketClosed)).toBe(true)
+        assert.equal(
+          (await nativeHttp(`http://127.0.0.1:${target.port}`, '/auth-remote/me', options)).status,
+          200,
+        )
+        await assert.rejects(AuthStateStore.open(f.profile), /state lock/u)
+        await openSocket()
+        const success = 'task9 valid native replacement loaded'
+        await writeFile(f.moduleEntry, original + `\nconsole.info(${JSON.stringify(success)});\n`)
+        await expect.poll(f.output, { timeout: 20000 }).toContain(success)
+        await expect
+          .poll(
+            async () => {
+              const value = await ready()
+              return (
+                !!value &&
+                value.current !== rollback.current &&
+                value.entries
+                  .filter((entry: any) => entry.id !== value.current)
+                  .every(
+                    (entry: any) =>
+                      !entry.listening && !entry.healthy && entry.fiberUid === null && entry.closed,
+                  )
+              )
+            },
+            { timeout: 30000 },
+          )
+          .toBe(true)
+        const replaced = await observation()
+        assert.equal(replaced.port, before.port)
+        assert.notEqual(replaced.nonce, rollback.nonce)
+        await expect.poll(() => f.page.evaluate(() => (window as any).__hmrSocketClosed)).toBe(true)
+        await f.page.reload()
+        await f.page.waitForSelector('[class*="frame"]')
+        const described = await nativeSettingsRpc(f.page, 'settings/describe', {})
+        assert.equal(described.result.ok, true)
+        const namespace = described.result.value.namespaces.find(
+          (entry: any) => entry.ns === 'auth-remote-support-probe',
+        )
+        assert.ok(namespace, JSON.stringify(described))
+        const changed = await nativeSettingsRpc(f.page, 'settings/mutate', {
+          ns: namespace.ns,
+          ops: [{ op: 'set', path: ['manualAccountLogin'], value: false }],
+          expectedRevision: namespace.revision,
+        })
+        assert.equal(changed.result.ok, true, JSON.stringify(changed))
+        assert.equal(changed.result.value.value.manualAccountLogin, false)
+        assert.match(
+          await readFile(join(f.profile, 'cordis.patch.yml'), 'utf8'),
+          /manualAccountLogin: false/u,
+        )
+        await f.stopServer()
+        const store = await AuthStateStore.open(f.profile)
+        try {
+          assert.deepEqual(store.current().account, saved.account)
+          assert.deepEqual(store.current().sessions, saved.sessions)
+        } finally {
+          await store.close()
+        }
+      } catch (error) {
+        await expect
+          .poll(ready, { timeout: 10000 })
+          .toBeTruthy()
+          .catch(() => {})
+        console.error('Native HMR lifecycle observation:', JSON.stringify(await ready()))
+        console.error('Native HMR console:', f.output())
+        throw error
+      } finally {
+        await f.close()
+      }
+    },
+  )
 
 if (classifyDshSupport(dshVersion, new Set([dshVersion])).state === 'legacy')
   test(

@@ -3,6 +3,8 @@ import type { Duplex } from 'node:stream'
 import type { Context } from '@deepseek-ai/cordis'
 import WebServer, {
   type Config as WebServerConfig,
+  type WebResource,
+  type WebResourceRoute,
   type WebRoute,
   type WebUpgradeRoute,
 } from '@deepseek-ai/dsh-host-webserver'
@@ -67,10 +69,18 @@ export class SwitchGate implements WebGate {
   }
 }
 
-/** Wrap only public WebServer registration methods; its routing and IO stay official. */
+type ServeResource = (
+  req: IncomingMessage,
+  res: ServerResponse,
+  target: URL,
+  resource: WebResource,
+) => Promise<void>
+
+/** Gate native handler registration and the instance's resource HTTP boundary. */
 export class GuardedWebServer extends WebServer {
   private originPolicy: OriginPolicy | undefined
   private accountCallbackBridge: AccountCallbackBridge | undefined
+  private readonly resourceBoundaryInstalled: boolean
 
   constructor(
     ctx: Context,
@@ -80,6 +90,7 @@ export class GuardedWebServer extends WebServer {
     // Production verifies the host version and explicitly validates the native
     // schema before calling this constructor, including on old IPv4 runtimes.
     super(ctx, config as WebServerConfig)
+    this.resourceBoundaryInstalled = this.installResourceBoundary()
     this.originPolicy = config.originPolicy
     super.register({
       kind: 'exact',
@@ -122,6 +133,35 @@ export class GuardedWebServer extends WebServer {
     })
   }
 
+  /** DSH-RESOURCE-001: private native boundary; never replace its routing or stream bridge. */
+  private installResourceBoundary(): boolean {
+    const native: unknown = Reflect.get(this, 'serveResource')
+    if (typeof native !== 'function') {
+      if (typeof Reflect.get(this, 'readResource') === 'function') {
+        throw new Error(
+          'auth-remote: WebServer resource HTTP boundary serveResource is unavailable',
+        )
+      }
+      return false
+    }
+    const serve = native as ServeResource
+    Object.defineProperty(this, 'serveResource', {
+      value: (req: IncomingMessage, res: ServerResponse, _target: URL, resource: WebResource) =>
+        this.gate.http(req, res, () =>
+          serve.call(this, req, res, new URL(req.url ?? '/', 'http://x'), resource),
+        ),
+    })
+    return true
+  }
+
+  private requireResourceBoundary(): void {
+    if (!this.resourceBoundaryInstalled) {
+      throw new Error(
+        'auth-remote: WebServer resource registration requires a guarded serveResource',
+      )
+    }
+  }
+
   /** Ready and the authenticated gate consume the same listener-finalized policy. */
   protected setOriginPolicy(policy: OriginPolicy): void {
     this.originPolicy = policy
@@ -131,7 +171,11 @@ export class GuardedWebServer extends WebServer {
     this.accountCallbackBridge = bridge
   }
 
-  override register(route: WebRoute): () => void {
+  override register(route: WebRoute | WebResourceRoute): () => void {
+    if ('resource' in route) {
+      this.requireResourceBoundary()
+      return super.register(route)
+    }
     const callback = this.accountCallbackBridge?.capture(route)
     const handler = callback?.handler ?? route.handler
     try {
@@ -149,9 +193,15 @@ export class GuardedWebServer extends WebServer {
     }
   }
 
-  override registerFallback(handler: WebRoute['handler']): () => void {
+  override registerFallback(
+    fallback: WebRoute['handler'] | Pick<WebResourceRoute, 'resource'>,
+  ): () => void {
+    if (typeof fallback !== 'function') {
+      this.requireResourceBoundary()
+      return super.registerFallback(fallback)
+    }
     return super.registerFallback((req, res) =>
-      this.gate.http(req, res, () => Promise.resolve(handler(req, res))),
+      this.gate.http(req, res, () => Promise.resolve(fallback(req, res))),
     )
   }
 

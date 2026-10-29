@@ -6,9 +6,20 @@ This file records user-visible changes to the released package. Version numbers 
 
 ## Unreleased
 
+## 0.3.2 - 2026-10-28
+
+- Prepare unpublished candidate `0.3.2`, adding DSH `0.2.2-alpha.2` to the original seven exact targets and pinning the development default and manual migration recommendation to it. Retain DSH `>=0.2.1-alpha.3`, forward admission and plugin Node `>=24`. The date records preparation; final same-archive reports are recorded separately.
+- Gate native named/fallback HTTP resources before Fetch conversion while preserving native routing, ETag/HEAD, stream cancellation and in-process peer reads.
+- Isolate LiveShare viewers from the administrator client; restore trusted business Origin only for the two native Owner-login POSTs. Verify basic flows with a local Relay protocol stand-in and keep share/session lifetimes independent; real Relay/OAuth and visitor business operations are outside that verification.
+- Make CLI text fixed English and remove `--lang` and environment-language selection; old language arguments are invalid. Preserve JSON fields, exit codes, confirmation and secret-input contracts.
+- Complete browser English, Chinese, Japanese, Spanish, French, German, Russian and Brazilian Portuguese without expanding old DSH language catalogs. Remove the login language selector; use new `dsh-auth-remote-lang` memory, then `navigator.language`, then English. Remember only native accepted preferences and keep them on sign-out. Ignore, retain and do not migrate old `dsh-auth-remote.locale`.
+- Extend native caching, mux compression/expiry/revocation, host switching, UI and genuine HMR failure/rollback regression while retaining ACCOUNT/HMR, allowedOrigins and shared security checks.
+
+- Clean regular build output before emission so deleted modules leave no stale published declarations.
+
 ## 0.3.1 - 2026-10-28
 
-- Prepare the unpublished `0.3.1` candidate for seven exact DSH releases, adding `0.2.1-rc.3` and `0.2.1-rc.4`; use `0.2.1-rc.4` by default and require DSH `>=0.2.1-alpha.3`.
+- Publish `0.3.1` for seven exact DSH releases, adding `0.2.1-rc.3` and `0.2.1-rc.4`; use `0.2.1-rc.4` by default and require DSH `>=0.2.1-alpha.3`.
 - Retire six older hosts with plugin `0.2.0` as their last supported plugin. Mark `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5` legacy from 2026-10-28, with earliest retirement eligibility 2026-11-11 (Asia/Shanghai); dates do not automatically stop support.
 
 - Remove retired-host-only IPv4/TLS/protocol/public-URL and direct Settings branches. Remove old theme fallbacks and delegate focus color to native rules while retaining shared authentication, Secure, revocation and TLS-failure cleanup. Keep account callback, HMR context and old allowedOrigins configuration migration.

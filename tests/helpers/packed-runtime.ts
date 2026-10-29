@@ -44,7 +44,7 @@ export async function packedAdmin(
   command: string,
   prompts: readonly (readonly [string, string])[] = [],
 ) {
-  const args = ['plugin', '--profile', 'web', 'exec', packageName, command, '--lang', 'zh']
+  const args = ['plugin', '--profile', 'web', 'exec', packageName, command]
   if (prompts.length === 0) {
     const result = await packedCommand(home, [...args, '--json']).done
     assert.equal(result.code, 0, result.stderr)

@@ -1,6 +1,19 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 
+/** The public native opening baseline is authoritative before any plugin effect. */
+export function isAdministratorPage(): boolean {
+  if (!Reflect.has(globalThis, '__DSH_REMOTE_ACCESS__')) return true
+  const baseline: unknown = Reflect.get(globalThis, '__DSH_REMOTE_ACCESS__')
+  return (
+    typeof baseline === 'object' &&
+    baseline !== null &&
+    !Array.isArray(baseline) &&
+    Reflect.get(baseline, 'type') === 'baseline' &&
+    Reflect.get(baseline, 'owner') === true
+  )
+}
+
 /** Confirm the Host's early index injection reached Connection construction. */
 export function assertRemoteHostCapability(ctx: Context): void {
   if (typeof location === 'undefined') return

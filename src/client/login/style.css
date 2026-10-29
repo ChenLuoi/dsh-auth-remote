@@ -67,27 +67,7 @@ body {
   border-radius: var(--dsw-radius-panel);
   background: var(--dsw-alias-bg-layer-2);
 }
-.login-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.language-control {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.language-control select {
-  min-height: 36px;
-  padding: 5px 7px;
-  border: 1px solid var(--dsw-alias-border-l4);
-  border-radius: var(--dsw-radius-sm);
-  background: var(--dsw-alias-bg-layer-2);
-  color: var(--dsw-alias-label-primary);
-  font: inherit;
-}
+
 h1 {
   margin: 0;
   font-size: 24px;

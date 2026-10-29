@@ -55,17 +55,7 @@ async function run(command: string, args: string[], home: string): Promise<void>
 }
 
 async function initialize(home: string): Promise<void> {
-  const command = [
-    dsh,
-    'plugin',
-    '--profile',
-    'web',
-    'exec',
-    'dsh-auth-remote',
-    'init',
-    '--lang',
-    'zh',
-  ]
+  const command = [dsh, 'plugin', '--profile', 'web', 'exec', 'dsh-auth-remote', 'init']
     .map(quote)
     .join(' ')
   const child = spawn('script', ['-q', '-e', '-f', '-c', command, '/dev/null'], {
@@ -74,9 +64,9 @@ async function initialize(home: string): Promise<void> {
     stdio: ['pipe', 'pipe', 'pipe'],
   })
   const prompts = [
-    ['用户名: ', 'alice'],
-    ['密码: ', password],
-    ['再次输入密码: ', password],
+    ['Username: ', 'alice'],
+    ['Password: ', password],
+    ['Enter password again: ', password],
   ] as const
   let output = ''
   let cursor = 0
@@ -364,7 +354,7 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
     const context = await browser.newContext({ ignoreHTTPSErrors: true, locale: 'zh-CN' })
     await context.addInitScript(() => {
       try {
-        localStorage.setItem('dsh-auth-remote.locale', 'zh')
+        localStorage.setItem('dsh-auth-remote-lang', 'zh')
       } catch {
         /* opaque origins */
       }

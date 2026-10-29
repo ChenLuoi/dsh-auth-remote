@@ -5,6 +5,7 @@ import { createRequire } from 'node:module'
 import { basename } from 'node:path'
 import { assertWebServerCompatibility } from './adapters/dsh/compatibility.js'
 import { installAuthenticatedHostCapability } from './adapters/dsh/browser-capability.js'
+import { installLiveShareOrigin } from './adapters/dsh/liveshare.js'
 import { DshReadiness, watchConnection } from './adapters/dsh/readiness.js'
 import { startupLines } from './adapters/dsh/startup-urls.js'
 import { listenerProtocol } from './adapters/dsh/runtime-capabilities.js'
@@ -89,6 +90,7 @@ export class AuthRemoteWebServer extends GuardedWebServer {
     this.switchGate = gate
     warnDshSupport(classifyDshSupport(config.version, declaredDshReleases))
     installAuthenticatedHostCapability(ctx, config.version)
+    installLiveShareOrigin(ctx)
     if (config.legacyWarning)
       console.warn('auth-remote: allowedOrigins is deprecated; use publicUrl with one root URL')
   }

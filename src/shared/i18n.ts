@@ -1,8 +1,14 @@
 import { en } from './locales/en.js'
 import { zh } from './locales/zh.js'
+import { ja } from './locales/ja.js'
+import { es } from './locales/es.js'
+import { fr } from './locales/fr.js'
+import { de } from './locales/de.js'
+import { ru } from './locales/ru.js'
+import { pt } from './locales/pt.js'
 
-export { en, zh }
-export const dictionaries = { en, zh } as const
+export { en, zh, ja, es, fr, de, ru, pt }
+export const dictionaries = { en, zh, ja, es, fr, de, ru, pt } as const
 
 export type Locale = keyof typeof dictionaries
 export type MessageKey = keyof typeof en
@@ -12,13 +18,15 @@ type Placeholders<Text extends string> = Text extends `${string}{${infer Name}}$
   : never
 type SameSet<Left, Right> = [Left] extends [Right] ? ([Right] extends [Left] ? true : false) : false
 type MismatchedPlaceholderKeys = {
-  [Key in MessageKey]: SameSet<
-    Placeholders<(typeof en)[Key]>,
-    Placeholders<(typeof zh)[Key]>
-  > extends true
-    ? never
-    : Key
-}[MessageKey]
+  [Language in Locale]: {
+    [Key in MessageKey]: SameSet<
+      Placeholders<(typeof en)[Key]>,
+      Placeholders<(typeof dictionaries)[Language][Key]>
+    > extends true
+      ? never
+      : Key
+  }[MessageKey]
+}[Locale]
 
 /** A compile-time failure here identifies any key whose placeholder names differ by language. */
 export const localePlaceholdersMatch: MismatchedPlaceholderKeys extends never ? true : never = true
@@ -27,18 +35,23 @@ type FormatArgs<Key extends MessageKey> = [Placeholders<(typeof en)[Key]>] exten
   ? []
   : [values: Record<Placeholders<(typeof en)[Key]>, string | number>]
 
-/** Only exact en/zh values are valid for the login page's stored preference. */
-export function parseExactLocale(value: unknown): Locale | null {
-  return value === 'en' || value === 'zh' ? value : null
-}
+export const localeMemoryKey = 'dsh-auth-remote-lang'
 
-/** CLI and language-tag inputs use Chinese for zh variants and English otherwise. */
-export function localeFromLanguageTag(value: string | undefined): Locale {
-  return value && /^zh(?:[-_.@]|$)/iu.test(value.trim()) ? 'zh' : 'en'
+/** Match a valid language tag without treating arbitrary prefixes as language IDs. */
+export function matchLocale(value: unknown): Locale | null {
+  if (typeof value !== 'string') return null
+  try {
+    if (Intl.getCanonicalLocales(value).length === 0) return null
+    const tag = value.toLowerCase()
+    const key = Object.hasOwn(dictionaries, tag) ? tag : tag.split('-')[0]!
+    return Object.hasOwn(dictionaries, key) ? (key as Locale) : null
+  } catch {
+    return null
+  }
 }
 
 export function normalizeLocale(value: unknown): Locale {
-  return parseExactLocale(value) ?? 'en'
+  return matchLocale(value) ?? 'en'
 }
 
 /** Returns plain text. Insert into textContent, React text, or escape before HTML templates. */

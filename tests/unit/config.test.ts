@@ -130,7 +130,7 @@ test('TLS chooses whole CLI or file pair and resolves paths against their own ba
     )
 })
 
-test('seven exact versions enforce native transport capabilities and concrete bindings', async () => {
+test('eight declared versions enforce native transport capabilities and concrete bindings', async () => {
   const { resolveStartupConfig } = await api()
   assert.equal(typeof resolveStartupConfig, 'function')
   for (const version of [
@@ -141,6 +141,7 @@ test('seven exact versions enforce native transport capabilities and concrete bi
     '0.2.1-rc.2',
     '0.2.1-rc.3',
     '0.2.1-rc.4',
+    '0.2.2-alpha.2',
   ]) {
     const options = { ...context, version }
     assert.equal(resolveStartupConfig({ host: '192.0.2.10' }, {}, options).host, '192.0.2.10')
@@ -189,6 +190,8 @@ test('version admission remains independent of native API validation', async () 
     '0.2.1-rc.2',
     '0.2.1-rc.3',
     '0.2.1-rc.4',
+    '0.2.2-alpha.2',
+    '0.2.2-alpha.3',
     '1.0.0',
   ])
     assert.doesNotThrow(() => assertRuntimeVersion(version))
@@ -319,7 +322,7 @@ test('retired runtimes fail before configuration with concrete migration guidanc
         for (const text of [
           version,
           'minimum DSH 0.2.1-alpha.3',
-          'DSH 0.2.1-rc.4',
+          'DSH 0.2.2-alpha.2',
           'plugin for older DSH: 0.2.0',
         ])
           assert(error.message.includes(text))

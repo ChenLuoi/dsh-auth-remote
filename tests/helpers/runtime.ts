@@ -214,3 +214,40 @@ export async function openDshSettings(page: Page, locale: 'zh' | 'en' = 'zh'): P
     }
   }
 }
+
+export async function setDshLocale(page: Page, preference: string): Promise<void> {
+  const result = await page.evaluate(async (preference) => {
+    const described = await (
+      await fetch('/api/settings/describe', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          type: 'client-request',
+          rpcId: 'locale-read-' + Date.now(),
+          method: 'settings/describe',
+          payload: { args: {} },
+        }),
+      })
+    ).json()
+    const locale = described.result.value.namespaces.find((entry: any) => entry.ns === 'locale')
+    return (
+      await fetch('/api/settings/mutate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          type: 'client-request',
+          rpcId: 'locale-write-' + Date.now(),
+          method: 'settings/mutate',
+          payload: {
+            args: {
+              ns: 'locale',
+              ops: [{ op: 'set', path: ['preference'], value: preference }],
+              expectedRevision: locale.revision,
+            },
+          },
+        }),
+      })
+    ).json()
+  }, preference)
+  assert.equal(result.result.ok, true)
+}

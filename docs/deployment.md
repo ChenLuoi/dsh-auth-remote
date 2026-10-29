@@ -2,17 +2,19 @@
 
 [简体中文](deployment.zh-CN.md)
 
-This guide targets unpublished plugin candidate `0.3.1` with recommended DSH `0.2.1-rc.4` and default `~/.dsh` data directory. See [README](../README.md#dsh-compatibility) for seven-version support/dates, [history](support-history.md#by-dsh) for old pairs and distribution, and [development](development.md) for source builds.
+This guide targets unpublished plugin candidate `0.3.2` with recommended DSH `0.2.2-alpha.2` and default `~/.dsh` data directory. See [README](../README.md#dsh-compatibility) for eight-version support/dates, [history](support-history.md#by-dsh) for old pairs and distribution, and [development](development.md) for source builds.
 
-The native capabilities below apply to `0.2.1-alpha.3`, `0.2.1-alpha.4`, `0.2.1-alpha.5`, `0.2.1-rc.1`, `0.2.1-rc.2`, `0.2.1-rc.3` and `0.2.1-rc.4`.
+The native capabilities below apply to `0.2.1-alpha.3`, `0.2.1-alpha.4`, `0.2.1-alpha.5`, `0.2.1-rc.1`, `0.2.1-rc.2`, `0.2.1-rc.3`, `0.2.1-rc.4` and `0.2.2-alpha.2`.
 
-## Minimal installation from npm
+Upstream DSH `0.2.2-alpha.2` itself requires Node `>=24.9.0`; the plugin still declares Node `>=24` and adds no minor-version gate.
 
-`0.3.1` is unpublished. Run the npm installation below only after its [exact distribution record](support-history.md#plugin-0.3.1) confirms publication; during preparation replace the package name with a verified local `./artifacts/dsh-auth-remote-0.3.1.tgz` path. Use the same default `web` profile:
+## Minimal installation of the candidate archive
+
+`0.3.2` is unpublished. Build and verify a local archive using the [development guide](development.md), then install that file. Published `0.3.1` retains its seven-host history and does not include this new-host adaptation; see the [exact distribution record](support-history.md#plugin-0.3.1). Use the same default `web` profile:
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.3.1
+dsh plugin --profile web add ./artifacts/dsh-auth-remote-0.3.2.tgz
 dsh plugin --profile web list
 dsh web --no-open --port 13090
 ```
@@ -21,7 +23,7 @@ Verify the selected DSH version and plugin list. No profile patch is needed for 
 
 ```sh
 curl -fsS http://127.0.0.1:13090/auth-remote/ready
-dsh plugin --profile web exec dsh-auth-remote init --lang en
+dsh plugin --profile web exec dsh-auth-remote init
 ```
 
 Open the printed root `http://127.0.0.1:13090/`. Anonymous navigation redirects to sign-in; anonymous business APIs are denied. The bundle suppresses native token URLs and automatic browser opening. Keep development and test homes separate from this account profile.
@@ -60,7 +62,7 @@ All plugin fields below belong directly in `auth-remote.config`; there are no al
 | `port`                | CLI `--port`, then file, then `3080`, independently of host. `0` derives the entry only after the actual nonzero port is bound.                                                                                                                                                                                       |
 | `tlsCert`, `tlsKey`   | Supply both file fields or both CLI `--tls-cert`/`--tls-key`; CLI replaces the entire pair, without mixed sources or reading unused file paths. Omit for HTTP.                                                                                                                                                        |
 | `requireTotp`         | Defaults to `false`. An unbound account may skip setup; an already bound account still needs its second factor. Set `true` to require TOTP enrollment before access. Explicit true/false settings, existing bindings and backup codes survive upgrades.                                                               |
-| `manualAccountLogin`  | Defaults true. Native Settings writes the profile override; accepted saves immediately affect new authorizations and survive restart without restarting authentication. False preserves admitted attempts and official credentials. All seven have complete regression targets; see README for future admission/APIs. |
+| `manualAccountLogin`  | Defaults true. Native Settings writes the profile override; accepted saves immediately affect new authorizations and survive restart without restarting authentication. False preserves admitted attempts and official credentials. All eight have complete regression targets; see README for future admission/APIs. |
 | `sessionHours`        | Fixed default lifetime of 168 hours. Reducing it tightens existing sessions; increasing it does not revive expired sessions.                                                                                                                                                                                          |
 | `preserveOriginPaths` | Optional canonical segment-prefix paths; default `[]`. Matching routes keep the validated public Host and existing Origin after authentication. The final public origin configures native Connection trust automatically.                                                                                             |
 
@@ -77,13 +79,13 @@ dsh web --no-open --tls-cert ./tls/dsh.crt --tls-key ./tls/dsh.key
 
 Supplying only one CLI flag fails even if the file contains the other half. Missing, unreadable, empty, malformed or mismatched certificate/key material fails startup without an HTTP fallback, and releases listener/admin/storage resources. Choose a certificate valid for the browser hostname; the plugin delegates TLS to the official listener.
 
-All supported versions natively provide `--public-url`, IPv6 and TLS; this candidate removes the older missing-option and unsupported-transport branches.
+All supported versions natively provide `--public-url`, IPv6 and TLS; this candidate retains the native API migration completed in `0.3.1`.
 
-All seven project the final Web URL through model runtime context and `DSH_WEB_URL`; tests still scan all Web sections for duplicate URLs or tokens.
+All eight project the final Web URL through model runtime context and `DSH_WEB_URL`; tests still scan all Web sections for duplicate URLs or tokens.
 
 ## Native HTTPS and IPv6
 
-All seven supported versions can use this complete auth row for IPv6 loopback HTTPS with your own certificate/key:
+All eight supported versions can use this complete auth row for IPv6 loopback HTTPS with your own certificate/key:
 
 ```yaml
 - id: auth-remote
@@ -124,7 +126,7 @@ Anonymous GET/HEAD requests to exactly `/manifest.webmanifest`, `/favicon.svg`, 
 
 Plugin cookies follow the validated external origin and are host-only, HttpOnly and SameSite; HTTPS sets Secure. Native bridge credentials stay server-side and follow the native listener protocol, including HTTPS cookie audience/Secure when a public HTTP proxy fronts native HTTPS. Ports do not isolate browser cookies.
 
-Standard `/api` routes work with `preserveOriginPaths: []`; there is no need to list `/api`. The plugin always declares its finalized native bridge authority in Connection's `trustedHosts`, using the actual bound port (including `--port 0`), so downstream plugins that read this list can recognize the bridge without an extra trusted-host flag. Explicit CLI trusted hosts are merged and deduplicated; they do not expand the outer public-origin policy. Add a prefix only when a downstream route needs the original public Host. The plugin forwards an Origin only when the request supplied one, and preflights and declares the selected public authority for preserved paths. No separate Connection row is needed. Ordinary routes on all seven use the normalized native bind authority and require a full session. Revocation, Connection loss or storage failure closes active uploads, streams and upgrades and withdraws business admission. Readiness does not mean the account is initialized.
+Standard `/api` routes work with `preserveOriginPaths: []`; there is no need to list `/api`. The plugin always declares its finalized native bridge authority in Connection's `trustedHosts`, using the actual bound port (including `--port 0`), so downstream plugins that read this list can recognize the bridge without an extra trusted-host flag. Explicit CLI trusted hosts are merged and deduplicated; they do not expand the outer public-origin policy. Add a prefix only when a downstream route needs the original public Host. The plugin forwards an Origin only when the request supplied one, and preflights and declares the selected public authority for preserved paths. No separate Connection row is needed. Ordinary routes on all eight use the normalized native bind authority and require a full session. Revocation, Connection loss or storage failure closes active uploads, streams and upgrades and withdraws business admission. Readiness does not mean the account is initialized.
 
 ## Start and verify the public entry
 
@@ -137,7 +139,9 @@ Startup prints the actual protocol/address/port and one distinct public root, de
 
 ## Backup, recovery and changes
 
-Before upgrading an old deployment to `0.3.1`, stop DSH and back up the authentication directory, profile patch and package/lock files. Keep access private and retain independent `webserver disabled: true`. Upgrade DSH to a listed target first (recommended `0.2.1-rc.4`), then install the plugin and verify readiness, anonymous denial, login and revocation. The six retired hosts cannot install `0.3.1`; do not grant a version-risk exemption. To roll back, stop the service, select an explicit old host (for example `0.2.1-alpha.2`) with last supported plugin `0.2.0`, and restore matching package/lock/patch backups. This migration does not change authentication data format; still check schema when restoring and never overwrite live state.
+Before upgrading an old deployment to `0.3.2`, stop DSH and back up the authentication directory, profile patch and package/lock files. Keep access private and retain independent `webserver disabled: true`. Upgrade DSH to a listed target first (recommended `0.2.2-alpha.2`), then install the plugin and verify readiness, anonymous denial, login and revocation. The six retired hosts cannot install `0.3.2`; do not grant a version-risk exemption. To roll back, stop the service, select an explicit old host (for example `0.2.1-alpha.2`) with last supported plugin `0.2.0`, and restore matching package/lock/patch backups. The six-host retirement happened in published `0.3.1` and is not repeated here. This migration does not change authentication data format; still check schema when restoring and never overwrite live state.
+
+These are plugin `0.3.2` behavior changes, independent of DSH retirement: CLI text is fixed English, so remove `--lang` from scripts; JSON fields are unchanged. The standalone login page has no language selector and uses new `dsh-auth-remote-lang` memory, then `navigator.language`, then English. Old `dsh-auth-remote.locale` is ignored, retained and not migrated. Entering DSH remembers only native accepted preferences; signing out keeps them. The eight plugin languages do not expand old DSH native language catalogs.
 
 Stop DSH and verify it released the profile lock before copying `~/.dsh/profiles/web/auth-remote/auth-state.json`. Keep the copy in a private directory (0700) with file mode 0600. It contains password hashes, the TOTP secret, backup-code hashes and sessions. Do not copy an in-progress temporary file, overwrite live locked state or commit it. Back up the corresponding profile patch and package/lock files.
 
@@ -145,4 +149,6 @@ For recovery, stop DSH, check schema/package compatibility, restore with private
 
 To change the external entry, replace the one `publicUrl`, update the proxy and restart DSH. Verify the new entry and rejection of the former non-loopback entry, including cookies, redirects, uploads and long connections. Do not temporarily configure both origins in this plugin.
 
-Official DeepSeek authorization on all seven uses the [README manual callback dialog](../README.md#sign-in-to-an-official-deepseek-account). No callback listener or open loopback port is needed on the browser computer. `/auth-remote/account/*` retains the session/origin gate and same-origin JSON POSTs; direct HTTP access to native `/oauth/callback` cannot complete this handoff. No proxy exception, broader paths or cross-site allowance is required.
+Official DeepSeek authorization on all eight uses the [README manual callback dialog](../README.md#sign-in-to-an-official-deepseek-account). No callback listener or open loopback port is needed on the browser computer. `/auth-remote/account/*` retains the session/origin gate and same-origin JSON POSTs; direct HTTP access to native `/oauth/callback` cannot complete this handoff. No proxy exception, broader paths or cross-site allowance is required.
+
+Before using LiveShare on DSH `0.2.2-alpha.2`, enable it, configure Relay and sign in as Owner through native DSH setup. This plugin does not enable sharing or rewrite Relay configuration. Viewers receive no administrator identity; plugin sign-out and stopping a share are independent operations. Local protocol stand-ins establish basic compatibility; real Relay/OAuth, visitor models and file-write experience require separate verification. No broader anonymous exception or preserveOriginPaths setting is required.

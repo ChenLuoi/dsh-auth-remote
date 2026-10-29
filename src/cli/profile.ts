@@ -1,7 +1,7 @@
 import { lstat, realpath } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
-import { CliDiagnostic } from './language.js'
+import { CliDiagnostic } from './messages.js'
 
 export interface ProfileTarget {
   name: string
@@ -42,26 +42,16 @@ export async function resolveProfileTarget(
     name === '.' ||
     name === '..'
   )
-    throw new CliDiagnostic(
-      'cliErrorProfileDirectory',
-      'dsh-auth-remote: current directory is not the selected DSH profile under DSH_HOME',
-    )
+    throw new CliDiagnostic('cliErrorProfileDirectory')
   let manifest
   try {
     manifest = await lstat(join(dir, 'package.json'))
   } catch (error) {
     if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT')
-      throw new CliDiagnostic(
-        'cliErrorProfileManifest',
-        'dsh-auth-remote: profile package.json is missing',
-      )
+      throw new CliDiagnostic('cliErrorProfileManifest')
     throw error
   }
-  if (!manifest.isFile())
-    throw new CliDiagnostic(
-      'cliErrorProfileManifest',
-      'dsh-auth-remote: profile package.json is missing',
-    )
+  if (!manifest.isFile()) throw new CliDiagnostic('cliErrorProfileManifest')
   return {
     name,
     dir,
