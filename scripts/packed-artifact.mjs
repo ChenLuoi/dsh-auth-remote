@@ -26,6 +26,7 @@ export function ordinaryVerificationPlan() {
         { dsh: '0.2.1-rc.2', suite: 'browser' },
         { dsh: '0.2.1-rc.3', suite: 'browser' },
         { dsh: '0.2.1-rc.4', suite: 'browser' },
+        { dsh: '0.2.1-rc.5', suite: 'browser' },
         { dsh: '0.2.2-alpha.2', suite: 'browser' },
       ],
     },

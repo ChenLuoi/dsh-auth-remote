@@ -2,73 +2,74 @@
 
 [简体中文](README.zh-CN.md)
 
-Single-user remote sign-in for DeepSeek Harness (DSH), with password, TOTP, one-use backup codes, and revocable sessions. The package runs inside DSH and guards its browser routes, APIs, streams, and WebSockets.
+Single-user remote sign-in for DeepSeek Harness (DSH), with password, TOTP, one-use backup codes, and revocable sessions. The plugin runs inside DSH and protects browser pages, APIs, streams, and WebSockets.
 
 ## Requirements
 
-- Linux with `/proc`, Node.js 24 or newer, and one exact DSH target below; development defaults to `0.2.2-alpha.2`. pnpm 12.5.1 is needed only when building from source.
-- DSH `0.2.2-alpha.2` itself requires Node.js `>=24.9.0`; the plugin keeps its own `>=24` engine range.
-- DSH's default `~/.dsh` data directory and a `web` profile. The account state belongs to that profile; it is not shared with another profile.
-- For source browser tests, install Playwright Chromium with `pnpm exec playwright install chromium`. The tests use that managed browser and a dedicated, self-signed TLS fixture.
+- Linux with `/proc` and Node.js 24 or newer. The recommended DSH `0.2.2-alpha.2` requires Node.js `>=24.9.0`.
+- A supported DSH release and a `web` profile. One account and its sessions belong to that profile.
 
 ## DSH compatibility
 
-Published `0.3.1` retains its seven-host release record. Unpublished candidate **`0.3.2`** declares the eight exact targets below in `dsh.compatibility.dshReleases`. `engines.dsh`, the WebServer peer and runtime admission share the minimum `>=0.2.1-alpha.3`, with no upper bound and SemVer prereleases included. **`0.2.2-alpha.2`** is the development default and migration recommendation. Final same-archive verification is recorded separately from declarations.
+Plugin **`0.3.3`** supports these exact DSH releases. **`0.2.2-alpha.2`** is recommended.
 
-| Exact supported DSH release | Maintenance                         | Legacy since | Window  | Earliest eligible retirement |
-| --------------------------- | ----------------------------------- | ------------ | ------- | ---------------------------- |
-| `0.2.1-alpha.3`             | Legacy; supported                   | 2026-10-28   | 14 days | 2026-11-11                   |
-| `0.2.1-alpha.4`             | Legacy; supported                   | 2026-10-28   | 14 days | 2026-11-11                   |
-| `0.2.1-alpha.5`             | Legacy; supported                   | 2026-10-28   | 14 days | 2026-11-11                   |
-| `0.2.1-rc.1`                | Normal support                      | —            | —       | Not announced                |
-| `0.2.1-rc.2`                | Normal support                      | —            | —       | Not announced                |
-| `0.2.1-rc.3`                | Normal support                      | —            | —       | Not announced                |
-| `0.2.1-rc.4`                | Normal support                      | —            | —       | Not announced                |
-| `0.2.2-alpha.2`             | Normal support; development default | —            | —       | Not announced                |
+| DSH release     | Maintenance       |
+| --------------- | ----------------- |
+| `0.2.1-alpha.3` | Legacy; supported |
+| `0.2.1-alpha.4` | Legacy; supported |
+| `0.2.1-alpha.5` | Legacy; supported |
+| `0.2.1-rc.1`    | Supported         |
+| `0.2.1-rc.2`    | Supported         |
+| `0.2.1-rc.3`    | Supported         |
+| `0.2.1-rc.4`    | Supported         |
+| `0.2.1-rc.5`    | Supported         |
+| `0.2.2-alpha.2` | Recommended       |
 
-Dates use `Asia/Shanghai` at 00:00; eligibility never automatically ends support or removes CI. Plugin `0.3.1` retires DSH `0.1.7-rc.1`, `0.1.7-rc.2`, `0.2.0-rc.1`, `0.2.0-rc.2`, `0.2.1-alpha.1`, `0.2.1-alpha.2`. Their last supported plugin is published `0.2.0`; this candidate cannot be installed on them. Query [DSH → plugin](docs/support-history.md#by-dsh) or [plugin → DSH](docs/support-history.md#by-plugin) for historical declarations, reports and distribution facts. Both support policies retain the previous release's record; this README and the history describe this candidate.
+Legacy versions remain supported until an explicit retirement release; see the [support policy](docs/support-policy.md). Newer versions may load after capability checks, but are outside these exact compatibility declarations.
 
-All eight use the same entry configuration and support concrete IPv4/IPv6, native HTTP/HTTPS and CLI `--public-url`. The final public root appears in model runtime context and `DSH_WEB_URL`. Model Web sections must not duplicate that URL or leak a token. The [compatibility inventory](docs/legacy-compatibility.md) records native capabilities and retained adaptations.
-
-Later versions are forward-admitted subject to WebServer/Connection APIs, host package identity and native authentication exchange; admission is not an exact support or test claim. Every plan keeps eight-version CLI/smoke. Full, manual, scheduled and release plans run eight complete browser targets plus independent refusal verification on retired boundary `0.2.1-alpha.2`. Ordinary low-risk plans use the [fixed browser selection](docs/development.md#ordinary-and-full-ci-plans) and run no real retired-host negative job.
-
-## Install the candidate archive
-
-`0.3.2` is unpublished. Build and verify its local archive using the [development guide](docs/development.md), then install that archive. Published `0.3.1` retains its historical seven-host support and does not provide this new-host adaptation.
+## Install
 
 ```sh
 dsh --version
-dsh plugin --profile web add ./artifacts/dsh-auth-remote-0.3.2.tgz
+dsh plugin --profile web add dsh-auth-remote@0.3.3
 dsh plugin --profile web list
 ```
 
-Check that `dsh --version` prints the recommended `0.2.2-alpha.2` and the plugin list includes `dsh-auth-remote@0.3.2`. These commands use DSH's default data directory. For an isolated development runtime, see the [development guide](docs/development.md).
-
-## Configure the web profile
-
-The minimal setup needs no profile patch. Start with `dsh web --no-open --port 13090` and use the printed `http://127.0.0.1:13090/` root. Without an explicit `publicUrl`, the plugin derives one root from the actual listener protocol, address and bound port, including `--port 0`. Unauthenticated navigation redirects to sign-in. Check `/auth-remote/ready` before relying on the service. Startup prints the listener and one distinct public root, without a native `?token=` URL.
-
-For a public HTTPS entry, use the [deployment guide](docs/deployment.md) and [profile example](examples/web-profile-auth-remote.patch.yml), with top-level `publicUrl: https://dsh.example.com/`, `host` and `port`. All eight supported versions also support concrete IPv6 and paired top-level `tlsCert`/`tlsKey`. The URL must be an HTTP(S) root, with no credentials, child path, query or fragment. One public origin plus literal loopback is admitted. Setting a URL does not configure proxy routing or TLS.
-
-The plugin automatically declares its finalized native bridge authority in Connection's `trustedHosts`, so downstream plugins can recognize a concrete listener without an extra `--trusted-host`. If a downstream route needs the original public Host, add its path to `preserveOriginPaths`; the final public authority is then declared as well. Explicit CLI trusted hosts are retained, while the outer public-origin and sign-in checks still apply. CLI host/port and public URL override file values; TLS overrides as one complete pair. See the [migration and path rules](docs/deployment.md#configuration-priority-and-path-bases) before upgrading `allowedOrigins`: zero or one item is migrated in memory with a warning, multiple items and any explicit coexistence with `publicUrl` fail.
+Use the same data directory and profile for installation, initialization, and the running service. These commands use DSH's default `~/.dsh` directory and the `web` profile.
 
 ## Initialize the account
 
-Run this in a real terminal against the **same** default `web` profile as the service:
+Run this in a real terminal:
 
 ```sh
 dsh plugin --profile web exec dsh-auth-remote init
 ```
 
-Enter one username and a password of 12–256 Unicode characters. The password is not a command-line argument and is not echoed. The login page guides an uninitialized profile back to this command; it cannot create the account. TOTP is optional by default (`requireTotp: false`); the first password sign-in offers setup or skipping it. Set `requireTotp: true` to require setup. Upgrading follows the new default only when no explicit policy is configured; existing TOTP bindings, backup codes and explicit true/false settings are preserved. Save the ten backup codes when shown: each works once and the list cannot be retrieved later.
+Enter one username and a password of 12–256 Unicode characters. The password is not echoed or passed as a command-line argument. Account creation is available only through the CLI.
+
+TOTP is optional by default (`requireTotp: false`); the first password sign-in offers setup or skipping it. Set `requireTotp: true` to require setup. Save the ten backup codes when shown: each works once, and the list cannot be retrieved later.
+
+## Configure the web profile
+
+The minimal local setup needs no profile patch:
+
+```sh
+dsh web --no-open --port 13090
+```
+
+Open the printed `http://127.0.0.1:13090/` address. Unauthenticated navigation redirects to sign-in. Without an explicit `publicUrl`, the plugin derives the root URL from the actual listener address, protocol, and bound port. `/auth-remote/ready` reports service readiness.
+
+For public access, follow the [deployment guide](docs/deployment.md) and [profile example](examples/web-profile-auth-remote.patch.yml). Set top-level `publicUrl: https://dsh.example.com/`, `host`, and `port`. Keep the native `webserver` independently disabled in the profile patch, as shown in the example.
+
+The listener supports concrete IPv4/IPv6 addresses, HTTP, and HTTPS with paired `tlsCert`/`tlsKey` settings. `publicUrl` must be an HTTP(S) root without credentials, child paths, query, or fragment. It admits one public origin plus literal loopback addresses; setting it does not configure routing or TLS. CLI listener and public-URL options override profile values. If a downstream route needs the original public Host, configure `preserveOriginPaths` as described in the deployment guide.
 
 ## Sign in and manage the account
 
-Open the direct loopback URL for the minimal installation. After configuring a public origin, open `https://dsh.example.com/auth-remote/login`. Security settings inside DSH can change the password, bind or disable TOTP when policy permits, and revoke sessions. Password or factor changes revoke existing sessions. Sessions have a fixed default lifetime of 168 hours and survive service restarts.
+Open the local root or your configured public URL. Inside DSH, open the sidebar account menu, then **Settings → Security & sign-in**. The page shows the plugin username, TOTP status, session expiry, and active session count. It can change the password, set up or rebind TOTP, disable TOTP when policy permits, and revoke sessions.
 
-On all eight supported versions, open the sidebar account menu, then **Settings → Security & sign-in**.
+Password and second-factor changes revoke existing sessions. Sessions have a fixed default lifetime of 168 hours (`sessionHours`) and survive service restarts. Signing out the current session preserves other sessions; signing out all sessions verifies the password and any bound second factor. TOTP setup displays backup codes once, so save and acknowledge them before signing in again.
 
-The sign-in page references DSH's PWA manifest. The manifest and favicons are readable before sign-in; business pages and APIs still require authentication. See the [public resource rules](docs/deployment.md#source-and-bridge-contract).
+Management commands are also available:
 
 ```sh
 dsh plugin --profile web exec dsh-auth-remote status --json
@@ -77,32 +78,28 @@ dsh plugin --profile web exec dsh-auth-remote reset-totp
 dsh plugin --profile web exec dsh-auth-remote revoke-sessions
 ```
 
-Mutating commands require an interactive confirmation. Online commands use a private Unix socket; offline commands acquire the same profile lock. If a management response is lost after submission, check `status` before deciding whether to try again. `status --json` keeps its machine-readable keys regardless of language.
+Mutating commands require interactive confirmation. If a submitted command loses its response, check `status` before retrying.
 
-The embedded Security page follows DSH's language setting. Browser text supports English, Chinese, Japanese, Spanish, French, German, Russian and Brazilian Portuguese. The standalone login page uses `localStorage["dsh-auth-remote-lang"]`, then `navigator.language`, then English; it has no language selector. Supported language tags match case-insensitively, including regions; invalid or unsupported values fall through to the next choice. The plugin leaves DSH's own language picker unchanged. After entering DSH, only the native locale form's accepted preference updates this memory; clearing the preference removes it. Loading or failed reads/saves leave it intact, and signing out keeps it. The old `dsh-auth-remote.locale` key is ignored and left untouched. CLI text is always English; locale environment variables do not change it, and `--lang` is no longer accepted.
-
-Security & sign-in shows the plugin username, TOTP status, this session’s sign-in and expiry times, and active session count. Dates follow the current UI language and browser time zone. Password and TOTP setup/rebind/disable each open a task dialog; enforced TOTP cannot be disabled. Signing out the current session needs confirmation and preserves other sessions. Signing out all sessions verifies the password and any bound second factor, and includes the current session. Security changes revoke all sessions. Successful setup shows backup codes once as the final step of the same dialog, with Copy all and an acknowledgement before signing in again. Escape, the backdrop and parent Settings cannot dismiss this step; leaving or refreshing loses it.
+Browser text supports English, Chinese, Japanese, Spanish, French, German, Russian, and Brazilian Portuguese. The embedded page follows DSH's language setting. The standalone login page uses the remembered DSH preference, then the browser language, then English; it has no language selector. CLI output is English.
 
 ## Sign in to an official DeepSeek account
 
-Manual callbacks are forward-admitted from `>=0.2.1-alpha.3` using SemVer with prereleases included, and require native capabilities plus `manualAccountLogin: true`. Full feature verification targets **0.2.1-alpha.3**, **0.2.1-alpha.4**, **0.2.1-alpha.5**, **0.2.1-rc.1**, **0.2.1-rc.2**, **0.2.1-rc.3**, **0.2.1-rc.4** and **0.2.2-alpha.2**; future releases need exact regression before being called verified. In its account menu, **Sign in** first opens an instruction dialog; it does not start authorization immediately. Click **Open sign-in page** to open the official page in a new tab. After approval, that tab may show a connection error or 404 at a loopback address. Copy its entire address, including `code` and `state`, paste it into **Full callback address**, and click **Confirm sign-in**. Keep the original DSH page open throughout. If the popup is blocked, use the dialog's authorization link.
+Remote DeepSeek account sign-in is enabled by default (`manualAccountLogin: true`):
 
-In **Settings → Security & sign-in → Sign-in preferences**, the remote DeepSeek sign-in switch defaults to on. Native Settings saves it to the current profile override; new authorizations on this page use the accepted value immediately and restarts preserve it. Failed saves show an error. Turning it off restores native entries for new attempts, preserves admitted manual attempts and existing official-account credentials, and does not establish native public-callback support. Other open pages need no active synchronization; a stale page starting authorization receives disabled feedback and advice to refresh.
+1. Choose **Sign in** in the account menu, then **Open sign-in page** in the instruction dialog.
+2. Complete official sign-in in the new tab. The resulting loopback address may show a connection error or 404; its page does not need to load.
+3. Copy the entire callback URL, including `code` and `state`, into **Full callback address** in the original DSH tab, then choose **Confirm sign-in**.
 
-This manual handoff needs no local listener, SSH tunnel or browser extension. The loopback address is an authorization return address; its page does not need to load. The plugin parses the pasted URL and delivers the callback inside DSH, retaining native state validation, PKCE exchange and credential storage. It never fetches the pasted address. Pending authorization belongs to the initiating remote session, lasts at most ten minutes and is cancelled when dismissed or the session is revoked. Expired or failed authorization must be restarted.
+Keep the original DSH tab open. If a popup is blocked, use the dialog's authorization link. No local listener, SSH tunnel, or browser extension is needed. The plugin delivers the callback inside DSH and never requests the pasted URL. Authorization expires after ten minutes and is cancelled when its dialog is dismissed or the initiating session is revoked; expired or failed attempts must be restarted.
 
-On DSH `0.2.1-alpha.3`, `0.2.1-alpha.4`, `0.2.1-alpha.5`, `0.2.1-rc.1`, `0.2.1-rc.2`, `0.2.1-rc.3`, `0.2.1-rc.4` and `0.2.2-alpha.2`, the dialog also offers **Use API key** before authorization begins. It opens the native credential editor and continues setup until the key is saved or the user chooses to defer. The same option is available from the account menu. During active authorization, the secondary button cancels that attempt instead.
+Before authorization, **Use API key** opens DSH's native credential editor; the same option is available from the account menu. During authorization, the secondary button cancels the attempt.
 
-## LiveShare basic compatibility
-
-On DSH `0.2.2-alpha.2`, enable LiveShare, configure its Relay and sign in as Owner through DSH's native setup first. This plugin does not enable sharing or rewrite Relay configuration. Administrator sign-in and share viewers retain separate identities and transports. Signing out of this plugin does not stop existing shares; use native LiveShare management to stop them.
-
-Local verification covers the real Host, Owner PKCE flow, share worker, viewer page and stopping shares, with a local protocol stand-in for Relay identity/transport. It does not establish real Relay/OAuth, visitor model calls or file-write experience.
+The switch in **Settings → Security & sign-in → Sign-in preferences** controls new manual authorizations and persists in the profile. Turning it off restores native sign-in entries while preserving active attempts and existing official-account credentials. Native sign-in still requires a callback route reachable by your browser.
 
 ## Put a proxy in front
 
 Use the [reverse proxy guide](docs/reverse-proxy.md) with the [Nginx](examples/nginx.conf) or [Traefik](examples/traefik-dsh.yml) example. Preserve the browser's Host and Origin, WebSocket upgrades, and streaming responses. TLS can terminate at the proxy; set its exact HTTPS root as `publicUrl`. Keep the DSH listener private and do not cache authentication responses.
 
-## Project and maintenance
+## Documentation
 
-The plugin uses DSH's WebServer, Connection, settings slots, and official workspace browser and preview. It stores one account plus sessions in a private profile JSON file. It provides single-user access without a separate identity server. See [development](docs/development.md) and [deployment](docs/deployment.md) for checks and boundaries. Changes and releases are recorded in the [changelog](CHANGELOG.md); see [contributing](CONTRIBUTING.md), [releasing](docs/releasing.md), and the [MIT license](LICENSE).
+See [deployment](docs/deployment.md) for configuration, profile backups, and operational details, or [development](docs/development.md) to build and test from source. Changes are in the [changelog](CHANGELOG.md). Contributions follow the [contribution guide](CONTRIBUTING.md) and [release guide](docs/releasing.md). Licensed under [MIT](LICENSE).

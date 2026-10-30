@@ -54,7 +54,7 @@ test('retired selection is independent, exact and rejects malformed inputs befor
   )
 })
 
-test('retired consumer reuses digest, checksum and complete eight-version archive checks before runtime work', async () => {
+test('retired consumer reuses digest, checksum and complete nine-version archive checks before runtime work', async () => {
   const root = await mkdtemp(join(tmpdir(), 'retired-archive-'))
   try {
     const packageRoot = join(root, 'package')

@@ -126,7 +126,7 @@ test('suite and target selection fail closed, including actual Node zero-test ou
     /one cli or browser suite/u,
   )
   assert.throws(
-    () => parseArguments(valid.map((value) => (value === '0.2.1-rc.2' ? '0.2.1-rc.5' : value))),
+    () => parseArguments(valid.map((value) => (value === '0.2.1-rc.2' ? '0.2.1-rc.6' : value))),
     /exact dsh-version/u,
   )
   const directory = await mkdtemp(join(tmpdir(), 'packed-empty-'))
@@ -280,9 +280,11 @@ test('complete browser coverage permits only exact zero-registration exceptions 
         file === 'host-release'
           ? version === '0.2.1-alpha.3'
           : file === 'web-search-settings'
-            ? !['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4', '0.2.2-alpha.2'].includes(version)
+            ? !['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.2'].includes(
+                version,
+              )
             : file === 'rc-navigation'
-              ? !['0.2.1-rc.3', '0.2.1-rc.4', '0.2.2-alpha.2'].includes(version)
+              ? !['0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.2'].includes(version)
               : file === 'liveshare' &&
                 [
                   '0.2.1-alpha.3',
@@ -292,6 +294,7 @@ test('complete browser coverage permits only exact zero-registration exceptions 
                   '0.2.1-rc.2',
                   '0.2.1-rc.3',
                   '0.2.1-rc.4',
+                  '0.2.1-rc.5',
                 ].includes(version)
       if (allowed) assert.doesNotThrow(() => assertRegisteredCoverage('browser', version, counts))
       else
@@ -303,7 +306,7 @@ test('complete browser coverage permits only exact zero-registration exceptions 
   }
   assert.throws(
     () =>
-      assertRegisteredCoverage('browser', '0.2.1-rc.5', { actualTests: 1, placeholderFiles: [] }),
+      assertRegisteredCoverage('browser', '0.2.1-rc.6', { actualTests: 1, placeholderFiles: [] }),
     /Unknown coverage target/u,
   )
   assert.throws(
