@@ -130,7 +130,7 @@ test('TLS chooses whole CLI or file pair and resolves paths against their own ba
     )
 })
 
-test('eight declared versions enforce native transport capabilities and concrete bindings', async () => {
+test('nine declared versions enforce native transport capabilities and concrete bindings', async () => {
   const { resolveStartupConfig } = await api()
   assert.equal(typeof resolveStartupConfig, 'function')
   for (const version of [
@@ -141,6 +141,7 @@ test('eight declared versions enforce native transport capabilities and concrete
     '0.2.1-rc.2',
     '0.2.1-rc.3',
     '0.2.1-rc.4',
+    '0.2.1-rc.5',
     '0.2.2-alpha.2',
   ]) {
     const options = { ...context, version }
@@ -190,6 +191,7 @@ test('version admission remains independent of native API validation', async () 
     '0.2.1-rc.2',
     '0.2.1-rc.3',
     '0.2.1-rc.4',
+    '0.2.1-rc.5',
     '0.2.2-alpha.2',
     '0.2.2-alpha.3',
     '1.0.0',

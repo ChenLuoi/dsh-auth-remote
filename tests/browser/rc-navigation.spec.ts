@@ -12,7 +12,7 @@ import { AUTH_COOKIE } from '../../src/shared/auth-contract.js'
 import { packedCommand, packedProfile } from '../helpers/packed-runtime.js'
 import { completeApiKeyPrompt, launchBrowser, openDshSettings } from '../helpers/runtime.js'
 
-if (['0.2.1-rc.3', '0.2.1-rc.4', '0.2.2-alpha.2'].includes(dshVersion))
+if (['0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.2'].includes(dshVersion))
   test(
     `DSH ${dshVersion} exposes three native More menus, model controls and security behind a revocable remote session`,
     { timeout: 120_000 },

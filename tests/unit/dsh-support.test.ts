@@ -67,7 +67,14 @@ test('crossing the eligibility date or a future year never retires a declared le
 })
 
 test('normal declarations stay supported while absent exact versions remain unverified', () => {
-  for (const version of ['0.2.1-rc.1', '0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4', '0.2.2-alpha.2']) {
+  for (const version of [
+    '0.2.1-rc.1',
+    '0.2.1-rc.2',
+    '0.2.1-rc.3',
+    '0.2.1-rc.4',
+    '0.2.1-rc.5',
+    '0.2.2-alpha.2',
+  ]) {
     const status = classifyDshSupport(version, declared)
     assert.equal(status.state, 'supported')
     assert.equal(dshSupportWarning(status), undefined)
@@ -75,6 +82,7 @@ test('normal declarations stay supported while absent exact versions remain unve
   for (const version of [
     '0.1.6',
     '0.2.1-rc.2+unassessed',
+    '0.2.1-rc.6',
     '0.2.2-alpha.3',
     '9.0.0-test.1',
     'invalid',

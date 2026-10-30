@@ -44,6 +44,7 @@ export const suites = {
       '0.2.1-rc.2',
       '0.2.1-rc.3',
       '0.2.1-rc.4',
+      '0.2.1-rc.5',
       '0.2.2-alpha.2',
     ],
     count: 1,
@@ -163,10 +164,12 @@ export function assertRegisteredCoverage(name, version, counts) {
     name === 'browser'
       ? [
           ...(version === '0.2.1-alpha.3' ? ['tests/browser/host-release.spec.ts'] : []),
-          ...(!['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4', '0.2.2-alpha.2'].includes(version)
+          ...(!['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.2'].includes(
+            version,
+          )
             ? ['tests/browser/web-search-settings.spec.ts']
             : []),
-          ...(!['0.2.1-rc.3', '0.2.1-rc.4', '0.2.2-alpha.2'].includes(version)
+          ...(!['0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.2'].includes(version)
             ? ['tests/browser/rc-navigation.spec.ts']
             : []),
           ...([
@@ -177,6 +180,7 @@ export function assertRegisteredCoverage(name, version, counts) {
             '0.2.1-rc.2',
             '0.2.1-rc.3',
             '0.2.1-rc.4',
+            '0.2.1-rc.5',
           ].includes(version)
             ? ['tests/browser/liveshare.spec.ts']
             : []),

@@ -6,9 +6,15 @@ This file records user-visible changes to the released package. Version numbers 
 
 ## Unreleased
 
+## 0.3.3 - 2026-10-30
+
+- Add DSH `0.2.1-rc.5` to the compatibility declaration and CLI, complete browser and installation-smoke matrices. Retain all existing supported releases and the `0.2.2-alpha.2` development default and recommendation.
+- Cover native `0.2.1-rc.5` ↔ `0.2.1-rc.4` host switching, Search/Fetch settings and navigation, while retaining authentication, account sign-in and hot-reload regression coverage.
+- Rewrite the English and Chinese README around current installation and usage. Remove outdated candidate and retired-version descriptions, repeated capability version lists and the LiveShare compatibility section.
+
 ## 0.3.2 - 2026-10-28
 
-- Prepare unpublished candidate `0.3.2`, adding DSH `0.2.2-alpha.2` to the original seven exact targets and pinning the development default and manual migration recommendation to it. Retain DSH `>=0.2.1-alpha.3`, forward admission and plugin Node `>=24`. The date records preparation; final same-archive reports are recorded separately.
+- Add DSH `0.2.2-alpha.2` to the original seven exact targets and pin the development default and manual migration recommendation to it. Retain DSH `>=0.2.1-alpha.3`, forward admission and plugin Node `>=24`.
 - Gate native named/fallback HTTP resources before Fetch conversion while preserving native routing, ETag/HEAD, stream cancellation and in-process peer reads.
 - Isolate LiveShare viewers from the administrator client; restore trusted business Origin only for the two native Owner-login POSTs. Verify basic flows with a local Relay protocol stand-in and keep share/session lifetimes independent; real Relay/OAuth and visitor business operations are outside that verification.
 - Make CLI text fixed English and remove `--lang` and environment-language selection; old language arguments are invalid. Preserve JSON fields, exit codes, confirmation and secret-input contracts.

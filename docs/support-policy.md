@@ -2,7 +2,7 @@
 
 [简体中文](support-policy.zh-CN.md)
 
-Last updated: 2026-10-19. This policy separates maintenance commitments, exact-version verification and technical admission. Plugin **`0.2.0`** adds exact support for both `0.2.1` RC releases; its new DSH targets do not extend the support history of the published plugin `0.1.10`. Verify the final `0.2.0` archive before publishing.
+Last updated: 2026-10-30. This policy separates maintenance commitments, exact-version verification and technical admission. Planned plugin release **`0.3.3`** adds DSH `0.2.1-rc.5` to the eight declarations of published `0.3.2`. Verify one final archive on all nine exact targets before publication; declarations do not establish successful verification or publication.
 
 ## Support states and runtime admission
 
@@ -14,13 +14,31 @@ Last updated: 2026-10-19. This policy separates maintenance commitments, exact-v
 | Necessary API/behavior missing, necessary adaptation removed, or security check failed | Do not claim support                                                                                       | Refuse protected business service and provide an upgrade or last-compatible-plugin path           |
 | Unassessed old or future release                                                       | No exact support commitment                                                                                | Apply technical checks; successful startup does not add support                                   |
 
-`dsh.compatibility.dshReleases` records exact support declarations. `engines.dsh`, the DSH peer and runtime checks express technical admission. Plugin `0.2.0` retains `>=0.1.7-rc.1`, including prereleases, together with package identity and required API checks. Calendar dates and maintenance-only retirement must not mechanically raise that floor. Current real retirement records are empty.
+`dsh.compatibility.dshReleases` records exact support declarations. `engines.dsh`, the WebServer peer and runtime checks express technical admission: `>=0.2.1-alpha.3`, including prereleases, together with package identity and required API checks. Calendar dates and maintenance-only retirement must not mechanically raise that floor. The six DSH releases retired in `0.3.1` have last supporting plugin `0.2.0`; the [support history](support-history.md) preserves their exact records.
 
 Diagnostics belong in startup logs, before protected service is offered: legacy dates and migration guidance, or the absence of a current support commitment for an admitted unverified/retired release. A process should emit each exact-version/state warning at most once, including across HMR. Diagnostics do not change authentication, login dialogs, request authorization or CLI JSON.
 
-## Announced maintenance schedule
+## Current maintenance schedule
 
-These dates were explicitly selected by development. Delayed implementation does not restart the windows. All eleven releases remain supported; legacy does not remove a release from verification. Every release requires real same-archive verification before publication.
+Plugin `0.3.3` retains the explicit 2026-10-28 legacy announcement for `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5`. Adding `0.2.1-rc.5` changes none of those dates. All nine releases remain in release-blocking verification. Dates use Asia/Shanghai at local 00:00; eligibility never automatically ends support.
+
+| Exact DSH release | Maintenance state                                 | Legacy since | Window in calendar days | Earliest eligible retirement |
+| ----------------- | ------------------------------------------------- | ------------ | ----------------------- | ---------------------------- |
+| `0.2.1-alpha.3`   | Legacy; supported                                 | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-alpha.4`   | Legacy; supported                                 | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-alpha.5`   | Legacy; supported                                 | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-rc.1`      | Supported                                         | —            | —                       | Not announced                |
+| `0.2.1-rc.2`      | Supported                                         | —            | —                       | Not announced                |
+| `0.2.1-rc.3`      | Supported                                         | —            | —                       | Not announced                |
+| `0.2.1-rc.4`      | Supported                                         | —            | —                       | Not announced                |
+| `0.2.1-rc.5`      | Supported; added in `0.3.3`                       | —            | —                       | Not announced                |
+| `0.2.2-alpha.2`   | Supported; development default and recommendation | —            | —                       | Not announced                |
+
+The migration recommendation remains DSH `0.2.2-alpha.2` with a supporting plugin release. Forward-admitted unknown releases retain no exact support commitment.
+
+## Historical `0.2.0` maintenance announcement
+
+The following table preserves the 2026-10-19 announcement for plugin `0.2.0`, including its independent 21-day exceptions. It is historical evidence, superseded by the explicit `0.3.1` migration and current schedule above; it is not the current positive matrix.
 
 | Exact DSH release | Maintenance state                                      | Legacy since | Window in calendar days | Earliest eligible retirement |
 | ----------------- | ------------------------------------------------------ | ------------ | ----------------------- | ---------------------------- |
@@ -36,7 +54,7 @@ These dates were explicitly selected by development. Delayed implementation does
 | `0.2.1-rc.1`      | Supported; new target                                  | Not entered  | Not applicable          | Not specified                |
 | `0.2.1-rc.2`      | Supported; new development/verification default target | Not entered  | Not applicable          | Not specified                |
 
-Use DSH `0.2.1-rc.2` with plugin `0.2.0` as the migration target, after checking its exact-version distribution record. Published `0.1.10` retains its historical declarations; it must not be republished to add the RCs.
+The historical migration target was DSH `0.2.1-rc.2` with plugin `0.2.0`. Published `0.1.10` retains its historical declarations; it must not be republished to add the RCs.
 
 ## Dates and the Alpha/RC relationship
 
@@ -44,7 +62,7 @@ The general legacy window is **14 calendar days**. Development must explicitly a
 
 Dates use `Asia/Shanghai`. Eligibility starts at local 00:00 on `legacySince + windowDays`: 2026-10-19 + 14 days = 2026-11-02; + 21 days = 2026-11-09. These are announced dates, not elapsed time since a user's installation, upstream release or plugin publication. An elapsed window grants eligibility for a later retirement release; it neither retires the version automatically nor requires retirement in the immediately following plugin release. Installed behavior never changes because the date passes.
 
-Alpha releases of a base version follow its **entire RC release line**. While any RC remains normally supported, associated alphas do not automatically become legacy. When the last normally supported RC enters legacy, associated alphas without an independent announcement enter together and share its deadline. This rule covers `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5`. The independent capability-boundary exceptions for `0.2.1-alpha.1` and `0.2.1-alpha.2` keep the announced 21-day dates; a later RC does not reset them.
+Alpha releases of a base version follow its **entire RC release line**. While any RC remains normally supported, associated alphas do not automatically become legacy. When the last normally supported RC enters legacy, associated alphas without an independent announcement enter together and share its deadline. The independent 2026-10-28 announcement above overrides this default for `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5`. Historical independent capability-boundary exceptions for `0.2.1-alpha.1` and `0.2.1-alpha.2` keep the announced 21-day dates; a later RC does not reset them.
 
 ## Add exact-version support
 
@@ -61,7 +79,7 @@ Maintain the promised authentication and feature boundaries, compatibility regre
 
 ## Execute actual retirement in a future release
 
-Plugin `0.2.0` performs **no actual retirement**. A future retirement change must satisfy every item below in the same change:
+Plugin `0.2.0` performed no actual retirement. Plugin `0.3.1` retired DSH `0.1.7-rc.1`, `0.1.7-rc.2`, `0.2.0-rc.1`, `0.2.0-rc.2`, `0.2.1-alpha.1` and `0.2.1-alpha.2`; `0.3.3` makes no further retirement. A future retirement change must satisfy every item below in the same change:
 
 1. Obtain development's explicit decision naming the exact releases and effective new plugin version, on or after each eligibility date. Record effective date, last supporting plugin version and verified distribution availability.
 2. Provide migration and installation guidance. Separate maintenance withdrawal from technical refusal: visual/test-only adaptation removal does not by itself require blocking startup; missing necessary runtime or security contracts must refuse service.
