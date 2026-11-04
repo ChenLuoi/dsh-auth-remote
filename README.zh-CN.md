@@ -6,12 +6,12 @@ DeepSeek Harness（DSH）的单用户远程登录插件，提供密码、TOTP、
 
 ## 前置条件
 
-- Linux（含 `/proc`）和 Node.js 24 或更高版本。推荐的 DSH `0.2.2-alpha.2` 要求 Node.js `>=24.9.0`。
+- Linux（含 `/proc`）和 Node.js 24。DSH `0.2.2-alpha.3` 要求 Node.js `>=24.9.0`。
 - 一个受支持的 DSH 版本和 `web` profile。一个账号及其会话属于该 profile。
 
 ## DSH 兼容性
 
-插件 **`0.3.3`** 支持以下精确 DSH 版本，推荐使用 **`0.2.2-alpha.2`**。
+2026-11-03 准备的本地候选 **`0.3.4`** 声明以下十个精确 DSH 版本。**`0.2.2-alpha.3`** 为开发默认目标，最终同包验收通过后作为推荐；它仍是上游 Alpha，不是上游稳定版。已发布 `0.3.3` 保留截至 `0.2.2-alpha.2` 的九版声明，未声明 `0.2.2-alpha.3`。
 
 | DSH 版本        | 维护状态       |
 | --------------- | -------------- |
@@ -23,7 +23,8 @@ DeepSeek Harness（DSH）的单用户远程登录插件，提供密码、TOTP、
 | `0.2.1-rc.3`    | 支持中         |
 | `0.2.1-rc.4`    | 支持中         |
 | `0.2.1-rc.5`    | 支持中         |
-| `0.2.2-alpha.2` | 推荐版本       |
+| `0.2.2-alpha.2` | 支持中         |
+| `0.2.2-alpha.3` | 候选默认目标   |
 
 Legacy 版本在明确发布退役版本前继续支持，详见[支持规范](docs/support-policy.zh-CN.md)。更新版本可通过能力检查后加载，但不在上述精确兼容声明内。
 
@@ -31,11 +32,11 @@ Legacy 版本在明确发布退役版本前继续支持，详见[支持规范](d
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.3.3
+dsh plugin --profile web add /absolute/path/dsh-auth-remote-0.3.4.tgz
 dsh plugin --profile web list
 ```
 
-安装、初始化和运行服务须使用相同的数据目录及 profile。这些命令使用 DSH 默认的 `~/.dsh` 目录和 `web` profile。
+将示例绝对路径替换为本地构建且验证过的归档；`0.3.4` 尚未发布到 npm。已发布 `dsh-auth-remote@0.3.3` 可用于其声明的九版宿主。安装、初始化和运行服务须使用相同的数据目录及 profile。这些命令使用 DSH 默认的 `~/.dsh` 目录和 `web` profile。升级前先在独立 profile 演练，按[备份与回滚步骤](docs/deployment.zh-CN.md#备份恢复与变更)操作。
 
 ## 初始化账号
 
@@ -82,6 +83,8 @@ dsh plugin --profile web exec dsh-auth-remote revoke-sessions
 
 浏览器文案支持英、中、日、西、法、德、俄和巴西葡萄牙语。内嵌页面跟随 DSH 语言设置；独立登录页依次使用已记住的 DSH 偏好、浏览器语言、英文，不提供语言选择器。CLI 文案固定英语。
 
+DSH `0.2.2-alpha.3` 的原生导航为此页显示盾牌；其余九个声明宿主保留默认图标。
+
 ## 登录 DeepSeek 官方账号
 
 远程 DeepSeek 账号登录默认开启（`manualAccountLogin: true`）：
@@ -99,6 +102,8 @@ dsh plugin --profile web exec dsh-auth-remote revoke-sessions
 ## 接入反向代理
 
 参见[反向代理指南](docs/reverse-proxy.zh-CN.md)以及 [Nginx](examples/nginx.conf) 或 [Traefik](examples/traefik-dsh.yml) 示例。保留浏览器原始 Host、Origin、WebSocket 升级和流式响应。TLS 可在代理终止；将其精确 HTTPS 根地址设为 `publicUrl`。保持 DSH 监听私有，不要缓存认证响应。
+
+验收目标为 Linux、Node.js 24、Chromium、原生 IPv4/IPv6 HTTP/HTTPS 和既有 Node 转发拓扑。其他平台/浏览器、真实非回环 IPv6 网卡、Nginx/Traefik 二进制及真实外部授权未由这些测试证明。精确边界见部署与开发指南；本地验证与 GitHub Actions、发布分开记录。
 
 ## 文档
 

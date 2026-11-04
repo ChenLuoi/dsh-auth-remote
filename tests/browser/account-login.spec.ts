@@ -368,8 +368,9 @@ test(
       await expect(
         dialog.getByText(dictionaries.zh.accountLoginInvalidCallback, { exact: true }),
       ).toBeVisible()
-      const locales: Locale[] =
-        dshVersion === '0.2.2-alpha.2' ? (Object.keys(dictionaries) as Locale[]) : ['zh', 'en']
+      const locales: Locale[] = ['0.2.2-alpha.2', '0.2.2-alpha.3'].includes(dshVersion)
+        ? (Object.keys(dictionaries) as Locale[])
+        : ['zh', 'en']
       assert.deepEqual(
         await f.page.evaluate(() =>
           (window as any).__authRemoteContext.locale
@@ -380,6 +381,7 @@ test(
         [...locales].sort(),
         'plugin dictionaries must preserve the native language catalog',
       )
+      const visited = new Set<Locale>()
       for (const locale of locales) {
         const t = dictionaries[locale]
         await f.page.evaluate(
@@ -407,8 +409,13 @@ test(
             `${locale} manual ${width}`,
           )
           await f.page.screenshot({ path: join(review, `${locale}-manual-${width}.png`) })
+          visited.add(locale)
         }
       }
+      assert.deepEqual([...visited].sort(), [...locales].sort())
+      if (['0.2.2-alpha.2', '0.2.2-alpha.3'].includes(dshVersion))
+        assert.deepEqual([...visited].sort(), ['de', 'en', 'es', 'fr', 'ja', 'pt', 'ru', 'zh'])
+      console.log('actual manual account language coverage', JSON.stringify([...visited].sort()))
       assert.deepEqual(f.errors, [])
     } finally {
       await f.close()
@@ -544,7 +551,7 @@ test(
   },
 )
 
-if (dshVersion === '0.2.2-alpha.2')
+if (['0.2.2-alpha.2', '0.2.2-alpha.3'].includes(dshVersion))
   test(
     'native HMR preserves preflight failures and cleans allocated replacement resources before rollback',
     { timeout: 150000 },

@@ -434,6 +434,8 @@ test(
     try {
       await initialize(f.home)
       const locales = Object.keys(dictionaries) as Locale[]
+      const loginVisited = new Set<Locale>()
+      const securityVisited = new Set<Locale>()
       for (const locale of locales) {
         const t = dictionaries[locale]
         await f.page.goto(`${f.origin}/auth-remote/login`)
@@ -456,15 +458,19 @@ test(
               f.page.getByRole('button', { name: t.loginContinue, exact: true }),
             ).toBeInViewport()
             await f.page.screenshot({ path: join(review, `${locale}-login-${theme}-${width}.png`) })
+            loginVisited.add(locale)
           }
         }
       }
+      assert.deepEqual([...loginVisited].sort(), ['de', 'en', 'es', 'fr', 'ja', 'pt', 'ru', 'zh'])
       await f.page.evaluate(() => localStorage.setItem('dsh-auth-remote-lang', 'zh'))
       await f.page.setViewportSize({ width: 1280, height: 900 })
       await optionalSignIn(f.page, f.origin)
       await openSecurity(f.page)
       // Older hosts retain their own language catalog; dictionary registration does not extend it.
-      const nativeLocales: Locale[] = dshVersion === '0.2.2-alpha.2' ? locales : ['zh', 'en']
+      const nativeLocales: Locale[] = ['0.2.2-alpha.2', '0.2.2-alpha.3'].includes(dshVersion)
+        ? locales
+        : ['zh', 'en']
       for (const theme of ['light', 'dark'] as const) {
         await setNativeLocale(f.page, 'zh')
         await f.page.getByRole('button', { name: '通用设置', exact: true }).click()
@@ -488,6 +494,7 @@ test(
             await f.page.screenshot({
               path: join(review, `${locale}-security-${theme}-${width}.png`),
             })
+            securityVisited.add(locale)
           }
           await section.getByRole('button', { name: t.settingsChangePassword, exact: true }).click()
           const passwordTask = f.page.getByRole('dialog', {
@@ -532,6 +539,22 @@ test(
           }
         }
       }
+      assert.deepEqual([...securityVisited].sort(), [...nativeLocales].sort())
+      if (['0.2.2-alpha.2', '0.2.2-alpha.3'].includes(dshVersion))
+        assert.deepEqual([...securityVisited].sort(), [
+          'de',
+          'en',
+          'es',
+          'fr',
+          'ja',
+          'pt',
+          'ru',
+          'zh',
+        ])
+      console.log(
+        'actual language coverage',
+        JSON.stringify({ login: [...loginVisited].sort(), security: [...securityVisited].sort() }),
+      )
     } finally {
       await f.cleanup()
     }

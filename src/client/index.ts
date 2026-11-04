@@ -2,6 +2,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { SlotCore } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+import { IconShieldOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives'
 import { assertRemoteHostCapability, isAdministratorPage } from './adapters/dsh.js'
 import { SecuritySection } from './settings/section.js'
 import { monitorSession } from './settings/monitor.js'
@@ -60,6 +61,11 @@ export function apply(ctx: Context): void {
             clientAvailable: hasManualAccountClient(ctx),
           }),
         }),
+    ),
+  )
+  slots.inject('settings.section.icon', () =>
+    slots.register({ name: 'settings.section.icon', id: 'security' }, ({ size }) =>
+      createElement(IconShieldOutlineMedium, { size }),
     ),
   )
 }

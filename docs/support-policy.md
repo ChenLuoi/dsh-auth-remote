@@ -2,7 +2,7 @@
 
 [简体中文](support-policy.zh-CN.md)
 
-Last updated: 2026-10-30. This policy separates maintenance commitments, exact-version verification and technical admission. Planned plugin release **`0.3.3`** adds DSH `0.2.1-rc.5` to the eight declarations of published `0.3.2`. Verify one final archive on all nine exact targets before publication; declarations do not establish successful verification or publication.
+Last updated: 2026-11-03. This policy separates maintenance commitments, exact-version verification and technical admission. Local candidate **`0.3.4`** adds DSH `0.2.2-alpha.3` to the nine exact declarations of published `0.3.3`; published `0.3.2` retains eight. Verify one final archive on all ten exact targets before accepting the candidate. Declarations do not establish verification, GitHub Actions success or publication; `0.3.4` is not available from npm.
 
 ## Support states and runtime admission
 
@@ -20,21 +20,22 @@ Diagnostics belong in startup logs, before protected service is offered: legacy 
 
 ## Current maintenance schedule
 
-Plugin `0.3.3` retains the explicit 2026-10-28 legacy announcement for `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5`. Adding `0.2.1-rc.5` changes none of those dates. All nine releases remain in release-blocking verification. Dates use Asia/Shanghai at local 00:00; eligibility never automatically ends support.
+Plugin `0.3.4` retains the explicit 2026-10-28 legacy announcement for `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5`. Adding `0.2.2-alpha.3` changes none of those dates. All ten releases remain in release-blocking verification. Dates use Asia/Shanghai at local 00:00; eligibility never automatically ends support.
 
-| Exact DSH release | Maintenance state                                 | Legacy since | Window in calendar days | Earliest eligible retirement |
-| ----------------- | ------------------------------------------------- | ------------ | ----------------------- | ---------------------------- |
-| `0.2.1-alpha.3`   | Legacy; supported                                 | 2026-10-28   | 14                      | 2026-11-11                   |
-| `0.2.1-alpha.4`   | Legacy; supported                                 | 2026-10-28   | 14                      | 2026-11-11                   |
-| `0.2.1-alpha.5`   | Legacy; supported                                 | 2026-10-28   | 14                      | 2026-11-11                   |
-| `0.2.1-rc.1`      | Supported                                         | —            | —                       | Not announced                |
-| `0.2.1-rc.2`      | Supported                                         | —            | —                       | Not announced                |
-| `0.2.1-rc.3`      | Supported                                         | —            | —                       | Not announced                |
-| `0.2.1-rc.4`      | Supported                                         | —            | —                       | Not announced                |
-| `0.2.1-rc.5`      | Supported; added in `0.3.3`                       | —            | —                       | Not announced                |
-| `0.2.2-alpha.2`   | Supported; development default and recommendation | —            | —                       | Not announced                |
+| Exact DSH release | Maintenance state                               | Legacy since | Window in calendar days | Earliest eligible retirement |
+| ----------------- | ----------------------------------------------- | ------------ | ----------------------- | ---------------------------- |
+| `0.2.1-alpha.3`   | Legacy; supported                               | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-alpha.4`   | Legacy; supported                               | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-alpha.5`   | Legacy; supported                               | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-rc.1`      | Supported                                       | —            | —                       | Not announced                |
+| `0.2.1-rc.2`      | Supported                                       | —            | —                       | Not announced                |
+| `0.2.1-rc.3`      | Supported                                       | —            | —                       | Not announced                |
+| `0.2.1-rc.4`      | Supported                                       | —            | —                       | Not announced                |
+| `0.2.1-rc.5`      | Supported; added in `0.3.3`                     | —            | —                       | Not announced                |
+| `0.2.2-alpha.2`   | Supported                                       | —            | —                       | Not announced                |
+| `0.2.2-alpha.3`   | Supported candidate target; development default | —            | —                       | Not announced                |
 
-The migration recommendation remains DSH `0.2.2-alpha.2` with a supporting plugin release. Forward-admitted unknown releases retain no exact support commitment.
+The intended migration recommendation is DSH `0.2.2-alpha.3` with the verified local `0.3.4` archive after final acceptance; the host is still an upstream Alpha. Use an actual absolute tgz path, not an unpublished npm version. Published `0.3.3` remains available on its own nine targets, as recorded in the history. Forward-admitted unknown releases retain no exact support commitment.
 
 ## Historical `0.2.0` maintenance announcement
 
@@ -79,7 +80,7 @@ Maintain the promised authentication and feature boundaries, compatibility regre
 
 ## Execute actual retirement in a future release
 
-Plugin `0.2.0` performed no actual retirement. Plugin `0.3.1` retired DSH `0.1.7-rc.1`, `0.1.7-rc.2`, `0.2.0-rc.1`, `0.2.0-rc.2`, `0.2.1-alpha.1` and `0.2.1-alpha.2`; `0.3.3` makes no further retirement. A future retirement change must satisfy every item below in the same change:
+Plugin `0.2.0` performed no actual retirement. Plugin `0.3.1` retired DSH `0.1.7-rc.1`, `0.1.7-rc.2`, `0.2.0-rc.1`, `0.2.0-rc.2`, `0.2.1-alpha.1` and `0.2.1-alpha.2`; `0.3.4` makes no further retirement. A future retirement change must satisfy every item below in the same change:
 
 1. Obtain development's explicit decision naming the exact releases and effective new plugin version, on or after each eligibility date. Record effective date, last supporting plugin version and verified distribution availability.
 2. Provide migration and installation guidance. Separate maintenance withdrawal from technical refusal: visual/test-only adaptation removal does not by itself require blocking startup; missing necessary runtime or security contracts must refuse service.

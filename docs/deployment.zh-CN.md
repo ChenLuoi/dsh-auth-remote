@@ -2,17 +2,17 @@
 
 [English](deployment.md)
 
-本指南面向插件 `0.3.3` 与推荐 DSH `0.2.2-alpha.2`，使用默认 `~/.dsh` 数据目录。九个支持版本见 [README](../README.zh-CN.md#dsh-兼容性)，维护细节见[支持规范](support-policy.zh-CN.md)。源码构建见[开发指南](development.zh-CN.md)。
+本指南面向本地候选 `0.3.4` 及其开发默认 DSH `0.2.2-alpha.3`，推荐以最终同包验收通过为前提。默认 `~/.dsh` 只用于预期账号，不用于验证。十版精确声明见 [README](../README.zh-CN.md#dsh-兼容性)，维护见[支持规范](support-policy.zh-CN.md)，源码构建见[开发指南](development.zh-CN.md)。已发布 `0.3.3` 保留九版声明，`0.3.4` 尚未发布。
 
-上游 DSH `0.2.2-alpha.2` 自身要求 Node `>=24.9.0`；插件仍声明 Node `>=24`，不增加小版本拦截。
+生产验收边界为带 `/proc` 的 Linux、Node.js 24 和 Playwright Chromium。DSH `0.2.2-alpha.2`、`0.2.2-alpha.3` 要求 Node `>=24.9.0`；插件引擎仍为 `>=24`。Alpha 宿主不是上游稳定版。规定的本地测试覆盖原生 IPv4/IPv6 HTTP/HTTPS 与既有 Node 转发拓扑；真实非回环 IPv6 网卡、其他平台/浏览器、真实 Nginx/Traefik、官方账号授权及生产 Relay/OAuth 未验证，本地协议替身不证明真实服务行为。
 
 ## 最小化安装
 
-安装和运行服务使用同一默认 `web` profile：
+完成下方独立 profile 演练和备份后，安装与运行使用同一预期 `web` profile；将示例绝对路径替换为已验证的本地归档：
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.3.3
+dsh plugin --profile web add /absolute/path/dsh-auth-remote-0.3.4.tgz
 dsh plugin --profile web list
 dsh web --no-open --port 13090
 ```
@@ -126,7 +126,7 @@ dsh web --no-open --tls-cert ./tls/dsh.crt --tls-key ./tls/dsh.key
 
 ## 启动并验证公开入口
 
-1. 核对 Linux、Node.js 24+（推荐 DSH `0.2.2-alpha.2` 至少需要 `24.9.0`）、精确兼容 DSH 版本及目标 profile/包；测试开发数据独立。
+1. 核对 Linux、Node.js 24+（候选默认 DSH `0.2.2-alpha.3` 至少需要 `24.9.0`）、精确兼容 DSH 版本及目标 profile/包；测试开发数据独立。
 2. 合并一个完整 profile 配置，需要代理时建立私有可达上游，参见[代理指南](reverse-proxy.zh-CN.md)。
 3. 启动 DSH。HTTP 上游示例检查 `curl -fsS -H 'Host: dsh.example.com' http://127.0.0.1:13090/auth-remote/ready`，要求预期插件/协议和 `ready: true`。
 4. 核对匿名 HTML 跳转和 API 拒绝，再本地初始化、登录、绑定 TOTP、保存备用码。经所选入口测试官方设置、工作区、预览、上传、SSE/WebSocket 和撤销。
@@ -135,9 +135,13 @@ dsh web --no-open --tls-cert ./tls/dsh.crt --tls-key ./tls/dsh.key
 
 ## 备份、恢复与变更
 
-升级到 `0.3.3` 前，停止 DSH 并备份认证目录、profile patch、package/lock；保持入口私有和独立 `webserver disabled: true`。确认宿主属于所列支持版本（推荐 `0.2.2-alpha.2`），安装插件并核对 ready、匿名拒绝、登录及撤销。回退时停服并恢复匹配的宿主/插件包、锁和 patch 备份。此次发布不改变认证数据格式；恢复时仍核对 schema，禁止覆盖运行中的状态。
+升级前记录原精确 DSH 版本、插件归档及摘要、profile 配置和 package/lock 文件。停止旧进程并确认 profile 锁释放，以私有权限备份完整目标 profile、认证状态、DSH 数据和配置，保留原始备份。先将备份复制到独立私有 `DSH_HOME`，演练所选精确宿主与已验证的本地 `0.3.4` 归档；验证不得复用生产 profile。
 
-从早于 `0.3.2` 的插件升级时，须考虑 `0.3.2` 已引入、`0.3.3` 保留的行为：CLI 固定英语，删除脚本中的 `--lang` 参数；JSON 字段不变。独立登录页不提供语言选择器，按 `dsh-auth-remote-lang` 缓存、`navigator.language`、英文选择语言。旧 `dsh-auth-remote.locale` 不读取、不清理、不迁移；进入 DSH 后仅同步原生已接纳的偏好，退出保留。插件八语不会扩充 DSH 的原生语言目录。
+演练通过后再修改已停服的生产安装。在 readiness、匿名拒绝、登录与会话撤销检查通过前，保持公开入口私有，并保留独立 `webserver disabled: true`。不得覆盖运行中的状态；本候选不修改插件存储格式。
+
+回滚时先停止新进程，再恢复匹配的原精确宿主、插件归档、配置及对应完整数据备份。宿主切换测试只证明所覆盖的配置/会话契约，不承诺旧宿主可直接读取任意新生产数据；生产数据回滚必须使用对应备份。
+
+从早于 `0.3.2` 的插件升级时，须考虑 `0.3.2` 已引入、`0.3.4` 保留的行为：CLI 固定英语，删除脚本中的 `--lang` 参数；JSON 字段不变。独立登录页不提供语言选择器，按 `dsh-auth-remote-lang` 缓存、`navigator.language`、英文选择语言。旧 `dsh-auth-remote.locale` 不读取、不清理、不迁移；进入 DSH 后仅同步原生已接纳的偏好，退出保留。插件八语不会扩充 DSH 的原生语言目录。
 
 停止 DSH 并确认释放 profile 锁，再复制 `~/.dsh/profiles/web/auth-remote/auth-state.json`。副本目录权限 0700、文件权限 0600；它含密码哈希、TOTP 密钥、备用码哈希和会话。不要复制写入中的临时文件、覆盖运行中持锁状态或提交 Git；同时备份对应 profile patch 和包/锁文件。
 

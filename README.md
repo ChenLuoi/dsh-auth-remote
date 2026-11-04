@@ -6,12 +6,12 @@ Single-user remote sign-in for DeepSeek Harness (DSH), with password, TOTP, one-
 
 ## Requirements
 
-- Linux with `/proc` and Node.js 24 or newer. The recommended DSH `0.2.2-alpha.2` requires Node.js `>=24.9.0`.
+- Linux with `/proc` and Node.js 24. DSH `0.2.2-alpha.3` requires Node.js `>=24.9.0`.
 - A supported DSH release and a `web` profile. One account and its sessions belong to that profile.
 
 ## DSH compatibility
 
-Plugin **`0.3.3`** supports these exact DSH releases. **`0.2.2-alpha.2`** is recommended.
+Local candidate **`0.3.4`**, prepared 2026-11-03, declares these ten exact DSH releases. **`0.2.2-alpha.3`** is the development default and intended recommendation after final same-archive acceptance. It is an upstream Alpha, not an upstream stable release. Published `0.3.3` retains its nine declarations through `0.2.2-alpha.2`; it does not declare `0.2.2-alpha.3`.
 
 | DSH release     | Maintenance       |
 | --------------- | ----------------- |
@@ -23,7 +23,8 @@ Plugin **`0.3.3`** supports these exact DSH releases. **`0.2.2-alpha.2`** is rec
 | `0.2.1-rc.3`    | Supported         |
 | `0.2.1-rc.4`    | Supported         |
 | `0.2.1-rc.5`    | Supported         |
-| `0.2.2-alpha.2` | Recommended       |
+| `0.2.2-alpha.2` | Supported         |
+| `0.2.2-alpha.3` | Candidate default |
 
 Legacy versions remain supported until an explicit retirement release; see the [support policy](docs/support-policy.md). Newer versions may load after capability checks, but are outside these exact compatibility declarations.
 
@@ -31,11 +32,11 @@ Legacy versions remain supported until an explicit retirement release; see the [
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.3.3
+dsh plugin --profile web add /absolute/path/dsh-auth-remote-0.3.4.tgz
 dsh plugin --profile web list
 ```
 
-Use the same data directory and profile for installation, initialization, and the running service. These commands use DSH's default `~/.dsh` directory and the `web` profile.
+Replace the example absolute path with the locally built, verified archive; `0.3.4` is not published to npm. Published `dsh-auth-remote@0.3.3` remains available for its nine declared hosts. Use the same data directory and profile for installation, initialization, and the running service. These commands use DSH's default `~/.dsh` directory and the `web` profile. First rehearse upgrades in an independent profile, following the [backup and rollback procedure](docs/deployment.md#backup-recovery-and-changes).
 
 ## Initialize the account
 
@@ -82,6 +83,8 @@ Mutating commands require interactive confirmation. If a submitted command loses
 
 Browser text supports English, Chinese, Japanese, Spanish, French, German, Russian, and Brazilian Portuguese. The embedded page follows DSH's language setting. The standalone login page uses the remembered DSH preference, then the browser language, then English; it has no language selector. CLI output is English.
 
+On DSH `0.2.2-alpha.3`, the native navigation uses a shield for this page; the other nine declared hosts retain their default icon.
+
 ## Sign in to an official DeepSeek account
 
 Remote DeepSeek account sign-in is enabled by default (`manualAccountLogin: true`):
@@ -99,6 +102,8 @@ The switch in **Settings → Security & sign-in → Sign-in preferences** contro
 ## Put a proxy in front
 
 Use the [reverse proxy guide](docs/reverse-proxy.md) with the [Nginx](examples/nginx.conf) or [Traefik](examples/traefik-dsh.yml) example. Preserve the browser's Host and Origin, WebSocket upgrades, and streaming responses. TLS can terminate at the proxy; set its exact HTTPS root as `publicUrl`. Keep the DSH listener private and do not cache authentication responses.
+
+Acceptance targets Linux, Node.js 24, Chromium, native IPv4/IPv6 HTTP/HTTPS and the existing Node forwarding topologies. Other platforms/browsers, a real non-loopback IPv6 interface, Nginx/Traefik binaries and real external authorization are not established by these tests. See the deployment and development guides for the precise boundaries; local verification is separate from GitHub Actions and publication.
 
 ## Documentation
 
