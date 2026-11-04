@@ -37,7 +37,7 @@ test('three announced legacy records and six explicit retirements match the cand
     assert.equal(record.retiredOn, '2026-10-28')
     assert.equal(record.effectivePlugin, '0.3.1')
     assert.equal(record.lastSupportedPlugin, '0.2.0')
-    assert.equal(record.migrationTarget, '0.2.2-alpha.2')
+    assert.equal(record.migrationTarget, '0.2.2-alpha.3')
   }
   for (const record of LEGACY_DSH_RELEASES) {
     assert(declared.has(record.version))
@@ -74,6 +74,7 @@ test('normal declarations stay supported while absent exact versions remain unve
     '0.2.1-rc.4',
     '0.2.1-rc.5',
     '0.2.2-alpha.2',
+    '0.2.2-alpha.3',
   ]) {
     const status = classifyDshSupport(version, declared)
     assert.equal(status.state, 'supported')
@@ -83,7 +84,7 @@ test('normal declarations stay supported while absent exact versions remain unve
     '0.1.6',
     '0.2.1-rc.2+unassessed',
     '0.2.1-rc.6',
-    '0.2.2-alpha.3',
+    '0.2.2-alpha.4',
     '9.0.0-test.1',
     'invalid',
   ])

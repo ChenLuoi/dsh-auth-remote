@@ -17,6 +17,7 @@ import { test } from 'node:test'
 import {
   parseArguments,
   assertRegisteredCoverage,
+  requiredBrowserTestNames,
   sha256,
   testCounts,
   unpackFiles,
@@ -144,6 +145,7 @@ test('suite and target selection fail closed, including actual Node zero-test ou
     const positive = run('one actual test')
     assert.equal(positive.status, 0, positive.stderr)
     assert.equal(testCounts(positive.stdout).tests, 1)
+    assert.deepEqual(testCounts(positive.stdout).testNames, ['one actual test'])
     const empty = run('^no such test$')
     assert.equal(empty.status, 0, empty.stderr)
     assert.throws(() => testCounts(empty.stdout, [file]), /zero tests/u)
@@ -275,16 +277,28 @@ test('complete browser coverage permits only exact zero-registration exceptions 
       const counts = {
         actualTests: 1,
         placeholderFiles: [join(project, `tests/browser/${file}.spec.ts`)],
+        testNames: requiredBrowserTestNames(version),
       }
       const allowed =
         file === 'host-release'
           ? version === '0.2.1-alpha.3'
           : file === 'web-search-settings'
-            ? !['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.2'].includes(
-                version,
-              )
+            ? ![
+                '0.2.1-rc.2',
+                '0.2.1-rc.3',
+                '0.2.1-rc.4',
+                '0.2.1-rc.5',
+                '0.2.2-alpha.2',
+                '0.2.2-alpha.3',
+              ].includes(version)
             : file === 'rc-navigation'
-              ? !['0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.2'].includes(version)
+              ? ![
+                  '0.2.1-rc.3',
+                  '0.2.1-rc.4',
+                  '0.2.1-rc.5',
+                  '0.2.2-alpha.2',
+                  '0.2.2-alpha.3',
+                ].includes(version)
               : file === 'liveshare' &&
                 [
                   '0.2.1-alpha.3',
@@ -325,4 +339,27 @@ test('complete browser coverage permits only exact zero-registration exceptions 
       }),
     /Required file registered zero tests/u,
   )
+})
+
+test('complete browser coverage rejects missing mandatory cases even when every file has other tests', () => {
+  for (const version of testedDshVersions) {
+    const names = requiredBrowserTestNames(version)
+    assert.doesNotThrow(() =>
+      assertRegisteredCoverage('browser', version, {
+        actualTests: names.length,
+        placeholderFiles: [],
+        testNames: names,
+      }),
+    )
+    for (const missing of names)
+      assert.throws(
+        () =>
+          assertRegisteredCoverage('browser', version, {
+            actualTests: names.length,
+            placeholderFiles: [],
+            testNames: names.filter((title) => title !== missing),
+          }),
+        /Required browser test did not register/u,
+      )
+  }
 })

@@ -46,6 +46,7 @@ export const suites = {
       '0.2.1-rc.4',
       '0.2.1-rc.5',
       '0.2.2-alpha.2',
+      '0.2.2-alpha.3',
     ],
     count: 1,
   },
@@ -150,11 +151,35 @@ export function testCounts(output, selectedFiles = []) {
     .map(([, title]) => resolve(project, title))
     .filter((path) => selected.has(path))
   counts.actualTests = counts.tests - counts.placeholderFiles.length
+  counts.testNames = [...output.matchAll(/^# Subtest: (.+)$/gmu)]
+    .map(([, title]) => title)
+    .filter((title) => !selected.has(resolve(project, title)))
   assert(counts.actualTests > 0, 'Verification selected zero tests (only file placeholders ran)')
   assert.equal(counts.pass, counts.tests, 'Not every selected test passed')
   for (const key of ['fail', 'cancelled', 'skipped', 'todo'])
     assert.equal(counts[key], 0, `Unexpected ${key} tests`)
   return counts
+}
+
+export function requiredBrowserTestNames(version) {
+  const names = [
+    'native settings security icon preserves host navigation and contribution lifecycle',
+  ]
+  if (['0.2.2-alpha.2', '0.2.2-alpha.3'].includes(version)) {
+    for (const ingress of ['native-https', 'https-http-proxy'])
+      for (const compression of ['default', 'none'])
+        names.push(
+          `native mux ${ingress} ${compression} preserves native compression, expiry and revocation`,
+        )
+    names.push(
+      'native resource caching retains asset and fallback ETags, immutable code and all session gates',
+      'native HMR preserves preflight failures and cleans allocated replacement resources before rollback',
+      'eight languages render login and native security tasks at desktop and narrow widths',
+      'eight language dictionaries render the real manual account dialog and errors',
+      'liveshare: native viewer carrier and index retain non-owner transport and administrator client is inert',
+    )
+  }
+  return names
 }
 
 export function assertRegisteredCoverage(name, version, counts) {
@@ -164,12 +189,23 @@ export function assertRegisteredCoverage(name, version, counts) {
     name === 'browser'
       ? [
           ...(version === '0.2.1-alpha.3' ? ['tests/browser/host-release.spec.ts'] : []),
-          ...(!['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.2'].includes(
-            version,
-          )
+          ...(![
+            '0.2.1-rc.2',
+            '0.2.1-rc.3',
+            '0.2.1-rc.4',
+            '0.2.1-rc.5',
+            '0.2.2-alpha.2',
+            '0.2.2-alpha.3',
+          ].includes(version)
             ? ['tests/browser/web-search-settings.spec.ts']
             : []),
-          ...(!['0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.2'].includes(version)
+          ...(![
+            '0.2.1-rc.3',
+            '0.2.1-rc.4',
+            '0.2.1-rc.5',
+            '0.2.2-alpha.2',
+            '0.2.2-alpha.3',
+          ].includes(version)
             ? ['tests/browser/rc-navigation.spec.ts']
             : []),
           ...([
@@ -188,6 +224,9 @@ export function assertRegisteredCoverage(name, version, counts) {
       : []
   for (const path of counts.placeholderFiles)
     assert(optional.includes(path), `Required file registered zero tests: ${path}`)
+  if (name === 'browser')
+    for (const title of requiredBrowserTestNames(version))
+      assert(counts.testNames?.includes(title), `Required browser test did not register: ${title}`)
   if (suites[name].count)
     assert.equal(counts.actualTests, suites[name].count, 'Wrong specialized test count')
 }

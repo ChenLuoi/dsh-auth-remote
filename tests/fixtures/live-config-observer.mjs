@@ -18,8 +18,17 @@ export function apply(ctx) {
   )
   const entry = [...ctx.loader.entries()].find((entry) => entry.options.id === 'auth-remote')
   if (!entry?.fiber) throw new Error('auth-remote Loader entry is missing')
-  const fiber = entry.fiber
-  const reference = fiber.config.manualAccountLogin
+  const canonicalFiber = () => entry.fiber.ctx.fiber
+  const effectiveConfig = (fiber) => {
+    // FiberState is a const enum and has no JavaScript export on either SDK.
+    if (fiber.state !== 2) throw new Error('Observed Loader fiber is not active')
+    const config = 'effectiveConfig' in fiber ? fiber.effectiveConfig : fiber.config
+    if (typeof config?.manualAccountLogin?.get !== 'function')
+      throw new Error('Active Loader volatile manualAccountLogin reference is missing')
+    return config
+  }
+  const fiber = canonicalFiber()
+  const reference = effectiveConfig(fiber).manualAccountLogin
   const authentication = ctx.webServer.authentication
   const storage = ctx.webServer.storage
   const server = ctx.webServer.server
@@ -36,9 +45,9 @@ export function apply(ctx) {
         res.end(
           JSON.stringify({
             packages,
-            fiberUid: entry.fiber.uid,
-            sameFiber: entry.fiber === fiber,
-            sameReference: entry.fiber.config.manualAccountLogin === reference,
+            fiberUid: canonicalFiber().uid,
+            sameFiber: canonicalFiber() === fiber,
+            sameReference: effectiveConfig(canonicalFiber()).manualAccountLogin === reference,
             sameAuthentication: ctx.webServer.authentication === authentication,
             sameStorage: ctx.webServer.storage === storage,
             enabled: reference.get(),

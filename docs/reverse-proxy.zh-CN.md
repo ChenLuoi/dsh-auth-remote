@@ -27,3 +27,5 @@ DSH Auth Remote 会先验证浏览器 authority，再为 DSH 改写已认证流�
 当前支持 DSH 原生 HTTPS 上游也可位于公开 HTTP 或 HTTPS 代理后。使用 HTTPS 上游 URL，配置代理的上游证书验证和与证书对应的 hostname/SNI。插件 Cookie 按外部入口协议，服务端原生 Cookie 按监听的 HTTPS audience/Secure；两个协议不同时仍保留 Host/Origin。文件和 CLI 相对证书路径基准不同，见[路径规则](deployment.zh-CN.md#配置优先级与路径基准)。
 
 认证门禁不会用 `Forwarded` 或 `X-Forwarded-*` 作信任判断，避免把客户端可伪造提示当成 TLS 或主机证明。源码检出的浏览器套件使用自有 Node HTTP/HTTPS 转发器测试这些规则，不运行 Nginx 或 Traefik 二进制。
+
+`0.3.4` 本地候选以 Linux/Node.js 24、Chromium 和既有 Node 转发测试为验收边界。这些示例仍是部署模板；真实 Nginx/Traefik 产品、真实非回环 IPv6 网卡、其他平台/浏览器及真实外部服务未验证。独立 profile 演练、完整备份和对应数据回滚见部署指南。
