@@ -4,11 +4,11 @@
 
 Each release starts from a tested commit on `master`. A `vX.Y.Z` tag must match the stable version in `package.json` and the dated entries in both changelogs. The tag workflow checks the tag and master ancestry, builds one npm archive, verifies that exact archive on every declared DSH release, then verifies or publishes the npm version and creates a GitHub Release containing the same archive and `SHA256SUMS`.
 
-This delivery is an uncommitted local `0.3.4` candidate declaring ten exact targets, including `0.2.2-alpha.3`. Published `0.3.3` retains nine declarations and `0.3.2` retains eight and its immutable archive. Real GitHub Actions, PR/merge, tags and publication are not performed for this local delivery; the following release workflow is a separate future operation. Final same-archive reports stay outside npm. Changelog dates record candidate preparation; `retiredOn: 2026-10-28` is not an npm publication timestamp.
+Version `0.3.4` declares ten exact targets, including `0.2.2-alpha.3`. Published `0.3.3` retains nine declarations and `0.3.2` retains eight and its immutable archive. Publication follows the PR, master-CI, tag and release-workflow sequence below. The completed workflow and npm registry establish actual availability. Final same-archive reports stay outside npm. The changelog records the release preparation date; `retiredOn: 2026-10-28` is not an npm publication timestamp.
 
 Before changing version support for a release, review the [legacy compatibility inventory](legacy-compatibility.md). Check peers, compatibility declarations, runtime admission, test targets, CI and guides together. Remove runtime adaptations whose applicable versions no longer intersect support in that same change, while keeping shared security checks. Old plugin configuration has independent retirement conditions; update both inventory languages and both matrix views with complete version numbers before packing.
 
-Before packing, update README, the support policy, the [DSH → plugin](support-history.md#by-dsh) and [plugin → DSH](support-history.md#by-plugin) history, and inventory in both languages. Keep historical rows/anchors, distinguish published `0.2.0`/`0.3.1`/`0.3.2`/`0.3.3` from local candidate `0.3.4`, and never cite a nonexistent tag as verified evidence.
+Before packing, update README, the support policy, the [DSH → plugin](support-history.md#by-dsh) and [plugin → DSH](support-history.md#by-plugin) history, and inventory in both languages. Keep historical rows/anchors, distinguish published `0.2.0`/`0.3.1`/`0.3.2`/`0.3.3` from the `0.3.4` release declaration, and never cite a nonexistent tag as verified evidence.
 
 ## Prepare the version
 

@@ -2,7 +2,7 @@
 
 [简体中文](support-policy.zh-CN.md)
 
-Last updated: 2026-11-03. This policy separates maintenance commitments, exact-version verification and technical admission. Local candidate **`0.3.4`** adds DSH `0.2.2-alpha.3` to the nine exact declarations of published `0.3.3`; published `0.3.2` retains eight. Verify one final archive on all ten exact targets before accepting the candidate. Declarations do not establish verification, GitHub Actions success or publication; `0.3.4` is not available from npm.
+Last updated: 2026-11-04. This policy separates maintenance commitments, exact-version verification and technical admission. Version **`0.3.4`** adds DSH `0.2.2-alpha.3` to the nine exact declarations of published `0.3.3`; published `0.3.2` retains eight. Publication requires one final archive to pass on all ten exact targets. Declarations do not establish verification, GitHub Actions success or publication; actual availability is confirmed by the release workflow and npm registry.
 
 ## Support states and runtime admission
 
@@ -22,20 +22,20 @@ Diagnostics belong in startup logs, before protected service is offered: legacy 
 
 Plugin `0.3.4` retains the explicit 2026-10-28 legacy announcement for `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5`. Adding `0.2.2-alpha.3` changes none of those dates. All ten releases remain in release-blocking verification. Dates use Asia/Shanghai at local 00:00; eligibility never automatically ends support.
 
-| Exact DSH release | Maintenance state                               | Legacy since | Window in calendar days | Earliest eligible retirement |
-| ----------------- | ----------------------------------------------- | ------------ | ----------------------- | ---------------------------- |
-| `0.2.1-alpha.3`   | Legacy; supported                               | 2026-10-28   | 14                      | 2026-11-11                   |
-| `0.2.1-alpha.4`   | Legacy; supported                               | 2026-10-28   | 14                      | 2026-11-11                   |
-| `0.2.1-alpha.5`   | Legacy; supported                               | 2026-10-28   | 14                      | 2026-11-11                   |
-| `0.2.1-rc.1`      | Supported                                       | —            | —                       | Not announced                |
-| `0.2.1-rc.2`      | Supported                                       | —            | —                       | Not announced                |
-| `0.2.1-rc.3`      | Supported                                       | —            | —                       | Not announced                |
-| `0.2.1-rc.4`      | Supported                                       | —            | —                       | Not announced                |
-| `0.2.1-rc.5`      | Supported; added in `0.3.3`                     | —            | —                       | Not announced                |
-| `0.2.2-alpha.2`   | Supported                                       | —            | —                       | Not announced                |
-| `0.2.2-alpha.3`   | Supported candidate target; development default | —            | —                       | Not announced                |
+| Exact DSH release | Maintenance state                                   | Legacy since | Window in calendar days | Earliest eligible retirement |
+| ----------------- | --------------------------------------------------- | ------------ | ----------------------- | ---------------------------- |
+| `0.2.1-alpha.3`   | Legacy; supported                                   | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-alpha.4`   | Legacy; supported                                   | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-alpha.5`   | Legacy; supported                                   | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-rc.1`      | Supported                                           | —            | —                       | Not announced                |
+| `0.2.1-rc.2`      | Supported                                           | —            | —                       | Not announced                |
+| `0.2.1-rc.3`      | Supported                                           | —            | —                       | Not announced                |
+| `0.2.1-rc.4`      | Supported                                           | —            | —                       | Not announced                |
+| `0.2.1-rc.5`      | Supported; added in `0.3.3`                         | —            | —                       | Not announced                |
+| `0.2.2-alpha.2`   | Supported                                           | —            | —                       | Not announced                |
+| `0.2.2-alpha.3`   | Supported; development default and recommended host | —            | —                       | Not announced                |
 
-The intended migration recommendation is DSH `0.2.2-alpha.3` with the verified local `0.3.4` archive after final acceptance; the host is still an upstream Alpha. Use an actual absolute tgz path, not an unpublished npm version. Published `0.3.3` remains available on its own nine targets, as recorded in the history. Forward-admitted unknown releases retain no exact support commitment.
+The migration recommendation is DSH `0.2.2-alpha.3` with plugin `0.3.4`; the host is still an upstream Alpha. Install the npm version after successful publication, or use the absolute path to its verified release archive. Published `0.3.3` remains available on its own nine targets, as recorded in the history. Forward-admitted unknown releases retain no exact support commitment.
 
 ## Historical `0.2.0` maintenance announcement
 

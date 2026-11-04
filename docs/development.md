@@ -2,7 +2,7 @@
 
 [简体中文](development.zh-CN.md)
 
-This guide describes ten exact verification targets for local candidate `0.3.4`, defaulting to DSH `0.2.2-alpha.3`. Final same-archive evidence belongs to unpackaged test reports; declarations and reports are distinct.
+This guide describes ten exact verification targets for `0.3.4`, defaulting to DSH `0.2.2-alpha.3`. Final same-archive evidence belongs to unpackaged test reports; declarations and reports are distinct.
 
 Development and the full test suite use Linux (`/proc` is required for the profile lock), Node.js 24+, pnpm 12.5.1, and DSH `0.2.2-alpha.3`. DSH `0.2.2-alpha.2` and `0.2.2-alpha.3` require Node.js `>=24.9.0`; the plugin engine stays `>=24`. Browser tests use Playwright-managed Chromium and a Node HTTP/HTTPS forwarder.
 
@@ -161,7 +161,7 @@ Browser language tests cover all eight plugin dictionaries, login fallback/memor
 
 `liveshare.spec.ts` registers on exact `0.2.2-alpha.2` and `0.2.2-alpha.3`: real native Host/Owner PKCE/share worker/viewer carriers and stop operations use a local Relay identity/transport stand-in. Viewer clients remain inert for administrator features. Tests do not establish real Relay/OAuth, visitor models or file writes. Partial filtered reports and file placeholders never certify the final ten-host archive.
 
-Local candidate `0.3.4` is unpublished. Published `0.3.3` retains nine declarations; the new exact `0.2.2-alpha.3` claim is not retroactive. Recommendation requires final same-archive acceptance on Linux/Node.js 24 (at least `24.9.0` for the new default)/Chromium. Other Node majors cannot substitute for this acceptance; real proxy products, external authorization, a non-loopback IPv6 interface and other platforms/browsers remain unverified.
+Version `0.3.4` is prepared for release; actual availability is established by the release workflow and npm registry. Published `0.3.3` retains nine declarations; the new exact `0.2.2-alpha.3` claim is not retroactive. Release acceptance requires one final archive on Linux/Node.js 24 (at least `24.9.0` for the new default)/Chromium. Other Node majors cannot substitute for this acceptance; real proxy products, external authorization, a non-loopback IPv6 interface and other platforms/browsers remain unverified.
 
 Direct development dependencies use DSH `0.2.2-alpha.3`, Cordis `4.0.6-alpha.2` and Schemastery `3.18.6-alpha.2`; the actual new host chain uses Loader `1.0.7-alpha.2` and Include `1.0.11-alpha.2`. These are distribution package versions. Keep `autoInstallPeers: false` and only verified, installer-required exact release-age exceptions. Configuration observation reads canonical `entry.fiber.ctx.fiber.effectiveConfig`, falling back to `config` only when the old host has no accessor; inactive fibers, absent values and non-`.get()` references fail. Production retains the constructor's native Volatile reference.
 

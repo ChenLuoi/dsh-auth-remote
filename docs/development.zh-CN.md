@@ -2,7 +2,7 @@
 
 [English](development.md)
 
-本指南描述本地候选 `0.3.4` 的十版精确验证目标，默认 DSH `0.2.2-alpha.3`。最终同包运行证据保存在包外测试报告中；声明与实测报告分开表达。
+本指南描述版本 `0.3.4` 的十版精确验证目标，默认 DSH `0.2.2-alpha.3`。最终同包运行证据保存在包外测试报告中；声明与实测报告分开表达。
 
 开发和完整测试需要 Linux（profile 锁依赖 `/proc`）、Node.js 24+、pnpm 12.5.1，以及 DSH `0.2.2-alpha.3`。DSH `0.2.2-alpha.2`、`0.2.2-alpha.3` 自身要求 Node.js `>=24.9.0`；插件引擎仍为 `>=24`。浏览器测试使用 Playwright 管理的 Chromium 和 Node HTTP/HTTPS 转发器。
 
@@ -161,7 +161,7 @@ node scripts/verify-retired.mjs --archive artifacts/dsh-auth-remote-0.3.4.tgz --
 
 `liveshare.spec.ts` 在精确 `0.2.2-alpha.2`、`0.2.2-alpha.3` 注册：真实原生 Host/Owner PKCE/分享 worker/查看页载体和停止操作配本地 Relay 身份/传输替身；viewer 不挂载管理员功能。不宣称真实 Relay/OAuth、访客模型或文件写入已验证。局部筛选报告和文件 placeholder 不认证最终十版归档。
 
-本地 `0.3.4` 候选尚未发布；已发布 `0.3.3` 保留九版声明，新增精确 `0.2.2-alpha.3` 不追溯给旧包。推荐以最终同包验收为前提；Linux/Node.js 24（新默认至少 `24.9.0`）/Chromium 为本次边界，其他 Node 大版本不能替代验收，真实代理产品/外部授权/非回环 IPv6 网卡/其他平台浏览器仍未验证。
+版本 `0.3.4` 的发布可用性由发布工作流和 npm registry 确认；已发布 `0.3.3` 保留九版声明，新增精确 `0.2.2-alpha.3` 不追溯给旧包。发布以同一最终归档的全量验收为前提；Linux/Node.js 24（新默认至少 `24.9.0`）/Chromium 为本次边界，其他 Node 大版本不能替代验收，真实代理产品/外部授权/非回环 IPv6 网卡/其他平台浏览器仍未验证。
 
 直接开发依赖为 DSH `0.2.2-alpha.3`、Cordis `4.0.6-alpha.2`、Schemastery `3.18.6-alpha.2`；实际新宿主链使用 Loader `1.0.7-alpha.2` 和 Include `1.0.11-alpha.2`。这些是分发包版本。保留 `autoInstallPeers: false`，发布时间例外只列经核验且安装器要求的精确版本。配置观测读取 canonical `entry.fiber.ctx.fiber` 的 `effectiveConfig`，只有不存在访问器的旧宿主才回退 `config`；未激活、缺值或非 `.get()` 引用报错。生产构造参数继续保留原生 Volatile。
 

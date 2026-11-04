@@ -2,13 +2,13 @@
 
 [English](legacy-compatibility.md)
 
-最后复核：2026-11-03。本文与英文清单共同维护同一组稳定 ID、版本事实、代码位置、测试与退役条件。修改任一语言时同步另一语言；矩阵是检索入口，条目是维护依据。本文记录 DSH 精确版本差异，不以发布顺序或版本简称代替适用范围。
+最后复核：2026-11-04。本文与英文清单共同维护同一组稳定 ID、版本事实、代码位置、测试与退役条件。修改任一语言时同步另一语言；矩阵是检索入口，条目是维护依据。本文记录 DSH 精确版本差异，不以发布顺序或版本简称代替适用范围。
 
 当前维护日期及承诺见[支持规范](support-policy.zh-CN.md)。历史 [DSH → 插件](support-history.zh-CN.md#by-dsh)与[插件 → DSH](support-history.zh-CN.md#by-plugin)区分声明、报告、计划发布版本与分发事实。
 
 ## 当前发布范围
 
-本地候选 `0.3.4` 声明 DSH `0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5`、`0.2.1-rc.1`、`0.2.1-rc.2`、`0.2.1-rc.3`、`0.2.1-rc.4`、`0.2.1-rc.5`、`0.2.2-alpha.2`、`0.2.2-alpha.3`。技术准入仍为包含预发布的 `>=0.2.1-alpha.3`，不设上限。开发默认 `0.2.2-alpha.3`，推荐以最终同包验收为前提。已发布 `0.3.3` 保留不含 `0.2.2-alpha.3` 的九版声明；`0.3.4` 尚未发布。`0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5` 的 legacy 日期仍为 2026-10-28、14 日窗口、2026-11-11（Asia/Shanghai）起具备资格；日期不自动终止支持。历史退役及最后支持插件 `0.2.0` 保留如下。
+插件 `0.3.4` 声明 DSH `0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5`、`0.2.1-rc.1`、`0.2.1-rc.2`、`0.2.1-rc.3`、`0.2.1-rc.4`、`0.2.1-rc.5`、`0.2.2-alpha.2`、`0.2.2-alpha.3`。技术准入仍为包含预发布的 `>=0.2.1-alpha.3`，不设上限。开发默认及推荐宿主为 `0.2.2-alpha.3`，发布以最终同包验收为前提。已发布 `0.3.3` 保留不含 `0.2.2-alpha.3` 的九版声明；`0.3.4` 的可用性由发布工作流和 npm registry 确认。`0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5` 的 legacy 日期仍为 2026-10-28、14 日窗口、2026-11-11（Asia/Shanghai）起具备资格；日期不自动终止支持。历史退役及最后支持插件 `0.2.0` 保留如下。
 
 HOST/PROTOCOL、PUBLIC 参数/文本、THEME radius/thumb 与 TEST 直接导航的独占路径维持 `0.3.1` 既有退役，共享原生/安全检查保留。ACCOUNT/HMR 和通用引导重试仍有支持交集；RESOURCE/LIVESHARE 精确适用 `0.2.2-alpha.2`、`0.2.2-alpha.3`。DSH-SETTINGS-ICON-001 仅为 `0.2.2-alpha.3` 新增原生导航图标，其余精确默认范围见下表。最终同包报告不入 npm，也不继承旧归档成功。
 
@@ -49,24 +49,24 @@ HOST/PROTOCOL、PUBLIC 参数/文本、THEME radius/thumb 与 TEST 直接导航�
 
 历史行保留可查询性；退役行不属于当前正向目标。所有受支持行均使用原生具体 IPv4/IPv6、HTTP/HTTPS、上下文投影、原生 radius/thumb token 与焦点规则 和账号菜单 Settings。新 RC 精确发布代码/API 证据见下文，最终同包运行证据另记。
 
-| 精确 DSH 版本   | 当前状态                             | 历史适配 / 保留的共享检查                                                                                                                                                         |
-| --------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `0.1.7-rc.1`    | `0.3.1` 退役；最后插件 `0.2.0`       | DSH-HOST-001、DSH-PROTOCOL-001、DSH-PUBLIC-001、DSH-THEME-001、DSH-TEST-001、DSH-HMR-001；历史 startSignIn 首参为语言字符串                                                       |
-| `0.1.7-rc.2`    | `0.3.1` 退役；最后插件 `0.2.0`       | DSH-HOST-001、DSH-PROTOCOL-001、DSH-PUBLIC-001、DSH-THEME-001、DSH-TEST-001、DSH-HMR-001；startSignIn 首参为元数据对象                                                            |
-| `0.2.0-rc.1`    | `0.3.1` 退役；最后插件 `0.2.0`       | DSH-HOST-001、DSH-PROTOCOL-001、DSH-PUBLIC-001、DSH-TEST-001、DSH-HMR-001                                                                                                         |
-| `0.2.0-rc.2`    | `0.3.1` 退役；最后插件 `0.2.0`       | DSH-HOST-001、DSH-PROTOCOL-001、DSH-PUBLIC-001、DSH-TEST-001、DSH-HMR-001                                                                                                         |
-| `0.2.1-alpha.1` | `0.3.1` 退役；最后插件 `0.2.0`       | DSH-HOST-001、DSH-PROTOCOL-001、DSH-PUBLIC-001、DSH-TEST-001、DSH-HMR-001；原生公开地址文本                                                                                       |
-| `0.2.1-alpha.2` | `0.3.1` 退役；最后插件 `0.2.0`       | DSH-PUBLIC-001、DSH-TEST-001、DSH-HMR-001；原生传输和公开地址文本                                                                                                                 |
-| `0.2.1-alpha.3` | Legacy；最低支持                     | DSH-THEME-001, DSH-ACCOUNT-001、DSH-HMR-001；保留原生校验、context/env 和通用引导回归；原生 release 元数据缺失; DSH-SETTINGS-ICON-001：宿主默认                                   |
-| `0.2.1-alpha.4` | Legacy                               | DSH-THEME-001, DSH-ACCOUNT-001、DSH-HMR-001；保留原生校验/context/env/theme/Settings 和真实宿主版本提示回归; DSH-SETTINGS-ICON-001：宿主默认                                      |
-| `0.2.1-alpha.5` | Legacy                               | DSH-THEME-001, DSH-ACCOUNT-001、DSH-HMR-001；保留原生校验/context/env/theme/Settings 和真实宿主版本提示回归; DSH-SETTINGS-ICON-001：宿主默认                                      |
-| `0.2.1-rc.1`    | 正常支持                             | DSH-THEME-001, DSH-ACCOUNT-001、DSH-HMR-001；保留原生校验/context/env/theme/Settings 和真实宿主版本提示回归; DSH-SETTINGS-ICON-001：宿主默认                                      |
-| `0.2.1-rc.2`    | 正常支持                             | DSH-THEME-001, DSH-ACCOUNT-001、DSH-HMR-001；保留原生校验/context/env/theme/Settings、宿主版本提示及 Search/Fetch 回归; DSH-SETTINGS-ICON-001：宿主默认                           |
-| `0.2.1-rc.3`    | 支持                                 | DSH-THEME-001, DSH-ACCOUNT-001、DSH-HMR-001；原生校验/context/env/theme/Settings；须精确验证新增 UI/Search/Fetch/宿主切换; DSH-SETTINGS-ICON-001：宿主默认                        |
-| `0.2.1-rc.4`    | 支持                                 | DSH-THEME-001, DSH-ACCOUNT-001、DSH-HMR-001；原生校验/context/env/theme/Settings；须精确验证新增 UI/Search/Fetch/宿主切换; DSH-SETTINGS-ICON-001：宿主默认                        |
-| `0.2.1-rc.5`    | 支持                                 | DSH-THEME-001, DSH-ACCOUNT-001、DSH-HMR-001；原生校验/context/env/theme/Settings；须精确验证新增 UI/Search/Fetch/宿主切换; DSH-SETTINGS-ICON-001：宿主默认                        |
-| `0.2.2-alpha.2` | 正常支持                             | DSH-RESOURCE-001, DSH-LIVESHARE-001, DSH-ACCOUNT-001, DSH-HMR-001, DSH-THEME-001; 保留原生验证、context/主题/Settings 共同检查；最终同包报告另记; DSH-SETTINGS-ICON-001：宿主默认 |
-| `0.2.2-alpha.3` | 受支持候选目标；开发默认，推荐待验收 | DSH-THEME-001、DSH-ACCOUNT-001、DSH-HMR-001、DSH-RESOURCE-001、DSH-LIVESHARE-001、DSH-SETTINGS-ICON-001 原生盾牌；保留共享原生/安全检查                                           |
+| 精确 DSH 版本   | 当前状态                       | 历史适配 / 保留的共享检查                                                                                                                                                         |
+| --------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0.1.7-rc.1`    | `0.3.1` 退役；最后插件 `0.2.0` | DSH-HOST-001、DSH-PROTOCOL-001、DSH-PUBLIC-001、DSH-THEME-001、DSH-TEST-001、DSH-HMR-001；历史 startSignIn 首参为语言字符串                                                       |
+| `0.1.7-rc.2`    | `0.3.1` 退役；最后插件 `0.2.0` | DSH-HOST-001、DSH-PROTOCOL-001、DSH-PUBLIC-001、DSH-THEME-001、DSH-TEST-001、DSH-HMR-001；startSignIn 首参为元数据对象                                                            |
+| `0.2.0-rc.1`    | `0.3.1` 退役；最后插件 `0.2.0` | DSH-HOST-001、DSH-PROTOCOL-001、DSH-PUBLIC-001、DSH-TEST-001、DSH-HMR-001                                                                                                         |
+| `0.2.0-rc.2`    | `0.3.1` 退役；最后插件 `0.2.0` | DSH-HOST-001、DSH-PROTOCOL-001、DSH-PUBLIC-001、DSH-TEST-001、DSH-HMR-001                                                                                                         |
+| `0.2.1-alpha.1` | `0.3.1` 退役；最后插件 `0.2.0` | DSH-HOST-001、DSH-PROTOCOL-001、DSH-PUBLIC-001、DSH-TEST-001、DSH-HMR-001；原生公开地址文本                                                                                       |
+| `0.2.1-alpha.2` | `0.3.1` 退役；最后插件 `0.2.0` | DSH-PUBLIC-001、DSH-TEST-001、DSH-HMR-001；原生传输和公开地址文本                                                                                                                 |
+| `0.2.1-alpha.3` | Legacy；最低支持               | DSH-THEME-001, DSH-ACCOUNT-001、DSH-HMR-001；保留原生校验、context/env 和通用引导回归；原生 release 元数据缺失; DSH-SETTINGS-ICON-001：宿主默认                                   |
+| `0.2.1-alpha.4` | Legacy                         | DSH-THEME-001, DSH-ACCOUNT-001、DSH-HMR-001；保留原生校验/context/env/theme/Settings 和真实宿主版本提示回归; DSH-SETTINGS-ICON-001：宿主默认                                      |
+| `0.2.1-alpha.5` | Legacy                         | DSH-THEME-001, DSH-ACCOUNT-001、DSH-HMR-001；保留原生校验/context/env/theme/Settings 和真实宿主版本提示回归; DSH-SETTINGS-ICON-001：宿主默认                                      |
+| `0.2.1-rc.1`    | 正常支持                       | DSH-THEME-001, DSH-ACCOUNT-001、DSH-HMR-001；保留原生校验/context/env/theme/Settings 和真实宿主版本提示回归; DSH-SETTINGS-ICON-001：宿主默认                                      |
+| `0.2.1-rc.2`    | 正常支持                       | DSH-THEME-001, DSH-ACCOUNT-001、DSH-HMR-001；保留原生校验/context/env/theme/Settings、宿主版本提示及 Search/Fetch 回归; DSH-SETTINGS-ICON-001：宿主默认                           |
+| `0.2.1-rc.3`    | 支持                           | DSH-THEME-001, DSH-ACCOUNT-001、DSH-HMR-001；原生校验/context/env/theme/Settings；须精确验证新增 UI/Search/Fetch/宿主切换; DSH-SETTINGS-ICON-001：宿主默认                        |
+| `0.2.1-rc.4`    | 支持                           | DSH-THEME-001, DSH-ACCOUNT-001、DSH-HMR-001；原生校验/context/env/theme/Settings；须精确验证新增 UI/Search/Fetch/宿主切换; DSH-SETTINGS-ICON-001：宿主默认                        |
+| `0.2.1-rc.5`    | 支持                           | DSH-THEME-001, DSH-ACCOUNT-001、DSH-HMR-001；原生校验/context/env/theme/Settings；须精确验证新增 UI/Search/Fetch/宿主切换; DSH-SETTINGS-ICON-001：宿主默认                        |
+| `0.2.2-alpha.2` | 正常支持                       | DSH-RESOURCE-001, DSH-LIVESHARE-001, DSH-ACCOUNT-001, DSH-HMR-001, DSH-THEME-001; 保留原生验证、context/主题/Settings 共同检查；最终同包报告另记; DSH-SETTINGS-ICON-001：宿主默认 |
+| `0.2.2-alpha.3` | 受支持；开发默认及推荐宿主     | DSH-THEME-001、DSH-ACCOUNT-001、DSH-HMR-001、DSH-RESOURCE-001、DSH-LIVESHARE-001、DSH-SETTINGS-ICON-001 原生盾牌；保留共享原生/安全检查                                           |
 
 PLUGIN-CONFIG-001、PLUGIN-LOCALE-001、PLUGIN-CLI-001 与共享认证检查均独立于运行时适配退役，适用于当前插件的全部宿主；前向准入不构成精确实测。
 
@@ -226,7 +226,7 @@ PLUGIN-CONFIG-001、PLUGIN-LOCALE-001、PLUGIN-CLI-001 与共享认证检查均�
 
 ## DSH-SETTINGS-ICON-001
 
-安全与登录导航的可选原生图标。类型：`dsh-runtime`。本地候选 `0.3.4` 新增，支持适用交集非空时保留。
+安全与登录导航的可选原生图标。类型：`dsh-runtime`。插件 `0.3.4` 新增，支持适用交集非空时保留。
 
 | 字段             | 维护依据                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -267,7 +267,7 @@ PLUGIN-CONFIG-001、PLUGIN-LOCALE-001、PLUGIN-CLI-001 与共享认证检查均�
 
 远程 profile 必须独立禁用原生 `webserver`。`tests/browser/startup-compatibility.spec.ts` 在十版验证 Loader skip/插件运行拒绝：最低 `0.2.1-alpha.3` 用 peer 故障，其余九版用 engines；`scripts/verify-retired.mjs` 在独立旧 profile 验证原样候选的安装回滚/完整包原生 peer skip，要求连续无 TCP/HTTP/readiness/WebSocket 监听并保留上游身份和审计。
 
-`src/shared/dsh-support.ts` 在本地候选 `0.3.4` 明确记录三个 Alpha legacy、五个 RC 及 `0.2.2-alpha.2`、`0.2.2-alpha.3` 正常支持和六版退役（最后插件 `0.2.0`）。`retiredOn: 2026-10-28` 是准备日而非 npm 实际发布时间，不驱动停服；进程级/HMR 去重及必要 API、包身份、共享安全检查保留。当前日期见支持规范。
+`src/shared/dsh-support.ts` 在插件 `0.3.4` 明确记录三个 Alpha legacy、五个 RC 及 `0.2.2-alpha.2`、`0.2.2-alpha.3` 正常支持和六版退役（最后插件 `0.2.0`）。`retiredOn: 2026-10-28` 是准备日而非 npm 实际发布时间，不驱动停服；进程级/HMR 去重及必要 API、包身份、共享安全检查保留。当前日期见支持规范。
 
 包身份、向前准入后的 API 检查、具体监听、原始 Host/Origin/Fetch Metadata、回环准入、密码/TOTP、会话、流撤销、存储故障与 CLI 确认适用于所有声明版本。反向代理 HTTPS → HTTP、Host 设置能力 `ownsHost` 和服务端原生浏览器认证交换也不能仅因某个适配退役而删除。
 
@@ -299,4 +299,6 @@ PLUGIN-CONFIG-001、PLUGIN-LOCALE-001、PLUGIN-CLI-001 与共享认证检查均�
 
 2026-11-03 `0.3.4` 准入复核：精确 DSH tag `dsh-v0.2.2-alpha.3` 为 `05b1cae8db6e674c5685101494d4eec24652424a`，已核对发布包身份/完整性及隔离安装的实际依赖链。WebApp、WebServer、Connection 和账号包解析到 `0.2.2-alpha.3`，Cordis 为 `4.0.6-alpha.2`、Schemastery 为 `3.18.6-alpha.2`、Loader 为 `1.0.7-alpha.2`、Include 为 `1.0.11-alpha.2`，不改写各旧宿主组合事实。原生 `@deepseek-ai/dsh-client-ui-theme@0.2.2-alpha.3/lib/client.js` 第1473行保留原生 focus fallback 和透明 pointer override，SHA-256 为 `78d79a77112e2a83cfa1a9015c06f4b980efb9e1b071bc0b2ba46525748c3592`，不表示整个主题包相同。
 
-逐条复核维持 HOST/PROTOCOL 和 PUBLIC/THEME/TEST 独占路径原有空交集及退役证据；共享原生校验、context、focus 和账号菜单检查加入精确 `0.2.2-alpha.3`，notice/reload 触发映射缺口保留。ACCOUNT/HMR 仍有非空支持交集，继续回环/事务适配；RESOURCE/LIVESHARE 交集扩为精确 `0.2.2-alpha.2`、`0.2.2-alpha.3`；SETTINGS-ICON 交集为精确 `0.2.2-alpha.3`，其余九个默认已逐一列出。PLUGIN-CONFIG-001、PLUGIN-LOCALE-001、PLUGIN-CLI-001 保持独立迁移政策，不退役任何适配或共享安全检查。两张矩阵和条目经人工及本地 agent 复核，不引入库存生成器或专用 CI gate。`0.3.4` 仍为本地候选；最终十版 CLI/browser/smoke 与独立 `0.2.1-alpha.2` 拒绝报告在 npm 包外绑定各自源码/归档身份，本地协议替身和未知宿主不继承更广声明。
+逐条复核维持 HOST/PROTOCOL 和 PUBLIC/THEME/TEST 独占路径原有空交集及退役证据；共享原生校验、context、focus 和账号菜单检查加入精确 `0.2.2-alpha.3`，notice/reload 触发映射缺口保留。ACCOUNT/HMR 仍有非空支持交集，继续回环/事务适配；RESOURCE/LIVESHARE 交集扩为精确 `0.2.2-alpha.2`、`0.2.2-alpha.3`；SETTINGS-ICON 交集为精确 `0.2.2-alpha.3`，其余九个默认已逐一列出。PLUGIN-CONFIG-001、PLUGIN-LOCALE-001、PLUGIN-CLI-001 保持独立迁移政策，不退役任何适配或共享安全检查。两张矩阵和条目经人工及本地 agent 复核，不引入库存生成器或专用 CI gate。2026-11-03 复核时，`0.3.4` 仍为本地候选；最终十版 CLI/browser/smoke 与独立 `0.2.1-alpha.2` 拒绝报告在 npm 包外绑定各自源码/归档身份，本地协议替身和未知宿主不继承更广声明。
+
+2026-11-04 发布准备：当前版本说明改为正式发布流程，十个精确声明、十三个库存条目、适用版本交集、legacy 日期和独立插件合同均未改变。实际可用性由发布工作流及 registry 确认；早期本地候选报告不认证新的发布归档。标签工作流须重新产出归档，对十版完整验收后才发布。

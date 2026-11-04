@@ -11,7 +11,7 @@ DeepSeek Harness（DSH）的单用户远程登录插件，提供密码、TOTP、
 
 ## DSH 兼容性
 
-2026-11-03 准备的本地候选 **`0.3.4`** 声明以下十个精确 DSH 版本。**`0.2.2-alpha.3`** 为开发默认目标，最终同包验收通过后作为推荐；它仍是上游 Alpha，不是上游稳定版。已发布 `0.3.3` 保留截至 `0.2.2-alpha.2` 的九版声明，未声明 `0.2.2-alpha.3`。
+版本 **`0.3.4`** 声明以下十个精确 DSH 版本，**`0.2.2-alpha.3`** 为开发默认和推荐宿主。发布可用性以发布工作流完成状态和 npm registry 为准。推荐的 DSH 宿主仍是上游 Alpha，不是上游稳定版。已发布 `0.3.3` 保留截至 `0.2.2-alpha.2` 的九版声明，未声明 `0.2.2-alpha.3`。
 
 | DSH 版本        | 维护状态       |
 | --------------- | -------------- |
@@ -24,7 +24,7 @@ DeepSeek Harness（DSH）的单用户远程登录插件，提供密码、TOTP、
 | `0.2.1-rc.4`    | 支持中         |
 | `0.2.1-rc.5`    | 支持中         |
 | `0.2.2-alpha.2` | 支持中         |
-| `0.2.2-alpha.3` | 候选默认目标   |
+| `0.2.2-alpha.3` | 推荐宿主       |
 
 Legacy 版本在明确发布退役版本前继续支持，详见[支持规范](docs/support-policy.zh-CN.md)。更新版本可通过能力检查后加载，但不在上述精确兼容声明内。
 
@@ -32,11 +32,11 @@ Legacy 版本在明确发布退役版本前继续支持，详见[支持规范](d
 
 ```sh
 dsh --version
-dsh plugin --profile web add /absolute/path/dsh-auth-remote-0.3.4.tgz
+dsh plugin --profile web add dsh-auth-remote@0.3.4
 dsh plugin --profile web list
 ```
 
-将示例绝对路径替换为本地构建且验证过的归档；`0.3.4` 尚未发布到 npm。已发布 `dsh-auth-remote@0.3.3` 可用于其声明的九版宿主。安装、初始化和运行服务须使用相同的数据目录及 profile。这些命令使用 DSH 默认的 `~/.dsh` 目录和 `web` profile。升级前先在独立 profile 演练，按[备份与回滚步骤](docs/deployment.zh-CN.md#备份恢复与变更)操作。
+发布工作流成功发布该版本后使用此 npm 命令；离线安装时替换为已验证发布归档的绝对路径。已发布 `dsh-auth-remote@0.3.3` 保留其九版宿主声明。安装、初始化和运行服务须使用相同的数据目录及 profile。这些命令使用 DSH 默认的 `~/.dsh` 目录和 `web` profile。升级前先在独立 profile 演练，按[备份与回滚步骤](docs/deployment.zh-CN.md#备份恢复与变更)操作。
 
 ## 初始化账号
 

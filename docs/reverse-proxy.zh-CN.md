@@ -28,4 +28,4 @@ DSH Auth Remote 会先验证浏览器 authority，再为 DSH 改写已认证流�
 
 认证门禁不会用 `Forwarded` 或 `X-Forwarded-*` 作信任判断，避免把客户端可伪造提示当成 TLS 或主机证明。源码检出的浏览器套件使用自有 Node HTTP/HTTPS 转发器测试这些规则，不运行 Nginx 或 Traefik 二进制。
 
-`0.3.4` 本地候选以 Linux/Node.js 24、Chromium 和既有 Node 转发测试为验收边界。这些示例仍是部署模板；真实 Nginx/Traefik 产品、真实非回环 IPv6 网卡、其他平台/浏览器及真实外部服务未验证。独立 profile 演练、完整备份和对应数据回滚见部署指南。
+`0.3.4` 以 Linux/Node.js 24、Chromium 和既有 Node 转发测试为验收边界。这些示例仍是部署模板；真实 Nginx/Traefik 产品、真实非回环 IPv6 网卡、其他平台/浏览器及真实外部服务未验证。独立 profile 演练、完整备份和对应数据回滚见部署指南。
