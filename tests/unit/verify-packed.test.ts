@@ -283,22 +283,11 @@ test('complete browser coverage permits only exact zero-registration exceptions 
         file === 'host-release'
           ? version === '0.2.1-alpha.3'
           : file === 'web-search-settings'
-            ? ![
-                '0.2.1-rc.2',
-                '0.2.1-rc.3',
-                '0.2.1-rc.4',
-                '0.2.1-rc.5',
-                '0.2.2-alpha.2',
-                '0.2.2-alpha.3',
-              ].includes(version)
+            ? !['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.3'].includes(
+                version,
+              )
             : file === 'rc-navigation'
-              ? ![
-                  '0.2.1-rc.3',
-                  '0.2.1-rc.4',
-                  '0.2.1-rc.5',
-                  '0.2.2-alpha.2',
-                  '0.2.2-alpha.3',
-                ].includes(version)
+              ? !['0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.3'].includes(version)
               : file === 'liveshare' &&
                 [
                   '0.2.1-alpha.3',

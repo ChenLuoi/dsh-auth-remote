@@ -22,7 +22,9 @@ import {
 test('retired selection is independent, exact and rejects malformed inputs before any execution', () => {
   assert.deepEqual(
     retiredDshVersions,
-    RETIRED_DSH_RELEASES.map(({ version }) => version),
+    RETIRED_DSH_RELEASES.filter(({ version }) => version !== '0.2.2-alpha.2').map(
+      ({ version }) => version,
+    ),
   )
   assert(retiredDshVersions.every((version) => !testedDshVersions.includes(version)))
   const valid = [
@@ -40,7 +42,8 @@ test('retired selection is independent, exact and rejects malformed inputs befor
       ],
       version,
     )
-  for (const version of [...testedDshVersions, 'invalid', '0.1.6'])
+  // Withdrawal of support does not turn the admitted Alpha into a peer refusal.
+  for (const version of [...testedDshVersions, '0.2.2-alpha.2', 'invalid', '0.1.6'])
     assert.throws(
       () => parseArguments(valid.map((value) => (value === '0.2.1-alpha.2' ? version : value))),
       /exact retired-dsh-version/u,
@@ -54,7 +57,7 @@ test('retired selection is independent, exact and rejects malformed inputs befor
   )
 })
 
-test('retired consumer reuses digest, checksum and complete ten-version archive checks before runtime work', async () => {
+test('retired consumer reuses digest, checksum and complete nine-version archive checks before runtime work', async () => {
   const root = await mkdtemp(join(tmpdir(), 'retired-archive-'))
   try {
     const packageRoot = join(root, 'package')

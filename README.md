@@ -11,7 +11,7 @@ Single-user remote sign-in for DeepSeek Harness (DSH), with password, TOTP, one-
 
 ## DSH compatibility
 
-Local candidate **`0.3.4`**, prepared 2026-11-03, declares these ten exact DSH releases. **`0.2.2-alpha.3`** is the development default and intended recommendation after final same-archive acceptance. It is an upstream Alpha, not an upstream stable release. Published `0.3.3` retains its nine declarations through `0.2.2-alpha.2`; it does not declare `0.2.2-alpha.3`.
+Version **`0.3.4`** declares these nine exact DSH releases. **`0.2.2-alpha.3`** is the development default and recommended host. Release availability is established by the completed release workflow and npm registry. The recommended DSH host is an upstream Alpha, not an upstream stable release. Published `0.3.3` retains its nine declarations through `0.2.2-alpha.2`; it does not declare `0.2.2-alpha.3`.
 
 | DSH release     | Maintenance       |
 | --------------- | ----------------- |
@@ -23,20 +23,21 @@ Local candidate **`0.3.4`**, prepared 2026-11-03, declares these ten exact DSH r
 | `0.2.1-rc.3`    | Supported         |
 | `0.2.1-rc.4`    | Supported         |
 | `0.2.1-rc.5`    | Supported         |
-| `0.2.2-alpha.2` | Supported         |
-| `0.2.2-alpha.3` | Candidate default |
+| `0.2.2-alpha.3` | Recommended host  |
 
 Legacy versions remain supported until an explicit retirement release; see the [support policy](docs/support-policy.md). Newer versions may load after capability checks, but are outside these exact compatibility declarations.
+
+DSH `0.2.2-alpha.2` is retired in plugin `0.3.4` because fresh SDK resolution breaks native settings updates. Upgrade to `0.2.2-alpha.3`; historical plugin `0.3.3` support does not repair that host dependency combination. See the [retirement exception](docs/support-policy.md#upstream-failure-exception).
 
 ## Install
 
 ```sh
 dsh --version
-dsh plugin --profile web add /absolute/path/dsh-auth-remote-0.3.4.tgz
+dsh plugin --profile web add dsh-auth-remote@0.3.4
 dsh plugin --profile web list
 ```
 
-Replace the example absolute path with the locally built, verified archive; `0.3.4` is not published to npm. Published `dsh-auth-remote@0.3.3` remains available for its nine declared hosts. Use the same data directory and profile for installation, initialization, and the running service. These commands use DSH's default `~/.dsh` directory and the `web` profile. First rehearse upgrades in an independent profile, following the [backup and rollback procedure](docs/deployment.md#backup-recovery-and-changes).
+Use this npm command after the release workflow has published the version. For an offline installation, substitute the absolute path to the verified release archive. Published `dsh-auth-remote@0.3.3` retains its nine declared hosts. Use the same data directory and profile for installation, initialization, and the running service. These commands use DSH's default `~/.dsh` directory and the `web` profile. First rehearse upgrades in an independent profile, following the [backup and rollback procedure](docs/deployment.md#backup-recovery-and-changes).
 
 ## Initialize the account
 
@@ -83,7 +84,7 @@ Mutating commands require interactive confirmation. If a submitted command loses
 
 Browser text supports English, Chinese, Japanese, Spanish, French, German, Russian, and Brazilian Portuguese. The embedded page follows DSH's language setting. The standalone login page uses the remembered DSH preference, then the browser language, then English; it has no language selector. CLI output is English.
 
-On DSH `0.2.2-alpha.3`, the native navigation uses a shield for this page; the other nine declared hosts retain their default icon.
+On DSH `0.2.2-alpha.3`, the native navigation uses a shield for this page; the other eight declared hosts retain their default icon.
 
 ## Sign in to an official DeepSeek account
 

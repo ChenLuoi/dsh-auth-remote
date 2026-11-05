@@ -6,13 +6,14 @@ This file records user-visible changes to the released package. Version numbers 
 
 ## Unreleased
 
-## 0.3.4 - 2026-11-03
+## 0.3.4 - 2026-11-05
 
-- Local candidate prepared on this date; not published. Upgrade the development SDK to DSH `0.2.2-alpha.3` and observe the Loader-owned effective configuration without replacing volatile references.
+- Upgrade the development SDK to DSH `0.2.2-alpha.3` and observe the Loader-owned effective configuration without replacing volatile references.
 
-- Declare ten exact DSH targets, adding `0.2.2-alpha.3` as development default and intended recommendation after final same-archive acceptance; retain all older support and legacy dates.
+- Declare nine exact DSH targets, adding `0.2.2-alpha.3` as development default and recommended host. Retain the existing legacy dates.
+- Withdraw support for DSH `0.2.2-alpha.2` in this release under an explicit 2026-11-05 zero-day exception: its native settings update hook is incompatible with newly resolved Cordis dependencies. Upgrade the host to `0.2.2-alpha.3`; downgrading the plugin does not repair the host. Remove only its positive verification target, retain shared adaptations and security checks, and keep technical admission unchanged.
 - Add the native shield to Security & sign-in navigation on `0.2.2-alpha.3`; older hosts keep their default icon. Preserve native slot disposal and viewer isolation, and require specialized browser registration and actual eight-language coverage.
-- Synchronize bilingual production prerequisites, isolated-profile upgrade/backup/rollback, compatibility inventories and published `0.3.3` facts. Final local reports stay outside the package; this entry records candidate preparation, not npm publication.
+- Synchronize bilingual production prerequisites, isolated-profile upgrade/backup/rollback, compatibility inventories and published `0.3.3` facts. Verification reports stay outside the package. The local candidate was prepared on 2026-11-03; actual publication is confirmed by the release workflow and registry.
 
 ## 0.3.3 - 2026-10-30
 

@@ -7,11 +7,7 @@ import { test } from 'node:test'
 import { Context } from '@deepseek-ai/cordis'
 import type { HostConnectionHandle } from '@deepseek-ai/dsh-client-connection'
 import semver from 'semver'
-import {
-  classifyDshSupport,
-  warnDshSupport,
-  type RetiredDshRecord,
-} from '../../src/shared/dsh-support.js'
+import { classifyDshSupport, warnDshSupport } from '../../src/shared/dsh-support.js'
 import { testedDshVersions } from '../../scripts/runtime.mjs'
 import {
   assertConnectionCompatibility,
@@ -83,22 +79,14 @@ test('forward version admission still rejects missing native authentication capa
   }
 })
 
-test('maintenance-only retirement warns while the same technical API checks remain mandatory', () => {
-  const fixture: RetiredDshRecord = {
-    state: 'retired',
-    version: '9.0.0-test.integration',
-    retiredOn: '2050-01-01',
-    effectivePlugin: '9.0.0-test.2',
-    lastSupportedPlugin: '9.0.0-test.1',
-    migrationTarget: '9.0.0-test.3',
-  }
+test('the retired Alpha warns while version admission and technical API checks remain unchanged', () => {
   const messages: string[] = []
-  const status = classifyDshSupport(fixture.version, new Set(), [fixture])
+  const status = classifyDshSupport('0.2.2-alpha.2', new Set(testedDshVersions))
   assert.equal(status.state, 'retired')
   warnDshSupport(status, (message) => messages.push(message))
   assert.equal(messages.length, 1)
   assert.equal(
-    semver.satisfies(fixture.version, SUPPORTED_DSH_RANGE, { includePrerelease: true }),
+    semver.satisfies(status.version, SUPPORTED_DSH_RANGE, { includePrerelease: true }),
     true,
   )
   const available = {
