@@ -2,9 +2,9 @@
 
 [简体中文](deployment.zh-CN.md)
 
-This guide covers `0.3.4` and its DSH `0.2.2-alpha.3` development default and recommended host. Use the default `~/.dsh` data directory only for your intended account, never for verification. See [README](../README.md#dsh-compatibility) for ten exact declarations, the [support policy](support-policy.md) for maintenance and [development](development.md) for source builds. Published `0.3.3` keeps its nine declarations. Confirm `0.3.4` availability from the completed release workflow and npm registry.
+This guide covers `0.3.4` and its DSH `0.2.2-alpha.3` development default and recommended host. Use the default `~/.dsh` data directory only for your intended account, never for verification. See [README](../README.md#dsh-compatibility) for nine exact declarations, the [support policy](support-policy.md) for maintenance and [development](development.md) for source builds. Published `0.3.3` keeps its nine declarations. Confirm `0.3.4` availability from the completed release workflow and npm registry.
 
-Production acceptance is bounded to Linux with `/proc`, Node.js 24 and Playwright Chromium. DSH `0.2.2-alpha.2` and `0.2.2-alpha.3` require Node `>=24.9.0`; the plugin engine stays `>=24`. The Alpha host is not an upstream stable release. Native IPv4/IPv6 HTTP/HTTPS and the existing Node forwarding topologies are covered by the prescribed local tests. A real non-loopback IPv6 interface, other platforms/browsers, real Nginx/Traefik, official-account authorization and production Relay/OAuth are unverified; local protocol stand-ins do not establish real-service behavior.
+Production acceptance is bounded to Linux with `/proc`, Node.js 24 and Playwright Chromium. DSH `0.2.2-alpha.3` requires Node `>=24.9.0`; the plugin engine stays `>=24`. The Alpha host is not an upstream stable release. Native IPv4/IPv6 HTTP/HTTPS and the existing Node forwarding topologies are covered by the prescribed local tests. A real non-loopback IPv6 interface, other platforms/browsers, real Nginx/Traefik, official-account authorization and production Relay/OAuth are unverified; local protocol stand-ins do not establish real-service behavior.
 
 ## Minimal installation
 

@@ -45,7 +45,6 @@ export const suites = {
       '0.2.1-rc.3',
       '0.2.1-rc.4',
       '0.2.1-rc.5',
-      '0.2.2-alpha.2',
       '0.2.2-alpha.3',
     ],
     count: 1,
@@ -165,7 +164,7 @@ export function requiredBrowserTestNames(version) {
   const names = [
     'native settings security icon preserves host navigation and contribution lifecycle',
   ]
-  if (['0.2.2-alpha.2', '0.2.2-alpha.3'].includes(version)) {
+  if (version === '0.2.2-alpha.3') {
     for (const ingress of ['native-https', 'https-http-proxy'])
       for (const compression of ['default', 'none'])
         names.push(
@@ -189,23 +188,12 @@ export function assertRegisteredCoverage(name, version, counts) {
     name === 'browser'
       ? [
           ...(version === '0.2.1-alpha.3' ? ['tests/browser/host-release.spec.ts'] : []),
-          ...(![
-            '0.2.1-rc.2',
-            '0.2.1-rc.3',
-            '0.2.1-rc.4',
-            '0.2.1-rc.5',
-            '0.2.2-alpha.2',
-            '0.2.2-alpha.3',
-          ].includes(version)
+          ...(!['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.3'].includes(
+            version,
+          )
             ? ['tests/browser/web-search-settings.spec.ts']
             : []),
-          ...(![
-            '0.2.1-rc.3',
-            '0.2.1-rc.4',
-            '0.2.1-rc.5',
-            '0.2.2-alpha.2',
-            '0.2.2-alpha.3',
-          ].includes(version)
+          ...(!['0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.3'].includes(version)
             ? ['tests/browser/rc-navigation.spec.ts']
             : []),
           ...([

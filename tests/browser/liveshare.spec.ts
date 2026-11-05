@@ -18,7 +18,7 @@ import {
 } from '../helpers/native-http.js'
 import { startForwarder, type Forwarder } from '../helpers/proxy.js'
 
-if (['0.2.2-alpha.2', '0.2.2-alpha.3'].includes(dshVersion))
+if (dshVersion === '0.2.2-alpha.3')
   test(
     'liveshare: native viewer carrier and index retain non-owner transport and administrator client is inert',
     { timeout: 90_000 },
@@ -161,7 +161,7 @@ if (['0.2.2-alpha.2', '0.2.2-alpha.3'].includes(dshVersion))
     },
   )
 
-if (['0.2.2-alpha.2', '0.2.2-alpha.3'].includes(dshVersion))
+if (dshVersion === '0.2.2-alpha.3')
   for (const ingress of ['native-https', 'https-http-proxy'] as const)
     test(
       `liveshare: ${ingress} real Owner PKCE login, native share worker, viewer and stop keep independent lifetimes`,

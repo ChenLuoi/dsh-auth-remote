@@ -2,9 +2,9 @@
 
 [English](deployment.md)
 
-本指南面向 `0.3.4` 及其开发默认和推荐宿主 DSH `0.2.2-alpha.3`。默认 `~/.dsh` 只用于预期账号，不用于验证。十版精确声明见 [README](../README.zh-CN.md#dsh-兼容性)，维护见[支持规范](support-policy.zh-CN.md)，源码构建见[开发指南](development.zh-CN.md)。已发布 `0.3.3` 保留九版声明；`0.3.4` 的可用性由发布工作流完成状态和 npm registry 确认。
+本指南面向 `0.3.4` 及其开发默认和推荐宿主 DSH `0.2.2-alpha.3`。默认 `~/.dsh` 只用于预期账号，不用于验证。九版精确声明见 [README](../README.zh-CN.md#dsh-兼容性)，维护见[支持规范](support-policy.zh-CN.md)，源码构建见[开发指南](development.zh-CN.md)。已发布 `0.3.3` 保留九版声明；`0.3.4` 的可用性由发布工作流完成状态和 npm registry 确认。
 
-生产验收边界为带 `/proc` 的 Linux、Node.js 24 和 Playwright Chromium。DSH `0.2.2-alpha.2`、`0.2.2-alpha.3` 要求 Node `>=24.9.0`；插件引擎仍为 `>=24`。Alpha 宿主不是上游稳定版。规定的本地测试覆盖原生 IPv4/IPv6 HTTP/HTTPS 与既有 Node 转发拓扑；真实非回环 IPv6 网卡、其他平台/浏览器、真实 Nginx/Traefik、官方账号授权及生产 Relay/OAuth 未验证，本地协议替身不证明真实服务行为。
+生产验收边界为带 `/proc` 的 Linux、Node.js 24 和 Playwright Chromium。DSH `0.2.2-alpha.3` 要求 Node `>=24.9.0`；插件引擎仍为 `>=24`。Alpha 宿主不是上游稳定版。规定的本地测试覆盖原生 IPv4/IPv6 HTTP/HTTPS 与既有 Node 转发拓扑；真实非回环 IPv6 网卡、其他平台/浏览器、真实 Nginx/Traefik、官方账号授权及生产 Relay/OAuth 未验证，本地协议替身不证明真实服务行为。
 
 ## 最小化安装
 

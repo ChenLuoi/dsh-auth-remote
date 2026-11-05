@@ -13,7 +13,7 @@ import {
 const manifest = createRequire(import.meta.url)('../../package.json')
 const declared = new Set<string>(Object.keys(manifest.dsh.compatibility.dshReleases))
 
-test('three announced legacy records and six explicit retirements match the candidate contract', () => {
+test('three legacy records and the six historical retirements retain their dates', () => {
   assert.deepEqual(
     LEGACY_DSH_RELEASES.map(({ version, legacySince, windowDays, eligibleRetirement }) => [
       version,
@@ -28,10 +28,10 @@ test('three announced legacy records and six explicit retirements match the cand
     ],
   )
   assert.deepEqual(
-    RETIRED_DSH_RELEASES.map(({ version }) => version),
+    RETIRED_DSH_RELEASES.slice(0, 6).map(({ version }) => version),
     ['0.1.7-rc.1', '0.1.7-rc.2', '0.2.0-rc.1', '0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2'],
   )
-  for (const record of RETIRED_DSH_RELEASES) {
+  for (const record of RETIRED_DSH_RELEASES.slice(0, 6)) {
     assert(!declared.has(record.version))
     assert.equal(classifyDshSupport(record.version, declared).state, 'retired')
     assert.equal(record.retiredOn, '2026-10-28')
@@ -73,7 +73,6 @@ test('normal declarations stay supported while absent exact versions remain unve
     '0.2.1-rc.3',
     '0.2.1-rc.4',
     '0.2.1-rc.5',
-    '0.2.2-alpha.2',
     '0.2.2-alpha.3',
   ]) {
     const status = classifyDshSupport(version, declared)
@@ -90,6 +89,35 @@ test('normal declarations stay supported while absent exact versions remain unve
   ])
     assert.equal(classifyDshSupport(version, declared).state, 'unverified')
   assert.equal(classifyDshSupport('0.1.7-rc.1', new Set()).state, 'retired')
+})
+
+test('the upstream-broken Alpha is explicitly retired without changing calendar or admission rules', () => {
+  assert.equal(RETIRED_DSH_RELEASES.length, 7)
+  const status = classifyDshSupport('0.2.2-alpha.2', declared)
+  assert.equal(status.state, 'retired')
+  if (status.state !== 'retired') throw new Error('Expected explicit retirement')
+  assert.deepEqual(status.record, {
+    state: 'retired',
+    version: '0.2.2-alpha.2',
+    retiredOn: '2026-11-05',
+    effectivePlugin: '0.3.4',
+    lastSupportedPlugin: '0.3.3',
+    migrationTarget: '0.2.2-alpha.3',
+  })
+  const warning = dshSupportWarning(status)!
+  for (const fact of ['0.2.2-alpha.2', '2026-11-05', '0.3.4', '0.3.3', '0.2.2-alpha.3'])
+    assert(warning.includes(fact), fact)
+  assert(warning.includes('technical checks still apply'))
+  const messages: string[] = []
+  assert.equal(
+    warnDshSupport(status, (message) => messages.push(message)),
+    true,
+  )
+  assert.equal(
+    warnDshSupport(status, (message) => messages.push(message)),
+    false,
+  )
+  assert.equal(messages.length, 1)
 })
 
 test('explicit fictional retirement is advisory and cannot override a current declaration', () => {

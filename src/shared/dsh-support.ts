@@ -42,20 +42,25 @@ export const LEGACY_DSH_RELEASES: readonly LegacyDshRecord[] = [
 
 // Preparation date, not the registry publication time or an admission input.
 export const RETIRED_DSH_RELEASES: readonly RetiredDshRecord[] = [
-  '0.1.7-rc.1',
-  '0.1.7-rc.2',
-  '0.2.0-rc.1',
-  '0.2.0-rc.2',
-  '0.2.1-alpha.1',
-  '0.2.1-alpha.2',
-].map((version) => ({
-  state: 'retired',
-  version,
-  retiredOn: '2026-10-28',
-  effectivePlugin: '0.3.1',
-  lastSupportedPlugin: '0.2.0',
-  migrationTarget: '0.2.2-alpha.3',
-}))
+  ...['0.1.7-rc.1', '0.1.7-rc.2', '0.2.0-rc.1', '0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2'].map(
+    (version): RetiredDshRecord => ({
+      state: 'retired',
+      version,
+      retiredOn: '2026-10-28',
+      effectivePlugin: '0.3.1',
+      lastSupportedPlugin: '0.2.0',
+      migrationTarget: '0.2.2-alpha.3',
+    }),
+  ),
+  {
+    state: 'retired',
+    version: '0.2.2-alpha.2',
+    retiredOn: '2026-11-05',
+    effectivePlugin: '0.3.4',
+    lastSupportedPlugin: '0.3.3',
+    migrationTarget: '0.2.2-alpha.3',
+  },
+]
 const lifecycle: readonly DshLifecycleRecord[] = [...LEGACY_DSH_RELEASES, ...RETIRED_DSH_RELEASES]
 
 /** Exact declarations take precedence. Calendar time is deliberately not an input. */

@@ -4,7 +4,7 @@
 
 每次发布都从已通过检查的 `master` 提交开始。`vX.Y.Z` 标签必须与 `package.json` 中的稳定版本以及两份更新日志的日期条目一致。标签工作流先核对标签与 master 祖先关系，只构建一个 npm 压缩包，对全部声明的 DSH 版本验证该包，再核对或发布 npm 版本，并创建包含相同压缩包和 `SHA256SUMS` 的 GitHub Release。
 
-版本 `0.3.4` 声明含 `0.2.2-alpha.3` 在内的十个精确目标。已发布 `0.3.3` 保留九版声明，`0.3.2` 保留八版历史与不可变归档。发布按下文依次完成 PR、master CI、标签和发布工作流；实际可用性由工作流完成状态及 npm registry 确认。最终同包报告不入 npm 包，changelog 日期记录发布准备日，`retiredOn: 2026-10-28` 不是 npm 发布时间。
+版本 `0.3.4` 声明含 `0.2.2-alpha.3` 在内的九个精确目标。已发布 `0.3.3` 保留九版声明，`0.3.2` 保留八版历史与不可变归档。发布按下文依次完成 PR、master CI、标签和发布工作流；实际可用性由工作流完成状态及 npm registry 确认。最终同包报告不入 npm 包，changelog 日期记录发布准备日，`retiredOn: 2026-10-28` 不是 npm 发布时间。
 
 发布准备中修改支持版本前，先复核 [Legacy 兼容维护清单](legacy-compatibility.zh-CN.md)，共同检查 peers、兼容声明、运行时准入、测试目标、CI 和指南。同次删除与支持集合无交集的专属运行时适配，保留共享安全逻辑；旧插件配置退役有独立条件。打包前同步更新并人工核对中英文清单、两个维度的矩阵及完整版本号。
 
@@ -54,7 +54,7 @@ node scripts/verify-retired.mjs --archive artifacts/dsh-auth-remote-0.3.4.tgz --
 
 消费循环中不得构建或打包。归档内容变化须产生新候选并重新全量验证。JSON 报告记录摘要、精确版本、suite 范围、命令和真实用例数，见[固定归档指南](development.zh-CN.md#消费固定归档)。
 
-工作流 DAG 为 `tag` → `package` → 共用 `verify-packed.yml` → `publish`。producer 上传一份 `release-package` 制品，独立 CLI/smoke 与完整 browser job 覆盖全部十个声明版本，消费前核对 producer 给出的预期 SHA-256、包身份及摘要文件。验证 job 拒绝不完整矩阵，full 聚合要求全部计划 job（含独立 `0.2.1-alpha.2` 退役拒绝）成功；失败、取消或意外跳过均阻止发布。
+工作流 DAG 为 `tag` → `package` → 共用 `verify-packed.yml` → `publish`。producer 上传一份 `release-package` 制品，独立 CLI/smoke 与完整 browser job 覆盖全部九个声明版本，消费前核对 producer 给出的预期 SHA-256、包身份及摘要文件。验证 job 拒绝不完整矩阵，full 聚合要求全部计划 job（含独立 `0.2.1-alpha.2` 退役拒绝）成功；失败、取消或意外跳过均阻止发布。
 
 `publish` 下载同一制品，再次与 producer 预期摘要核对，不构建或打包。保留 npm 同版本字节比较、可信发布及 GitHub Release 重试行为。工作流用 `npm publish ./artifacts/dsh-auth-remote-X.Y.Z.tgz --access public` 发布已验证 tgz，无需在本地手动发布。
 
@@ -81,4 +81,4 @@ npm view dsh-auth-remote@X.Y.Z version dist.integrity
 
 GitHub Release 包含 `.tgz` 和 `SHA256SUMS`。把两者下载到同一个目录，在该目录运行 `sha256sum -c SHA256SUMS` 验证附件。工作流失败时先查看 **Actions → Release** 再重试；npm 版本不可覆盖，因此只有现存版本的压缩包字节与本次构建一致时，工作流才会跳过重复发布。
 
-未提交候选的本地验收须另外冻结源码身份：HEAD、status、完整 binary diff、非忽略新增文件摘要、受跟踪和新增源码/测试/脚本/配置/文档/锁文件的路径、类型/模式与 SHA-256 清单，以及原暂存区基线。排除 task、运行数据、报告和生成物。消费者前后比较源码清单、index 和 tgz 摘要；任何源码、测试、脚本、锁文件或入包文档变化都重跑核心检查、重新冻结并完整重跑十版 CLI/browser/smoke 与独立拒绝，不能只记录 HEAD 或沿用旧归档结果。
+未提交候选的本地验收须另外冻结源码身份：HEAD、status、完整 binary diff、非忽略新增文件摘要、受跟踪和新增源码/测试/脚本/配置/文档/锁文件的路径、类型/模式与 SHA-256 清单，以及原暂存区基线。排除 task、运行数据、报告和生成物。消费者前后比较源码清单、index 和 tgz 摘要；任何源码、测试、脚本、锁文件或入包文档变化都重跑核心检查、重新冻结并完整重跑九版 CLI/browser/smoke 与独立拒绝，不能只记录 HEAD 或沿用旧归档结果。
