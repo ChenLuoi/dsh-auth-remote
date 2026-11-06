@@ -28,4 +28,4 @@ A supported DSH native HTTPS upstream also works behind a public HTTP or HTTPS p
 
 The authentication gate ignores `Forwarded` and `X-Forwarded-*` for trust decisions. This avoids treating a client-supplied hint as proof of TLS or hostname. The source checkout's browser suite tests these rules with its own Node HTTP/HTTPS forwarder; it does not execute Nginx or Traefik binaries.
 
-Verification of `0.3.4` targets Linux/Node.js 24 with Chromium and the existing Node forwarding harness. These examples remain deployment templates: real Nginx/Traefik products, a real non-loopback IPv6 interface, other platforms/browsers and real external services are not verified. Follow the deployment guide for independent-profile rehearsal, full backups and matching-data rollback.
+Verification of `0.3.5` targets Linux/Node.js 24 with Chromium and the existing Node forwarding harness. These examples remain deployment templates: real Nginx/Traefik products, a real non-loopback IPv6 interface, other platforms/browsers and real external services are not verified. Follow the deployment guide for independent-profile rehearsal, full backups and matching-data rollback.

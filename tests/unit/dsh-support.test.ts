@@ -37,7 +37,7 @@ test('three legacy records and the six historical retirements retain their dates
     assert.equal(record.retiredOn, '2026-10-28')
     assert.equal(record.effectivePlugin, '0.3.1')
     assert.equal(record.lastSupportedPlugin, '0.2.0')
-    assert.equal(record.migrationTarget, '0.2.2-alpha.3')
+    assert.equal(record.migrationTarget, '0.2.2-rc.1')
   }
   for (const record of LEGACY_DSH_RELEASES) {
     assert(declared.has(record.version))
@@ -74,6 +74,7 @@ test('normal declarations stay supported while absent exact versions remain unve
     '0.2.1-rc.4',
     '0.2.1-rc.5',
     '0.2.2-alpha.3',
+    '0.2.2-rc.1',
   ]) {
     const status = classifyDshSupport(version, declared)
     assert.equal(status.state, 'supported')
@@ -102,10 +103,10 @@ test('the upstream-broken Alpha is explicitly retired without changing calendar 
     retiredOn: '2026-11-05',
     effectivePlugin: '0.3.4',
     lastSupportedPlugin: '0.3.3',
-    migrationTarget: '0.2.2-alpha.3',
+    migrationTarget: '0.2.2-rc.1',
   })
   const warning = dshSupportWarning(status)!
-  for (const fact of ['0.2.2-alpha.2', '2026-11-05', '0.3.4', '0.3.3', '0.2.2-alpha.3'])
+  for (const fact of ['0.2.2-alpha.2', '2026-11-05', '0.3.4', '0.3.3', '0.2.2-rc.1'])
     assert(warning.includes(fact), fact)
   assert(warning.includes('technical checks still apply'))
   const messages: string[] = []

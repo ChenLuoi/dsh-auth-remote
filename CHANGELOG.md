@@ -6,6 +6,13 @@ This file records user-visible changes to the released package. Version numbers 
 
 ## Unreleased
 
+## 0.3.5 - 2026-11-06
+
+- Prepare plugin `0.3.5` for release with exact DSH `0.2.2-rc.1` support, retaining all nine existing targets. Use this RC prerelease as the development default, recommended host and current migration target; admission and legacy/retirement history stay unchanged.
+- Pin the development DSH SDK to `0.2.2-rc.1`, Cordis to `4.1.0` and Schemastery to `3.19.0`, without changing production authentication behavior.
+- Extend exact browser coverage and registration checks for native resources, mux, HMR rollback, LiveShare, eight languages and the native shield on both `0.2.2-alpha.3` and `0.2.2-rc.1`; add their real host-switch round trip and retain full ten-host same-archive release verification.
+- Align bilingual support, compatibility inventories and upgrade/release guides. Publication remains subject to PR/master CI and the tagged release workflow.
+
 ## 0.3.4 - 2026-11-05
 
 - Upgrade the development SDK to DSH `0.2.2-alpha.3` and observe the Loader-owned effective configuration without replacing volatile references.

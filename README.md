@@ -6,34 +6,35 @@ Single-user remote sign-in for DeepSeek Harness (DSH), with password, TOTP, one-
 
 ## Requirements
 
-- Linux with `/proc` and Node.js 24. DSH `0.2.2-alpha.3` requires Node.js `>=24.9.0`.
+- Linux with `/proc` and Node.js 24. DSH `0.2.2-rc.1` requires Node.js `>=24.9.0`.
 - A supported DSH release and a `web` profile. One account and its sessions belong to that profile.
 
 ## DSH compatibility
 
-Version **`0.3.4`** declares these nine exact DSH releases. **`0.2.2-alpha.3`** is the development default and recommended host. Release availability is established by the completed release workflow and npm registry. The recommended DSH host is an upstream Alpha, not an upstream stable release. Published `0.3.3` retains its nine declarations through `0.2.2-alpha.2`; it does not declare `0.2.2-alpha.3`.
+Version **`0.3.5`** is prepared for release with these ten exact DSH declarations. **`0.2.2-rc.1`** is the development default and recommended host, an upstream RC prerelease. Actual availability is established by the release workflow and npm registry. Published `0.3.4` retains its nine declarations, including `0.2.2-alpha.3`, without retroactive RC support.
 
-| DSH release     | Maintenance       |
-| --------------- | ----------------- |
-| `0.2.1-alpha.3` | Legacy; supported |
-| `0.2.1-alpha.4` | Legacy; supported |
-| `0.2.1-alpha.5` | Legacy; supported |
-| `0.2.1-rc.1`    | Supported         |
-| `0.2.1-rc.2`    | Supported         |
-| `0.2.1-rc.3`    | Supported         |
-| `0.2.1-rc.4`    | Supported         |
-| `0.2.1-rc.5`    | Supported         |
-| `0.2.2-alpha.3` | Recommended host  |
+| DSH release     | Maintenance                      |
+| --------------- | -------------------------------- |
+| `0.2.1-alpha.3` | Legacy; supported                |
+| `0.2.1-alpha.4` | Legacy; supported                |
+| `0.2.1-alpha.5` | Legacy; supported                |
+| `0.2.1-rc.1`    | Supported                        |
+| `0.2.1-rc.2`    | Supported                        |
+| `0.2.1-rc.3`    | Supported                        |
+| `0.2.1-rc.4`    | Supported                        |
+| `0.2.1-rc.5`    | Supported                        |
+| `0.2.2-alpha.3` | Supported                        |
+| `0.2.2-rc.1`    | Recommended host (RC prerelease) |
 
 Legacy versions remain supported until an explicit retirement release; see the [support policy](docs/support-policy.md). Newer versions may load after capability checks, but are outside these exact compatibility declarations.
 
-DSH `0.2.2-alpha.2` is retired in plugin `0.3.4` because fresh SDK resolution breaks native settings updates. Upgrade to `0.2.2-alpha.3`; historical plugin `0.3.3` support does not repair that host dependency combination. See the [retirement exception](docs/support-policy.md#upstream-failure-exception).
+DSH `0.2.2-alpha.2` is retired in plugin `0.3.4` because fresh SDK resolution breaks native settings updates. Upgrade to `0.2.2-rc.1`; historical plugin `0.3.3` support does not repair that host dependency combination. See the [retirement exception](docs/support-policy.md#upstream-failure-exception).
 
 ## Install
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.3.4
+dsh plugin --profile web add dsh-auth-remote@0.3.5
 dsh plugin --profile web list
 ```
 
@@ -84,7 +85,7 @@ Mutating commands require interactive confirmation. If a submitted command loses
 
 Browser text supports English, Chinese, Japanese, Spanish, French, German, Russian, and Brazilian Portuguese. The embedded page follows DSH's language setting. The standalone login page uses the remembered DSH preference, then the browser language, then English; it has no language selector. CLI output is English.
 
-On DSH `0.2.2-alpha.3`, the native navigation uses a shield for this page; the other eight declared hosts retain their default icon.
+On DSH `0.2.2-alpha.3` and `0.2.2-rc.1`, the native navigation uses a shield for this page; the other eight declared hosts retain their default icon.
 
 ## Sign in to an official DeepSeek account
 

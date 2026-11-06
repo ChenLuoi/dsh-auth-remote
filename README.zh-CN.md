@@ -6,34 +6,35 @@ DeepSeek Harness（DSH）的单用户远程登录插件，提供密码、TOTP、
 
 ## 前置条件
 
-- Linux（含 `/proc`）和 Node.js 24。DSH `0.2.2-alpha.3` 要求 Node.js `>=24.9.0`。
+- Linux（含 `/proc`）和 Node.js 24。DSH `0.2.2-rc.1` 要求 Node.js `>=24.9.0`。
 - 一个受支持的 DSH 版本和 `web` profile。一个账号及其会话属于该 profile。
 
 ## DSH 兼容性
 
-版本 **`0.3.4`** 声明以下九个精确 DSH 版本，**`0.2.2-alpha.3`** 为开发默认和推荐宿主。发布可用性以发布工作流完成状态和 npm registry 为准。推荐的 DSH 宿主仍是上游 Alpha，不是上游稳定版。已发布 `0.3.3` 保留截至 `0.2.2-alpha.2` 的九版声明，未声明 `0.2.2-alpha.3`。
+版本 **`0.3.5`** 正在准备发布，声明以下十个精确 DSH 版本；**`0.2.2-rc.1`** 为开发默认和推荐宿主，是上游 RC 预发布版本。实际可用性以发布工作流和 npm registry 为准。已发布 `0.3.4` 保留其九版声明，包含 `0.2.2-alpha.3`，不追溯增加 RC。
 
-| DSH 版本        | 维护状态       |
-| --------------- | -------------- |
-| `0.2.1-alpha.3` | Legacy；支持中 |
-| `0.2.1-alpha.4` | Legacy；支持中 |
-| `0.2.1-alpha.5` | Legacy；支持中 |
-| `0.2.1-rc.1`    | 支持中         |
-| `0.2.1-rc.2`    | 支持中         |
-| `0.2.1-rc.3`    | 支持中         |
-| `0.2.1-rc.4`    | 支持中         |
-| `0.2.1-rc.5`    | 支持中         |
-| `0.2.2-alpha.3` | 推荐宿主       |
+| DSH 版本        | 维护状态              |
+| --------------- | --------------------- |
+| `0.2.1-alpha.3` | Legacy；支持中        |
+| `0.2.1-alpha.4` | Legacy；支持中        |
+| `0.2.1-alpha.5` | Legacy；支持中        |
+| `0.2.1-rc.1`    | 支持中                |
+| `0.2.1-rc.2`    | 支持中                |
+| `0.2.1-rc.3`    | 支持中                |
+| `0.2.1-rc.4`    | 支持中                |
+| `0.2.1-rc.5`    | 支持中                |
+| `0.2.2-alpha.3` | 受支持                |
+| `0.2.2-rc.1`    | 推荐宿主（RC 预发布） |
 
 Legacy 版本在明确发布退役版本前继续支持，详见[支持规范](docs/support-policy.zh-CN.md)。更新版本可通过能力检查后加载，但不在上述精确兼容声明内。
 
-插件 `0.3.4` 因新解析 SDK 导致原生设置更新失败，已退役 DSH `0.2.2-alpha.2`。请升级至 `0.2.2-alpha.3`；插件 `0.3.3` 的历史支持声明不能修复该宿主依赖组合。详见[退役例外](docs/support-policy.zh-CN.md#upstream-failure-exception)。
+插件 `0.3.4` 因新解析 SDK 导致原生设置更新失败，已退役 DSH `0.2.2-alpha.2`。请升级至 `0.2.2-rc.1`；插件 `0.3.3` 的历史支持声明不能修复该宿主依赖组合。详见[退役例外](docs/support-policy.zh-CN.md#upstream-failure-exception)。
 
 ## 安装
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.3.4
+dsh plugin --profile web add dsh-auth-remote@0.3.5
 dsh plugin --profile web list
 ```
 
@@ -84,7 +85,7 @@ dsh plugin --profile web exec dsh-auth-remote revoke-sessions
 
 浏览器文案支持英、中、日、西、法、德、俄和巴西葡萄牙语。内嵌页面跟随 DSH 语言设置；独立登录页依次使用已记住的 DSH 偏好、浏览器语言、英文，不提供语言选择器。CLI 文案固定英语。
 
-DSH `0.2.2-alpha.3` 的原生导航为此页显示盾牌；其余八个声明宿主保留默认图标。
+DSH `0.2.2-alpha.3`、`0.2.2-rc.1` 的原生导航为此页显示盾牌；其余八个声明宿主保留默认图标。
 
 ## 登录 DeepSeek 官方账号
 

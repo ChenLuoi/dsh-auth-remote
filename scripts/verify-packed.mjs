@@ -46,6 +46,7 @@ export const suites = {
       '0.2.1-rc.4',
       '0.2.1-rc.5',
       '0.2.2-alpha.3',
+      '0.2.2-rc.1',
     ],
     count: 1,
   },
@@ -164,12 +165,16 @@ export function requiredBrowserTestNames(version) {
   const names = [
     'native settings security icon preserves host navigation and contribution lifecycle',
   ]
-  if (version === '0.2.2-alpha.3') {
+  if (['0.2.2-alpha.3', '0.2.2-rc.1'].includes(version)) {
     for (const ingress of ['native-https', 'https-http-proxy'])
       for (const compression of ['default', 'none'])
         names.push(
           `native mux ${ingress} ${compression} preserves native compression, expiry and revocation`,
         )
+    for (const ingress of ['native-https', 'https-http-proxy'])
+      names.push(
+        `liveshare: ${ingress} real Owner PKCE login, native share worker, viewer and stop keep independent lifetimes`,
+      )
     names.push(
       'native resource caching retains asset and fallback ETags, immutable code and all session gates',
       'native HMR preserves preflight failures and cleans allocated replacement resources before rollback',
@@ -188,12 +193,19 @@ export function assertRegisteredCoverage(name, version, counts) {
     name === 'browser'
       ? [
           ...(version === '0.2.1-alpha.3' ? ['tests/browser/host-release.spec.ts'] : []),
-          ...(!['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.3'].includes(
-            version,
-          )
+          ...(![
+            '0.2.1-rc.2',
+            '0.2.1-rc.3',
+            '0.2.1-rc.4',
+            '0.2.1-rc.5',
+            '0.2.2-alpha.3',
+            '0.2.2-rc.1',
+          ].includes(version)
             ? ['tests/browser/web-search-settings.spec.ts']
             : []),
-          ...(!['0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.3'].includes(version)
+          ...(!['0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.3', '0.2.2-rc.1'].includes(
+            version,
+          )
             ? ['tests/browser/rc-navigation.spec.ts']
             : []),
           ...([

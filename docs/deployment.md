@@ -2,9 +2,9 @@
 
 [简体中文](deployment.zh-CN.md)
 
-This guide covers `0.3.4` and its DSH `0.2.2-alpha.3` development default and recommended host. Use the default `~/.dsh` data directory only for your intended account, never for verification. See [README](../README.md#dsh-compatibility) for nine exact declarations, the [support policy](support-policy.md) for maintenance and [development](development.md) for source builds. Published `0.3.3` keeps its nine declarations. Confirm `0.3.4` availability from the completed release workflow and npm registry.
+This guide covers `0.3.5` and its DSH `0.2.2-rc.1` development default and recommended host. Use the default `~/.dsh` data directory only for your intended account, never for verification. See [README](../README.md#dsh-compatibility) for ten exact declarations, the [support policy](support-policy.md) for maintenance and [development](development.md) for source builds. Published `0.3.4` keeps its nine declarations, including `0.2.2-alpha.3` and excluding `0.2.2-rc.1`. Confirm `0.3.5` availability from the completed release workflow and npm registry.
 
-Production acceptance is bounded to Linux with `/proc`, Node.js 24 and Playwright Chromium. DSH `0.2.2-alpha.3` requires Node `>=24.9.0`; the plugin engine stays `>=24`. The Alpha host is not an upstream stable release. Native IPv4/IPv6 HTTP/HTTPS and the existing Node forwarding topologies are covered by the prescribed local tests. A real non-loopback IPv6 interface, other platforms/browsers, real Nginx/Traefik, official-account authorization and production Relay/OAuth are unverified; local protocol stand-ins do not establish real-service behavior.
+Production acceptance is bounded to Linux with `/proc`, Node.js 24 and Playwright Chromium. DSH `0.2.2-rc.1` requires Node `>=24.9.0`; the plugin engine stays `>=24`. The RC prerelease host is not an upstream stable release. Native IPv4/IPv6 HTTP/HTTPS and the existing Node forwarding topologies are covered by the prescribed local tests. A real non-loopback IPv6 interface, other platforms/browsers, real Nginx/Traefik, official-account authorization and production Relay/OAuth are unverified; local protocol stand-ins do not establish real-service behavior.
 
 ## Minimal installation
 
@@ -12,7 +12,7 @@ After the independent-profile rehearsal and backup below, use the same intended 
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.3.4
+dsh plugin --profile web add dsh-auth-remote@0.3.5
 dsh plugin --profile web list
 dsh web --no-open --port 13090
 ```
@@ -126,7 +126,7 @@ Standard `/api` routes work with `preserveOriginPaths: []`; there is no need to 
 
 ## Start and verify the public entry
 
-1. Verify Linux, Node.js 24+ (at least `24.9.0` for default DSH `0.2.2-alpha.3`), the exact compatible DSH version, and the intended profile/package. Keep test and development data separate.
+1. Verify Linux, Node.js 24+ (at least `24.9.0` for default DSH `0.2.2-rc.1`), the exact compatible DSH version, and the intended profile/package. Keep test and development data separate.
 2. Merge one complete profile configuration and configure a private reachable proxy upstream if needed; see the [proxy guide](reverse-proxy.md).
 3. Start DSH. For the HTTP upstream example, inspect `curl -fsS -H 'Host: dsh.example.com' http://127.0.0.1:13090/auth-remote/ready` and require the expected plugin/protocol and `ready: true`.
 4. Confirm anonymous HTML redirect and API denial, then initialize locally, sign in, bind TOTP and save backup codes. Exercise official settings, workspace, preview, uploads, SSE/WebSocket and revocation through the selected entry.
@@ -135,13 +135,13 @@ Startup prints the actual protocol/address/port and one distinct public root, de
 
 ## Backup, recovery and changes
 
-Before upgrading, record the exact old DSH version, plugin archive and digest, profile configuration and package/lock files. Stop the old process, confirm that it released the profile lock, and back up the complete target profile, authentication state, DSH data and configuration with private permissions. Keep the original backup intact. Copy it into an independent private `DSH_HOME` to rehearse the selected exact host and verified `0.3.4` release archive; do not reuse a production profile for verification.
+Before upgrading, record the exact old DSH version, plugin archive and digest, profile configuration and package/lock files. Stop the old process, confirm that it released the profile lock, and back up the complete target profile, authentication state, DSH data and configuration with private permissions. Keep the original backup intact. Copy it into an independent private `DSH_HOME` to rehearse the selected exact host and verified `0.3.5` release archive; do not reuse a production profile for verification.
 
 Only then change the stopped production installation. Keep its public entry private and retain the independent `webserver disabled: true` row until readiness, anonymous rejection, login and session revocation checks pass. Do not overwrite live state. This version changes no plugin storage format.
 
 For rollback, stop the new process and restore the matching old exact host, plugin archive, configuration and corresponding complete data backup. Host-switch tests establish only their covered configuration/session contracts; they do not promise that an old host can read arbitrary new production data. Use the matching backup for production data rollback.
 
-When upgrading from a plugin earlier than `0.3.2`, account for the behavior changes introduced in `0.3.2` and retained in `0.3.4`: CLI text is fixed English, so remove `--lang` from scripts; JSON fields are unchanged. The standalone login page has no language selector and uses `dsh-auth-remote-lang` memory, then `navigator.language`, then English. Old `dsh-auth-remote.locale` is ignored, retained and not migrated. Entering DSH remembers only native accepted preferences; signing out keeps them. The plugin's eight languages do not expand DSH's native language catalog.
+When upgrading from a plugin earlier than `0.3.2`, account for the behavior changes introduced in `0.3.2` and retained in `0.3.5`: CLI text is fixed English, so remove `--lang` from scripts; JSON fields are unchanged. The standalone login page has no language selector and uses `dsh-auth-remote-lang` memory, then `navigator.language`, then English. Old `dsh-auth-remote.locale` is ignored, retained and not migrated. Entering DSH remembers only native accepted preferences; signing out keeps them. The plugin's eight languages do not expand DSH's native language catalog.
 
 Stop DSH and verify it released the profile lock before copying `~/.dsh/profiles/web/auth-remote/auth-state.json`. Keep the copy in a private directory (0700) with file mode 0600. It contains password hashes, the TOTP secret, backup-code hashes and sessions. Do not copy an in-progress temporary file, overwrite live locked state or commit it. Back up the corresponding profile patch and package/lock files.
 
