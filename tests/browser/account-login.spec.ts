@@ -368,8 +368,9 @@ test(
       await expect(
         dialog.getByText(dictionaries.zh.accountLoginInvalidCallback, { exact: true }),
       ).toBeVisible()
-      const locales: Locale[] =
-        dshVersion === '0.2.2-alpha.3' ? (Object.keys(dictionaries) as Locale[]) : ['zh', 'en']
+      const locales: Locale[] = ['0.2.2-alpha.3', '0.2.2-rc.1'].includes(dshVersion)
+        ? (Object.keys(dictionaries) as Locale[])
+        : ['zh', 'en']
       assert.deepEqual(
         await f.page.evaluate(() =>
           (window as any).__authRemoteContext.locale
@@ -412,7 +413,7 @@ test(
         }
       }
       assert.deepEqual([...visited].sort(), [...locales].sort())
-      if (dshVersion === '0.2.2-alpha.3')
+      if (['0.2.2-alpha.3', '0.2.2-rc.1'].includes(dshVersion))
         assert.deepEqual([...visited].sort(), ['de', 'en', 'es', 'fr', 'ja', 'pt', 'ru', 'zh'])
       console.log('actual manual account language coverage', JSON.stringify([...visited].sort()))
       assert.deepEqual(f.errors, [])
@@ -550,7 +551,7 @@ test(
   },
 )
 
-if (dshVersion === '0.2.2-alpha.3')
+if (['0.2.2-alpha.3', '0.2.2-rc.1'].includes(dshVersion))
   test(
     'native HMR preserves preflight failures and cleans allocated replacement resources before rollback',
     { timeout: 150000 },

@@ -30,7 +30,7 @@ function legacy(version: string, windowDays: number, eligibleRetirement: string)
     legacySince: '2026-10-28',
     windowDays,
     eligibleRetirement,
-    migrationTarget: '0.2.2-alpha.3',
+    migrationTarget: '0.2.2-rc.1',
   }
 }
 
@@ -49,7 +49,7 @@ export const RETIRED_DSH_RELEASES: readonly RetiredDshRecord[] = [
       retiredOn: '2026-10-28',
       effectivePlugin: '0.3.1',
       lastSupportedPlugin: '0.2.0',
-      migrationTarget: '0.2.2-alpha.3',
+      migrationTarget: '0.2.2-rc.1',
     }),
   ),
   {
@@ -58,7 +58,7 @@ export const RETIRED_DSH_RELEASES: readonly RetiredDshRecord[] = [
     retiredOn: '2026-11-05',
     effectivePlugin: '0.3.4',
     lastSupportedPlugin: '0.3.3',
-    migrationTarget: '0.2.2-alpha.3',
+    migrationTarget: '0.2.2-rc.1',
   },
 ]
 const lifecycle: readonly DshLifecycleRecord[] = [...LEGACY_DSH_RELEASES, ...RETIRED_DSH_RELEASES]

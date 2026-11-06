@@ -70,7 +70,7 @@ function firstTextCompression(socket: any): Promise<boolean> {
   })
 }
 
-if (dshVersion === '0.2.2-alpha.3')
+if (['0.2.2-alpha.3', '0.2.2-rc.1'].includes(dshVersion))
   for (const ingress of ['native-https', 'https-http-proxy'] as const)
     for (const compression of ['default', 'none'] as const)
       test(
@@ -245,7 +245,7 @@ if (dshVersion === '0.2.2-alpha.3')
         },
       )
 
-if (dshVersion === '0.2.2-alpha.3')
+if (['0.2.2-alpha.3', '0.2.2-rc.1'].includes(dshVersion))
   test(
     'native resource caching retains asset and fallback ETags, immutable code and all session gates',
     { timeout: 90000 },
