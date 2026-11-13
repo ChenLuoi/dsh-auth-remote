@@ -2,13 +2,13 @@
 
 [English](deployment.md)
 
-本指南面向候选 `0.3.6` 及推荐 RC 预发布宿主 DSH `0.2.2-rc.2`。候选尚未发布；npm 安装命令仅在发布后使用，此前只能在独立 profile 消费已验证候选归档。八版声明见 [README](../README.zh-CN.md#dsh-兼容性)，维护见[支持规范](support-policy.zh-CN.md)，源码构建见[开发指南](development.zh-CN.md)。已发布 `0.3.5` 保留原十版声明和归档，是三个退役 Alpha 的最后支持插件。默认 `~/.dsh` 只用于预期账号，不用于验证。
+本指南面向已发布 `0.3.6` 及推荐 RC 预发布宿主 DSH `0.2.2-rc.2`。先在独立 profile 演练，再使用 npm 版本或已验证发布归档。八版声明见 [README](../README.zh-CN.md#dsh-兼容性)，维护见[支持规范](support-policy.zh-CN.md)，源码构建见[开发指南](development.zh-CN.md)。已发布 `0.3.5` 保留原十版声明和归档，是三个退役 Alpha 的最后支持插件。默认 `~/.dsh` 只用于预期账号，不用于验证。
 
 生产验收边界为带 `/proc` 的 Linux、Node.js 24 和 Playwright Chromium。DSH `0.2.2-rc.2` 要求 Node `>=24.9.0`；插件引擎仍为 `>=24`。RC 预发布宿主不是上游稳定版。规定的本地测试覆盖原生 IPv4/IPv6 HTTP/HTTPS 与既有 Node 转发拓扑；真实非回环 IPv6 网卡、其他平台/浏览器、真实 Nginx/Traefik、官方账号授权及生产 Relay/OAuth 未验证，本地协议替身不证明真实服务行为。
 
 ## 最小化安装
 
-完成下方独立 profile 演练和备份后，安装与运行使用同一预期 `web` profile；发布工作流成功后安装 npm 版本；离线安装时改用已验证发布归档的绝对路径：
+完成下方独立 profile 演练和备份后，安装与运行使用同一预期 `web` profile；安装已发布 npm 版本；离线安装时改用已验证发布归档的绝对路径：
 
 ```sh
 dsh --version
@@ -135,7 +135,7 @@ dsh web --no-open --tls-cert ./tls/dsh.crt --tls-key ./tls/dsh.key
 
 ## 备份、恢复与变更
 
-升级前记录原精确 DSH 版本、插件归档及摘要、profile 配置和 package/lock 文件。停止旧进程并确认 profile 锁释放，以私有权限备份完整目标 profile、认证状态、DSH 数据和配置，保留原始备份。先将备份复制到独立私有 `DSH_HOME`，演练所选精确宿主与已验证的 `0.3.6` 候选或发布归档；验证不得复用生产 profile。
+升级前记录原精确 DSH 版本、插件归档及摘要、profile 配置和 package/lock 文件。停止旧进程并确认 profile 锁释放，以私有权限备份完整目标 profile、认证状态、DSH 数据和配置，保留原始备份。先将备份复制到独立私有 `DSH_HOME`，演练所选精确宿主与已验证的 `0.3.6` 发布归档；验证不得复用生产 profile。
 
 演练通过后再修改已停服的生产安装。在 readiness、匿名拒绝、登录与会话撤销检查通过前，保持公开入口私有，并保留独立 `webserver disabled: true`。不得覆盖运行中的状态；本版本不修改插件存储格式。
 

@@ -6,6 +6,8 @@ This file records user-visible changes to the released package. Version numbers 
 
 ## Unreleased
 
+- Record the published `0.3.6` archive, completed verification and actual distribution times in repository documentation; preserve the immutable release archive and its preparation wording.
+
 ## 0.3.6 - 2026-11-13
 
 - Preserve the native DSH `0.2.2-rc.2` account entry, notification children and ownership through real client/native-component HMR, disposal and later-writer protection. Older entries without children retain public registration. Document the private adaptation and its evidence boundaries in both languages.
