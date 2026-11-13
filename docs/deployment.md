@@ -2,13 +2,13 @@
 
 [简体中文](deployment.zh-CN.md)
 
-This guide covers candidate `0.3.6` and recommended RC prerelease host DSH `0.2.2-rc.2`. The candidate is unpublished; use npm installation commands only after publication, and a verified candidate archive in an independent profile beforehand. See [README](../README.md#dsh-compatibility) for eight declarations, the [support policy](support-policy.md) for maintenance and [development](development.md) for source builds. Published `0.3.5` retains its original ten declarations and archive as the last supporting plugin for the three retired Alphas. Use the default `~/.dsh` only for your intended account, never verification.
+This guide covers published `0.3.6` and recommended RC prerelease host DSH `0.2.2-rc.2`. Use its npm version or verified release archive after rehearsal in an independent profile. See [README](../README.md#dsh-compatibility) for eight declarations, the [support policy](support-policy.md) for maintenance and [development](development.md) for source builds. Published `0.3.5` retains its original ten declarations and archive as the last supporting plugin for the three retired Alphas. Use the default `~/.dsh` only for your intended account, never verification.
 
 Production acceptance is bounded to Linux with `/proc`, Node.js 24 and Playwright Chromium. DSH `0.2.2-rc.2` requires Node `>=24.9.0`; the plugin engine stays `>=24`. The RC prerelease host is not an upstream stable release. Native IPv4/IPv6 HTTP/HTTPS and the existing Node forwarding topologies are covered by the prescribed local tests. A real non-loopback IPv6 interface, other platforms/browsers, real Nginx/Traefik, official-account authorization and production Relay/OAuth are unverified; local protocol stand-ins do not establish real-service behavior.
 
 ## Minimal installation
 
-After the independent-profile rehearsal and backup below, use the same intended `web` profile for installation and the running service. After successful publication, install the npm version; for an offline installation, substitute the absolute path to your verified release archive:
+After the independent-profile rehearsal and backup below, use the same intended `web` profile for installation and the running service. Install the published npm version; for an offline installation, substitute the absolute path to your verified release archive:
 
 ```sh
 dsh --version
@@ -135,7 +135,7 @@ Startup prints the actual protocol/address/port and one distinct public root, de
 
 ## Backup, recovery and changes
 
-Before upgrading, record the exact old DSH version, plugin archive and digest, profile configuration and package/lock files. Stop the old process, confirm that it released the profile lock, and back up the complete target profile, authentication state, DSH data and configuration with private permissions. Keep the original backup intact. Copy it into an independent private `DSH_HOME` to rehearse the selected exact host and verified `0.3.6` candidate or published archive; do not reuse a production profile for verification.
+Before upgrading, record the exact old DSH version, plugin archive and digest, profile configuration and package/lock files. Stop the old process, confirm that it released the profile lock, and back up the complete target profile, authentication state, DSH data and configuration with private permissions. Keep the original backup intact. Copy it into an independent private `DSH_HOME` to rehearse the selected exact host and verified published `0.3.6` archive; do not reuse a production profile for verification.
 
 Only then change the stopped production installation. Keep its public entry private and retain the independent `webserver disabled: true` row until readiness, anonymous rejection, login and session revocation checks pass. Do not overwrite live state. This version changes no plugin storage format.
 

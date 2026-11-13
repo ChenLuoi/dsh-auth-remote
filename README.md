@@ -11,7 +11,7 @@ Single-user remote sign-in for DeepSeek Harness (DSH), with password, TOTP, one-
 
 ## DSH compatibility
 
-Source candidate **`0.3.6`** declares these eight exact DSH releases. **`0.2.2-rc.2`** is the development default and recommended migration host, still an upstream RC prerelease. The candidate is unpublished; final same-archive acceptance and PR/master/tag gates must precede publication. Declarations do not establish testing or distribution. Published `0.3.5` retains its original ten declarations and archive.
+Published **`0.3.6`** supports these eight exact DSH releases. **`0.2.2-rc.2`** is the development default and recommended migration host, still an upstream RC prerelease. The tag archive passed full verification and is available from npm and GitHub; exact publication and archive evidence are in the [support history](docs/support-history.md#plugin-0.3.6). Published `0.3.5` retains its original ten declarations and archive.
 
 | DSH release     | Maintenance                          |
 | --------------- | ------------------------------------ |

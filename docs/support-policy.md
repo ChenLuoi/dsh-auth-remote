@@ -2,7 +2,7 @@
 
 [简体中文](support-policy.zh-CN.md)
 
-Last updated: 2026-11-13. This policy separates maintenance commitments, exact-version verification and technical admission. Source candidate **`0.3.6`** declares eight hosts, adds recommended RC prerelease `0.2.2-rc.2` and retires maintenance of three Alphas; final same-archive acceptance and publication remain pending. Published `0.3.5` retains ten original declarations; its registry integrity and original archive were checked on 2026-11-13. Declarations, real tests, Actions success and public distribution are recorded separately.
+Last updated: 2026-11-14. This policy separates maintenance commitments, exact-version verification and technical admission. Published **`0.3.6`** supports eight hosts, adds recommended RC prerelease `0.2.2-rc.2` and retires maintenance of three Alphas. Its tag archive passed full acceptance and public distribution checks; [support history](support-history.md#plugin-0.3.6) records the exact digest and actual publication time. Published `0.3.5` retains ten original declarations and remains obtainable. Declarations, real tests, Actions success and public distribution are recorded separately.
 
 ## Support states and runtime admission
 
@@ -20,13 +20,13 @@ Diagnostics belong in startup logs, before protected service is offered: legacy 
 
 ## Current maintenance schedule
 
-Candidate `0.3.6` explicitly retires maintenance of `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5`. Their original legacySince=2026-10-28, windowDays=14 and eligibleRetirement=2026-11-11 (Asia/Shanghai) are not reset. effectivePlugin=`0.3.6`, lastSupportedPlugin=`0.3.5`, retiredOn=2026-11-13 (preparation date; record the actual registry timestamp separately). Publication makes the new release’s withdrawal effective; dates never change old installed behavior. All eight remaining hosts stay in complete release-blocking verification.
+Published `0.3.6` explicitly retires maintenance of `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5`. Their original legacySince=2026-10-28, windowDays=14 and eligibleRetirement=2026-11-11 (Asia/Shanghai) are not reset. effectivePlugin=`0.3.6`, lastSupportedPlugin=`0.3.5`, retiredOn=2026-11-13 (preparation date; record the actual registry timestamp separately). Publication makes the new release’s withdrawal effective; dates never change old installed behavior. All eight remaining hosts stay in complete release-blocking verification.
 
 | Exact DSH release | Maintenance state                                                   | Legacy since | Window in calendar days | Earliest eligible retirement |
 | ----------------- | ------------------------------------------------------------------- | ------------ | ----------------------- | ---------------------------- |
-| `0.2.1-alpha.3`   | Maintenance retired in candidate `0.3.6`; last support `0.3.5`      | 2026-10-28   | 14                      | 2026-11-11                   |
-| `0.2.1-alpha.4`   | Maintenance retired in candidate `0.3.6`; last support `0.3.5`      | 2026-10-28   | 14                      | 2026-11-11                   |
-| `0.2.1-alpha.5`   | Maintenance retired in candidate `0.3.6`; last support `0.3.5`      | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-alpha.3`   | Maintenance retired in published `0.3.6`; last support `0.3.5`      | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-alpha.4`   | Maintenance retired in published `0.3.6`; last support `0.3.5`      | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-alpha.5`   | Maintenance retired in published `0.3.6`; last support `0.3.5`      | 2026-10-28   | 14                      | 2026-11-11                   |
 | `0.2.1-rc.1`      | Supported                                                           | —            | —                       | Not announced                |
 | `0.2.1-rc.2`      | Supported                                                           | —            | —                       | Not announced                |
 | `0.2.1-rc.3`      | Supported                                                           | —            | —                       | Not announced                |
@@ -37,7 +37,7 @@ Candidate `0.3.6` explicitly retires maintenance of `0.2.1-alpha.3`, `0.2.1-alph
 | `0.2.2-rc.1`      | Supported                                                           | —            | —                       | Not announced                |
 | `0.2.2-rc.2`      | Supported; development default and recommended host (RC prerelease) | —            | —                       | Not announced                |
 
-Migrate to DSH `0.2.2-rc.2` with a verified plugin `0.3.6` candidate archive; use the npm version only after successful publication. This adapts an upstream RC prerelease, not a stable host. Last-supporting plugin `0.3.5` is published and available, with original archive SHA-256 `9d5d1cab4017112251aa3864f5e27ff28739d27136eef7440080c5969d52be34`. Keep that archive and a complete data backup, and rehearse in an independent profile. Rollback must restore matching host, plugin, configuration and complete data backup; old hosts are not promised to read new data. See the [deployment guide](deployment.md#backup-recovery-and-changes).
+Migrate to DSH `0.2.2-rc.2` with published plugin `0.3.6` from npm or its verified release archive. This adapts an upstream RC prerelease, not a stable host. Last-supporting plugin `0.3.5` is published and available, with original archive SHA-256 `9d5d1cab4017112251aa3864f5e27ff28739d27136eef7440080c5969d52be34`. Keep that archive and a complete data backup, and rehearse in an independent profile. Rollback must restore matching host, plugin, configuration and complete data backup; old hosts are not promised to read new data. See the [deployment guide](deployment.md#backup-recovery-and-changes).
 
 <a id="upstream-failure-exception"></a>
 
@@ -47,7 +47,7 @@ On 2026-11-05 (Asia/Shanghai), development explicitly approved withdrawing suppo
 
 Fresh installation resolves the host's `~4.0.6-alpha.1` Cordis range to `4.0.6-alpha.2`. The shipped `@deepseek-ai/dsh-app-boot@0.2.2-alpha.2` global `internal/update` callback expects `(config, noSave, next)`, while the new Core supplies `(config, next)`. Native settings writes fail with `next is not a function`, including welcome-notice acknowledgement without this plugin installed. The original SDK combination succeeds. The CI run `41807651546` / browser job `126499190719` and isolated native reproduction establish the failure; old passing reports apply only to their original dependency composition. This exception reflects a reproduced native failure, not the Alpha label or test duration.
 
-The historical migration recommendation on 2026-11-05 was DSH `0.2.2-alpha.3`, which uses the matching callback contract. Registry archives/integrities for that host and last historically supporting plugin `0.3.3` were checked that day, separately from the then-required final `0.3.4` artifact acceptance. Downgrading the plugin does not repair the host, and the old declaration is not a fresh-install recommendation. The current recommendation above is DSH `0.2.2-rc.2` with candidate plugin `0.3.6`; follow the [deployment guide](deployment.md) for complete backups and independent-profile rehearsal, using the npm version after publication or its verified archive.
+The historical migration recommendation on 2026-11-05 was DSH `0.2.2-alpha.3`, which uses the matching callback contract. Registry archives/integrities for that host and last historically supporting plugin `0.3.3` were checked that day, separately from the then-required final `0.3.4` artifact acceptance. Downgrading the plugin does not repair the host, and the old declaration is not a fresh-install recommendation. The current recommendation above is DSH `0.2.2-rc.2` with published plugin `0.3.6`; follow the [deployment guide](deployment.md) for complete backups and independent-profile rehearsal, using the published npm version or its verified archive.
 
 The `0.3.4` change removed `0.2.2-alpha.2` from exact declarations and positive CI targets while retaining the other nine targets; `0.3.5` adds `0.2.2-rc.1` for ten. Keep all shared adaptations/security checks and independent retired `0.2.1-alpha.2` refusal verification. Technical admission remains `>=0.2.1-alpha.3` with identity/API checks and an explicit retired-version warning. This change makes no blanket startup refusal or native settings repair claim. The profile must still independently disable the native webserver.
 

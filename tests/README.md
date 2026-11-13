@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md)
 
-Candidate `0.3.6` declares eight exact targets: `0.2.1-rc.1`, `0.2.1-rc.2`, `0.2.1-rc.3`, `0.2.1-rc.4`, `0.2.1-rc.5`, `0.2.2-alpha.3`, `0.2.2-rc.1`, `0.2.2-rc.2`. Default/recommended host `0.2.2-rc.2` is an upstream RC prerelease requiring Node.js `>=24.9.0`. The candidate is unpublished; final same-archive reports, Actions and publication are separate evidence. Historical or partial runs do not certify a revised final archive.
+Published `0.3.6` declares eight exact targets: `0.2.1-rc.1`, `0.2.1-rc.2`, `0.2.1-rc.3`, `0.2.1-rc.4`, `0.2.1-rc.5`, `0.2.2-alpha.3`, `0.2.2-rc.1`, `0.2.2-rc.2`. Default/recommended host `0.2.2-rc.2` is an upstream RC prerelease requiring Node.js `>=24.9.0`. The immutable tag archive passed full acceptance and public distribution checks, recorded in [support history](../docs/support-history.md#plugin-0.3.6). Each later CI producer retains its own evidence. Historical or partial runs do not certify a revised final archive.
 
 Use Linux with `/proc`, Node.js 24, pnpm 12.5.1 and Playwright Chromium:
 
