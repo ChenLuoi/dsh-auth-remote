@@ -71,9 +71,7 @@ for (const fault of ['loader-requirement', 'runtime-admission'] as const)
       await appendFile(entry, '\nconsole.info(' + JSON.stringify(marker) + ');\n')
       if (fault === 'loader-requirement') {
         const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
-        if (dshVersion === '0.2.1-alpha.3')
-          manifest.peerDependencies['@deepseek-ai/dsh-host-webserver'] = '>=99.0.0'
-        else manifest.engines.dsh = '>=99.0.0'
+        manifest.engines.dsh = '>=99.0.0'
         await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
       } else {
         const source = await readFile(entry, 'utf8')
@@ -96,12 +94,7 @@ for (const fault of ['loader-requirement', 'runtime-admission'] as const)
       const { stdout, stderr } = command.output()
       assert.match(stdout + stderr, diagnostic)
       if (fault === 'loader-requirement') {
-        assert.match(
-          stderr,
-          dshVersion === '0.2.1-alpha.3'
-            ? /peerDependencies.*"@deepseek-ai\/dsh-host-webserver":">=99\.0\.0"/u
-            : /"engines.dsh":">=99\.0\.0"/u,
-        )
+        assert.match(stderr, /"engines.dsh":">=99\.0\.0"/u)
         assert.doesNotMatch(stdout, new RegExp(marker, 'u'))
       } else {
         assert.ok(stdout.includes(marker), stdout + stderr)

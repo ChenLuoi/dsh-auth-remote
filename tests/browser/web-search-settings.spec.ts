@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
-import { readFile } from 'node:fs/promises'
+import { appendFile, readFile } from 'node:fs/promises'
 import { createServer as createHttpServer } from 'node:http'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
@@ -13,15 +13,26 @@ import { AuthStateStore } from '../../src/storage/store.js'
 import { AUTH_COOKIE } from '../../src/shared/auth-contract.js'
 import { packedCommand, packedProfile } from '../helpers/packed-runtime.js'
 import { clickThroughDshPrompts, launchBrowser } from '../helpers/runtime.js'
+import { accountPlatform } from '../helpers/account-platform.js'
+
+const billing = dshVersion === '0.2.2-rc.2'
 
 // Verify the three-namespace native form on each exact RC target.
 if (
-  ['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.3', '0.2.2-rc.1'].includes(
-    dshVersion,
-  )
+  [
+    '0.2.1-rc.2',
+    '0.2.1-rc.3',
+    '0.2.1-rc.4',
+    '0.2.1-rc.5',
+    '0.2.2-alpha.3',
+    '0.2.2-rc.1',
+    '0.2.2-rc.2',
+  ].includes(dshVersion)
 )
   test(
-    `DSH ${dshVersion} native web search settings persist all three namespaces and credentials behind the remote session gate`,
+    billing
+      ? 'native Search and Fetch billing preserves settings and credential boundaries'
+      : `DSH ${dshVersion} native web search settings persist all three namespaces and credentials behind the remote session gate`,
     { timeout: 120_000 },
     async () => {
       const probe = createServer().listen(0, '127.0.0.1')
@@ -48,9 +59,26 @@ if (
       const messagesUrl = `${localProvider}/messages/v1`
       const apiUrl = `${localProvider}/tools/v1`
       const testKey = 'isolated-search-settings-test-key'
+      const replacementKey = 'isolated-search-settings-replacement-key'
+      const platform = billing ? await accountPlatform() : undefined
+      const errors: string[] = []
+      const external: string[] = []
       let server: ReturnType<typeof packedCommand> | undefined
       let browser: Awaited<ReturnType<typeof launchBrowser>> | undefined
       try {
+        if (platform)
+          await appendFile(
+            join(f.profile, 'cordis.patch.yml'),
+            [
+              '- id: deepseek-account',
+              '  config:',
+              `    platformOrigin: ${platform.origin}`,
+              `    harnessOrigin: ${platform.origin}`,
+              `    inferenceOrigin: ${localProvider}`,
+              '    allowLoopbackHttp: true',
+              '',
+            ].join('\n'),
+          )
         const store = await AuthStateStore.open(f.profile)
         const auth = new AuthService(store, { requireTotp: false, sessionHours: 168 })
         let token: string
@@ -65,7 +93,12 @@ if (
           await store.close()
         }
         async function start() {
-          server = packedCommand(f.home, ['web', '--no-open', '--port', String(port)], f.cwd)
+          server = packedCommand(
+            f.home,
+            ['web', '--no-open', '--port', String(port)],
+            f.cwd,
+            billing ? { DEEPSEEK_BASE_URL: messagesUrl } : {},
+          )
           await expect
             .poll(
               async () => {
@@ -86,6 +119,17 @@ if (
           '--host-resolver-rules=MAP search-settings.test 127.0.0.1',
         ])
         const context = await browser.newContext({ locale: 'zh-CN' })
+        context.on('page', (page) => page.on('pageerror', (error) => errors.push(error.message)))
+        await context.route('**/*', async (route) => {
+          if (
+            ['search-settings.test', '127.0.0.1', 'localhost', '[::1]'].includes(
+              new URL(route.request().url()).hostname,
+            )
+          )
+            return route.continue()
+          external.push(route.request().url())
+          await route.abort()
+        })
         await context.addCookies([{ name: AUTH_COOKIE, value: token!, url: origin }])
         let page = await context.newPage()
         async function rpc(method: string, args: unknown, omit = false) {
@@ -112,6 +156,7 @@ if (
           assert.equal(result.status, 200)
           assert.equal(result.body.result.ok, true)
           assert.equal(JSON.stringify(result.body).includes(testKey), false)
+          assert.equal(JSON.stringify(result.body).includes(replacementKey), false)
           return Object.fromEntries(
             result.body.result.value.namespaces.map((ns: any) => [ns.ns, ns.value]),
           )
@@ -125,9 +170,12 @@ if (
           )
           await clickThroughDshPrompts(
             page,
-            page.getByRole('button', { name: /^(?:查看 )?网页搜索$/u }),
+            page.getByRole('button', { name: /^(?:查看 )?网页搜索(?:与获取)?$/u }),
           )
-          await expect(page.getByRole('switch', { name: '启用新版 Web 搜索 API' })).toBeVisible()
+          if (billing)
+            await expect(page.locator('#plugin-config-web-search-provider')).toBeVisible()
+          else
+            await expect(page.getByRole('switch', { name: '启用新版 Web 搜索 API' })).toBeVisible()
         }
         const saved = (ns: string) =>
           page.waitForResponse(
@@ -145,93 +193,259 @@ if (
           await expect(page.getByRole('button', { name: '保存', exact: true })).toBeDisabled()
         }
         await openSearch()
-        let sections = await describe()
-        for (const ns of ['web', 'web-search-deepseek', 'web-deepseek-api'])
-          assert.ok(sections[ns], ns)
-        await expect(page.getByRole('switch', { name: '启用新版 Web 搜索 API' })).not.toBeChecked()
-        await expect(page.getByText('未配置密钥；', { exact: false })).toBeVisible()
-        await page.getByLabel('Messages API 基础地址', { exact: true }).fill(messagesUrl)
-        await page.getByLabel('单次请求最多搜索次数', { exact: true }).fill('3')
-        await save('web-search-deepseek')
-        assert.deepEqual((await describe())['web-search-deepseek'], {
-          ...sections['web-search-deepseek'],
-          baseURL: messagesUrl,
-          maxUses: 3,
-        })
-
-        await page.getByRole('switch', { name: '启用新版 Web 搜索 API' }).click()
-        await page.getByLabel('Search / Fetch API 基础地址', { exact: true }).fill(apiUrl)
-        const count = page.getByLabel('每次搜索结果数', { exact: true })
-        await count.fill('51')
-        await expect(
-          page.getByText('请填 1–50 的整数；留空表示使用默认值。', { exact: true }),
-        ).toBeVisible()
-        await expect(page.getByRole('button', { name: '保存', exact: true })).toBeDisabled()
-        await count.fill('7')
-        await page.getByLabel('API Key', { exact: true }).fill(testKey)
-        // Reject one transport response; do not replace a host settings provider.
-        await page.route('**/api/settings/mutate', async (route) => {
-          const request = route.request().postDataJSON()
-          if (request?.payload?.args?.ns !== 'web-deepseek-api') return route.continue()
-          await route.fulfill({
-            json: {
-              type: 'server-response',
-              rpcId: request.rpcId,
-              result: {
-                ok: false,
-                error: { code: 'settings/rejected', message: 'Isolated settings refusal' },
+        if (billing) {
+          const saveButton = page.getByRole('button', { name: '保存', exact: true })
+          const select = async (id: string, label: string) => {
+            await page.locator('#plugin-config-web-' + id).click()
+            await page.getByRole('menuitem', { name: label, exact: true }).click()
+          }
+          const credential = async (configured: boolean) => {
+            const result = await rpc('credentials/describe', { refs: ['DEEPSEEK_API_KEY'] })
+            assert.equal(result.body.result.ok, true)
+            assert.equal(result.body.result.value.DEEPSEEK_API_KEY.configured, configured)
+            for (const secret of [testKey, replacementKey])
+              assert.equal(JSON.stringify(result.body).includes(secret), false)
+          }
+          const saveKey = async (value: string) => {
+            await page.getByLabel('API Key', { exact: true }).fill(value)
+            const written = page.waitForResponse(
+              (response) => new URL(response.url()).pathname === '/api/credentials/set',
+            )
+            await saveButton.click()
+            const response = await written
+            assert.deepEqual(response.request().postDataJSON().payload.args, {
+              ref: 'DEEPSEEK_API_KEY',
+              value,
+            })
+            const result = await response.json()
+            assert.equal(result.result.ok, true)
+            for (const secret of [testKey, replacementKey])
+              assert.equal(JSON.stringify(result).includes(secret), false)
+            await expect(saveButton).toBeDisabled()
+            await expect(page.getByLabel('API Key', { exact: true })).toHaveValue('')
+          }
+          const initial = await describe()
+          for (const ns of ['web', 'web-search-deepseek', 'web-deepseek-api'])
+            assert.ok(initial[ns], ns)
+          assert.equal(initial['web-deepseek-api'].searchBilling, 'auto')
+          assert.equal(initial['web-deepseek-api'].fetchBilling, 'auto')
+          assert.equal(initial['web-deepseek-api'].count, 10)
+          await select('search-provider', 'DeepSeek（旧版）')
+          await page.getByLabel('Base URL', { exact: true }).fill(messagesUrl)
+          await page.getByLabel('单次请求最多搜索次数', { exact: true }).fill('3')
+          await page.getByLabel('API Key', { exact: true }).fill(testKey)
+          await save('web-search-deepseek')
+          await credential(true)
+          await expect(page.getByLabel('API Key', { exact: true })).toHaveValue('')
+          await saveKey(replacementKey)
+          await credential(true)
+          await select('search-provider', 'DeepSeek Search API')
+          await select('fetch-provider', 'DeepSeek Fetch API')
+          await save('web')
+          for (const capability of ['search', 'fetch'])
+            await expect(page.locator('#plugin-config-web-' + capability + '-billing')).toHaveText(
+              '自动',
+            )
+          await expect(page.getByLabel('API Key', { exact: true })).toHaveCount(0)
+          await expect(page.getByLabel('Base URL', { exact: true })).toHaveCount(0)
+          const count = page.getByLabel('每次搜索结果数', { exact: true })
+          await count.fill('51')
+          await expect(
+            page.getByText('请填 1–50 的整数；留空表示使用默认值。', { exact: true }),
+          ).toBeVisible()
+          await expect(saveButton).toBeDisabled()
+          await count.fill('7')
+          await select('search-billing', '已登录的 DeepSeek 账号')
+          await select('fetch-billing', 'DeepSeek API Key')
+          const before = await describe()
+          await page.route('**/api/settings/mutate', async (route) => {
+            const request = route.request().postDataJSON()
+            if (request.payload.args.ns !== 'web-deepseek-api') return route.continue()
+            await route.fulfill({
+              json: {
+                type: 'server-response',
+                rpcId: request.rpcId,
+                result: {
+                  ok: false,
+                  error: { code: 'settings/rejected', message: 'Isolated billing refusal' },
+                },
               },
-            },
+            })
           })
-        })
-        await page.getByRole('button', { name: '保存', exact: true }).click()
-        await expect(
-          page.getByText('本部署没有接受这些值，已保留供你修改。', { exact: true }),
-        ).toBeVisible()
-        await expect(count).toHaveValue('7')
-        assert.equal((await describe()).web.searchProvider, 'deepseek-official')
-        await page.unroute('**/api/settings/mutate')
-        await save('web')
-        sections = await describe()
-        assert.equal(sections.web.searchProvider, 'deepseek-search-api')
-        assert.equal(sections.web.fetchProvider, 'deepseek-fetch-api')
-        assert.equal(sections['web-deepseek-api'].baseURL, apiUrl)
-        assert.equal(sections['web-deepseek-api'].count, 7)
-        const credential = await rpc('credentials/describe', { refs: ['DEEPSEEK_API_KEY'] })
-        assert.equal(credential.body.result.value.DEEPSEEK_API_KEY.configured, true)
-        assert.equal(JSON.stringify(credential.body).includes(testKey), false)
-        await expect(page.getByText('已配置密钥。', { exact: true })).toBeVisible()
-        assert.equal(
-          (await readFile(join(f.profile, 'cordis.patch.yml'), 'utf8')).includes(testKey),
-          false,
-        )
-        await page.getByRole('switch', { name: '启用新版 Web 搜索 API' }).click()
-        await save('web')
-        sections = await describe()
-        assert.equal(sections.web.searchProvider, 'deepseek-official')
-        assert.equal(sections.web.fetchProvider, 'http')
-        await expect(page.getByLabel('Messages API 基础地址', { exact: true })).toHaveValue(
-          messagesUrl,
-        )
-        await expect(page.getByLabel('单次请求最多搜索次数', { exact: true })).toHaveValue('3')
-        await page.getByRole('switch', { name: '启用新版 Web 搜索 API' }).click()
-        await save('web')
-        await openSearch()
-        await expect(page.getByRole('switch', { name: '启用新版 Web 搜索 API' })).toBeChecked()
-        await expect(page.getByLabel('每次搜索结果数', { exact: true })).toHaveValue('7')
-        await page.close()
-        await server!.stop()
-        await start()
-        page = await context.newPage()
-        await openSearch()
-        await expect(page.getByRole('switch', { name: '启用新版 Web 搜索 API' })).toBeChecked()
-        await expect(page.getByLabel('Search / Fetch API 基础地址', { exact: true })).toHaveValue(
-          apiUrl,
-        )
-        await expect(page.getByLabel('每次搜索结果数', { exact: true })).toHaveValue('7')
-        await expect(page.getByLabel('API Key', { exact: true })).toHaveValue('')
-        await expect(page.getByText('已配置密钥。', { exact: true })).toBeVisible()
-        assert.equal((await describe())['web-search-deepseek'].maxUses, 3)
+          await saveButton.click()
+          await expect(
+            page.getByText('本部署没有接受这些值，已保留供你修改。', { exact: true }),
+          ).toBeVisible()
+          await expect(count).toHaveValue('7')
+          await expect(page.locator('#plugin-config-web-search-billing')).toHaveText(
+            '已登录的 DeepSeek 账号',
+          )
+          await expect(page.locator('#plugin-config-web-fetch-billing')).toHaveText(
+            'DeepSeek API Key',
+          )
+          assert.deepEqual((await describe())['web-deepseek-api'], before['web-deepseek-api'])
+          await page.unroute('**/api/settings/mutate')
+          await save('web-deepseek-api')
+          assert.equal((await describe())['web-deepseek-api'].searchBilling, 'account')
+          assert.equal((await describe())['web-deepseek-api'].fetchBilling, 'api-key')
+          await select('search-billing', 'DeepSeek API Key')
+          await select('fetch-billing', '已登录的 DeepSeek 账号')
+          await save('web-deepseek-api')
+          assert.equal((await describe())['web-deepseek-api'].searchBilling, 'api-key')
+          assert.equal((await describe())['web-deepseek-api'].fetchBilling, 'account')
+          for (const capability of ['search', 'fetch'])
+            await select(capability + '-billing', '自动')
+          await save('web-deepseek-api')
+          const automatic = await describe()
+          assert.equal(automatic['web-deepseek-api'].searchBilling, 'auto')
+          assert.equal(automatic['web-deepseek-api'].fetchBilling, 'auto')
+          const document = await rpc('settings/describe', {})
+          const user = document.body.result.value.namespaces.find(
+            (row: any) => row.ns === 'web-deepseek-api',
+          ).user
+          for (const field of ['searchBilling', 'fetchBilling'])
+            assert.equal(Object.hasOwn(user, field), false)
+          await select('search-billing', '已登录的 DeepSeek 账号')
+          await select('fetch-billing', 'DeepSeek API Key')
+          await save('web-deepseek-api')
+          await openSearch()
+          await expect(count).toHaveValue('7')
+          await expect(page.locator('#plugin-config-web-search-billing')).toHaveText(
+            '已登录的 DeepSeek 账号',
+          )
+          await expect(page.locator('#plugin-config-web-fetch-billing')).toHaveText(
+            'DeepSeek API Key',
+          )
+          await page.close()
+          await server!.stop()
+          await start()
+          page = await context.newPage()
+          await openSearch()
+          await expect(page.getByLabel('每次搜索结果数', { exact: true })).toHaveValue('7')
+          await expect(page.locator('#plugin-config-web-search-billing')).toHaveText(
+            '已登录的 DeepSeek 账号',
+          )
+          await expect(page.locator('#plugin-config-web-fetch-billing')).toHaveText(
+            'DeepSeek API Key',
+          )
+          await credential(true)
+          const persisted = await describe()
+          assert.equal(persisted.web.searchProvider, 'deepseek-search-api')
+          assert.equal(persisted.web.fetchProvider, 'deepseek-fetch-api')
+          assert.equal(persisted['web-search-deepseek'].baseURL, messagesUrl)
+          assert.equal(persisted['web-search-deepseek'].maxUses, 3)
+          for (const secret of [testKey, replacementKey])
+            assert.equal(
+              (await readFile(join(f.profile, 'cordis.patch.yml'), 'utf8')).includes(secret),
+              false,
+            )
+          await select('search-provider', 'DeepSeek（旧版）')
+          await save('web')
+          await expect(page.getByLabel('API Key', { exact: true })).toHaveValue('')
+          const removed = await rpc('credentials/unset', { ref: 'DEEPSEEK_API_KEY' })
+          assert.equal(removed.body.result.ok, true)
+          for (const secret of [testKey, replacementKey])
+            assert.equal(JSON.stringify(removed.body).includes(secret), false)
+          await credential(false)
+          await expect(page.getByText('未配置密钥。', { exact: true })).toBeVisible()
+          await openSearch()
+          await credential(false)
+          await expect(page.getByLabel('API Key', { exact: true })).toHaveValue('')
+          await select('search-provider', 'DeepSeek Search API')
+          await save('web')
+          assert.equal((await describe())['web-deepseek-api'].searchBilling, 'account')
+          assert.equal((await describe())['web-deepseek-api'].fetchBilling, 'api-key')
+        } else {
+          let sections = await describe()
+          for (const ns of ['web', 'web-search-deepseek', 'web-deepseek-api'])
+            assert.ok(sections[ns], ns)
+          await expect(
+            page.getByRole('switch', { name: '启用新版 Web 搜索 API' }),
+          ).not.toBeChecked()
+          await expect(page.getByText('未配置密钥；', { exact: false })).toBeVisible()
+          await page.getByLabel('Messages API 基础地址', { exact: true }).fill(messagesUrl)
+          await page.getByLabel('单次请求最多搜索次数', { exact: true }).fill('3')
+          await save('web-search-deepseek')
+          assert.deepEqual((await describe())['web-search-deepseek'], {
+            ...sections['web-search-deepseek'],
+            baseURL: messagesUrl,
+            maxUses: 3,
+          })
+
+          await page.getByRole('switch', { name: '启用新版 Web 搜索 API' }).click()
+          await page.getByLabel('Search / Fetch API 基础地址', { exact: true }).fill(apiUrl)
+          const count = page.getByLabel('每次搜索结果数', { exact: true })
+          await count.fill('51')
+          await expect(
+            page.getByText('请填 1–50 的整数；留空表示使用默认值。', { exact: true }),
+          ).toBeVisible()
+          await expect(page.getByRole('button', { name: '保存', exact: true })).toBeDisabled()
+          await count.fill('7')
+          await page.getByLabel('API Key', { exact: true }).fill(testKey)
+          // Reject one transport response; do not replace a host settings provider.
+          await page.route('**/api/settings/mutate', async (route) => {
+            const request = route.request().postDataJSON()
+            if (request?.payload?.args?.ns !== 'web-deepseek-api') return route.continue()
+            await route.fulfill({
+              json: {
+                type: 'server-response',
+                rpcId: request.rpcId,
+                result: {
+                  ok: false,
+                  error: { code: 'settings/rejected', message: 'Isolated settings refusal' },
+                },
+              },
+            })
+          })
+          await page.getByRole('button', { name: '保存', exact: true }).click()
+          await expect(
+            page.getByText('本部署没有接受这些值，已保留供你修改。', { exact: true }),
+          ).toBeVisible()
+          await expect(count).toHaveValue('7')
+          assert.equal((await describe()).web.searchProvider, 'deepseek-official')
+          await page.unroute('**/api/settings/mutate')
+          await save('web')
+          sections = await describe()
+          assert.equal(sections.web.searchProvider, 'deepseek-search-api')
+          assert.equal(sections.web.fetchProvider, 'deepseek-fetch-api')
+          assert.equal(sections['web-deepseek-api'].baseURL, apiUrl)
+          assert.equal(sections['web-deepseek-api'].count, 7)
+          const credential = await rpc('credentials/describe', { refs: ['DEEPSEEK_API_KEY'] })
+          assert.equal(credential.body.result.value.DEEPSEEK_API_KEY.configured, true)
+          assert.equal(JSON.stringify(credential.body).includes(testKey), false)
+          await expect(page.getByText('已配置密钥。', { exact: true })).toBeVisible()
+          assert.equal(
+            (await readFile(join(f.profile, 'cordis.patch.yml'), 'utf8')).includes(testKey),
+            false,
+          )
+          await page.getByRole('switch', { name: '启用新版 Web 搜索 API' }).click()
+          await save('web')
+          sections = await describe()
+          assert.equal(sections.web.searchProvider, 'deepseek-official')
+          assert.equal(sections.web.fetchProvider, 'http')
+          await expect(page.getByLabel('Messages API 基础地址', { exact: true })).toHaveValue(
+            messagesUrl,
+          )
+          await expect(page.getByLabel('单次请求最多搜索次数', { exact: true })).toHaveValue('3')
+          await page.getByRole('switch', { name: '启用新版 Web 搜索 API' }).click()
+          await save('web')
+          await openSearch()
+          await expect(page.getByRole('switch', { name: '启用新版 Web 搜索 API' })).toBeChecked()
+          await expect(page.getByLabel('每次搜索结果数', { exact: true })).toHaveValue('7')
+          await page.close()
+          await server!.stop()
+          await start()
+          page = await context.newPage()
+          await openSearch()
+          await expect(page.getByRole('switch', { name: '启用新版 Web 搜索 API' })).toBeChecked()
+          await expect(page.getByLabel('Search / Fetch API 基础地址', { exact: true })).toHaveValue(
+            apiUrl,
+          )
+          await expect(page.getByLabel('每次搜索结果数', { exact: true })).toHaveValue('7')
+          await expect(page.getByLabel('API Key', { exact: true })).toHaveValue('')
+          await expect(page.getByText('已配置密钥。', { exact: true })).toBeVisible()
+          assert.equal((await describe())['web-search-deepseek'].maxUses, 3)
+        }
         const denied = async (omit: boolean) => {
           for (const [method, args] of [
             ['settings/describe', {}],
@@ -247,6 +461,7 @@ if (
             ),
             ['credentials/describe', { refs: ['DEEPSEEK_API_KEY'] }],
             ['credentials/set', { ref: 'DEEPSEEK_API_KEY', value: 'must-not-save' }],
+            ['credentials/unset', { ref: 'DEEPSEEK_API_KEY' }],
           ] as const)
             assert.equal((await rpc(method, args, omit)).status, 401, method)
         }
@@ -259,13 +474,20 @@ if (
         await context.addCookies([{ name: AUTH_COOKIE, value: token!, url: origin }])
         await denied(false)
         assert.equal(calls, 0, 'No Search, Fetch or Messages request may reach the local provider')
+        assert.deepEqual(errors, [])
+        assert.deepEqual(external, [])
+        if (platform) assert.deepEqual(platform.requests, [])
       } finally {
         await browser?.close()
         await server?.stop()
         await new Promise<void>((resolve, reject) =>
           provider.close((error) => (error ? reject(error) : resolve())),
         )
-        await f.cleanup()
+        try {
+          await f.cleanup()
+        } finally {
+          await platform?.close()
+        }
       }
     },
   )

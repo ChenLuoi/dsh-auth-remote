@@ -1514,6 +1514,15 @@ test(
   { timeout: 15_000 },
   async () => {
     const f = await fixture()
+    const native = Reflect.get(f.server, 'server') as import('node:http').Server
+    const queued = new Map<string, import('node:http').ServerResponse>()
+    const observe = (
+      req: import('node:http').IncomingMessage,
+      res: import('node:http').ServerResponse,
+    ) => {
+      if (req.url === '/resource-client' || req.url === '/resource-revoke') queued.set(req.url, res)
+    }
+    native.on('request', observe)
     try {
       await f.server.authentication.initialize('alice', password)
       const cookie = await login(f.port)
@@ -1594,8 +1603,30 @@ test(
         const closed = new Promise<void>((resolve) => {
           response.once('close', resolve)
         })
-        // Leave the real client paused until the native socket's write queue fills.
-        await new Promise((resolve) => setTimeout(resolve, 100))
+        // TCP queues can still drain after pause; observe the real writer becoming blocked and quiet.
+        let lastProduced = produced
+        let quietSince = performance.now()
+        const deadline = quietSince + 5000
+        while (true) {
+          await new Promise((resolve) => setTimeout(resolve, 20))
+          const now = performance.now()
+          if (produced !== lastProduced) {
+            lastProduced = produced
+            quietSince = now
+          }
+          const outgoing = queued.get('/resource-' + action)
+          if (
+            produced > 0 &&
+            outgoing?.writableNeedDrain &&
+            outgoing.writableLength > 0 &&
+            now - quietSince >= 200
+          )
+            break
+          assert(
+            now < deadline,
+            `native stream did not reach backpressure: produced=${produced}, needDrain=${outgoing?.writableNeedDrain}, queued=${outgoing?.writableLength}`,
+          )
+        }
         const stalled = produced
         await new Promise((resolve) => setTimeout(resolve, 50))
         assert.equal(produced, stalled, 'native stream did not apply backpressure')
@@ -1607,6 +1638,7 @@ test(
         await Promise.all([canceled, aborted, closed])
       }
     } finally {
+      native.off('request', observe)
       await f.cleanup()
     }
   },

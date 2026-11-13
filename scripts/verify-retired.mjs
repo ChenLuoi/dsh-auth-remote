@@ -8,7 +8,12 @@ import { createConnection, createServer } from 'node:net'
 import { createRequire } from 'node:module'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { checkPackedArtifact } from './packed-artifact.mjs'
+import {
+  checkPackedArtifact,
+  createRuntimeReceipts,
+  recordRuntimeIdentity,
+  writeConsumerEvidence,
+} from './packed-artifact.mjs'
 import {
   isolatedDshEnv,
   packageManifest,
@@ -444,6 +449,7 @@ export async function verifyRetired(options) {
   await mkdir(reportDirectory, { recursive: true, mode: 0o700 })
   await requireRealDirectory(reportDirectory)
   const path = join(reportDirectory, `report-${randomUUID()}.json`)
+  const receipts = await createRuntimeReceipts(path, archive, options.sha256, version)
   const report = {
     kind: 'retired-rejection',
     package: `${packageManifest.name}@${packageManifest.version}`,
@@ -468,12 +474,14 @@ export async function verifyRetired(options) {
     const baseline = await baselineArchive(cancellation.signal)
     report.baseline = baseline.identity
     root = await mkdtemp(join(project, '.cache/r-'))
+    const runtime = join(reportDirectory, 'runtime', version)
     const binary = await prepareDshRuntime(
-      join(reportDirectory, 'runtime', version),
+      runtime,
       `retired-rejection-${version}`,
       version,
       cancellation.signal,
     )
+    await recordRuntimeIdentity(runtime, version, receipts)
     const installPath = { name: 'install-rollback', status: 'running' }
     report.paths.push(installPath)
     try {
@@ -639,6 +647,7 @@ export async function verifyRetired(options) {
     } finally {
       report.finishedAt = new Date().toISOString()
       await writeFile(path, JSON.stringify(report, null, 2) + '\n', { mode: 0o600 })
+      await writeConsumerEvidence(path, receipts)
       console.log(`Retired rejection report: ${path}`)
     }
   }

@@ -20,12 +20,20 @@ import {
 } from '../../scripts/verify-retired.mjs'
 
 test('retired selection is independent, exact and rejects malformed inputs before any execution', () => {
-  assert.deepEqual(
-    retiredDshVersions,
-    RETIRED_DSH_RELEASES.filter(({ version }) => version !== '0.2.2-alpha.2').map(
-      ({ version }) => version,
+  assert.deepEqual(retiredDshVersions, [
+    '0.1.7-rc.1',
+    '0.1.7-rc.2',
+    '0.2.0-rc.1',
+    '0.2.0-rc.2',
+    '0.2.1-alpha.1',
+    '0.2.1-alpha.2',
+  ])
+  assert(
+    retiredDshVersions.every((version) =>
+      RETIRED_DSH_RELEASES.some((record) => record.version === version),
     ),
   )
+
   assert(retiredDshVersions.every((version) => !testedDshVersions.includes(version)))
   const valid = [
     '--archive',
@@ -43,7 +51,15 @@ test('retired selection is independent, exact and rejects malformed inputs befor
       version,
     )
   // Withdrawal of support does not turn the admitted Alpha into a peer refusal.
-  for (const version of [...testedDshVersions, '0.2.2-alpha.2', 'invalid', '0.1.6'])
+  for (const version of [
+    ...testedDshVersions,
+    '0.2.1-alpha.3',
+    '0.2.1-alpha.4',
+    '0.2.1-alpha.5',
+    '0.2.2-alpha.2',
+    'invalid',
+    '0.1.6',
+  ])
     assert.throws(
       () => parseArguments(valid.map((value) => (value === '0.2.1-alpha.2' ? version : value))),
       /exact retired-dsh-version/u,
@@ -57,7 +73,7 @@ test('retired selection is independent, exact and rejects malformed inputs befor
   )
 })
 
-test('retired consumer reuses digest, checksum and complete ten-version archive checks before runtime work', async () => {
+test('retired consumer reuses digest, checksum and complete eight-version archive checks before runtime work', async () => {
   const root = await mkdtemp(join(tmpdir(), 'retired-archive-'))
   try {
     const packageRoot = join(root, 'package')
@@ -91,7 +107,7 @@ test('retired consumer reuses digest, checksum and complete ten-version archive 
     await writeFile(join(root, 'SHA256SUMS'), 'wrong\n')
     await assert.rejects(verifyRetired({ ...options, sha256: digest }), /Checksum file/u)
     const narrowed = structuredClone(packageManifest)
-    delete narrowed.dsh.compatibility.dshReleases['0.2.1-alpha.3']
+    delete narrowed.dsh.compatibility.dshReleases['0.2.1-rc.1']
     const partial = await pack(narrowed)
     await assert.rejects(
       verifyRetired({ ...options, sha256: partial }),

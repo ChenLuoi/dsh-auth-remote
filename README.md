@@ -6,39 +6,37 @@ Single-user remote sign-in for DeepSeek Harness (DSH), with password, TOTP, one-
 
 ## Requirements
 
-- Linux with `/proc` and Node.js 24. DSH `0.2.2-rc.1` requires Node.js `>=24.9.0`.
+- Linux with `/proc` and Node.js 24. DSH `0.2.2-rc.2` requires Node.js `>=24.9.0`.
 - A supported DSH release and a `web` profile. One account and its sessions belong to that profile.
 
 ## DSH compatibility
 
-Version **`0.3.5`** is prepared for release with these ten exact DSH declarations. **`0.2.2-rc.1`** is the development default and recommended host, an upstream RC prerelease. Actual availability is established by the release workflow and npm registry. Published `0.3.4` retains its nine declarations, including `0.2.2-alpha.3`, without retroactive RC support.
+Source candidate **`0.3.6`** declares these eight exact DSH releases. **`0.2.2-rc.2`** is the development default and recommended migration host, still an upstream RC prerelease. The candidate is unpublished; final same-archive acceptance and PR/master/tag gates must precede publication. Declarations do not establish testing or distribution. Published `0.3.5` retains its original ten declarations and archive.
 
-| DSH release     | Maintenance                      |
-| --------------- | -------------------------------- |
-| `0.2.1-alpha.3` | Legacy; supported                |
-| `0.2.1-alpha.4` | Legacy; supported                |
-| `0.2.1-alpha.5` | Legacy; supported                |
-| `0.2.1-rc.1`    | Supported                        |
-| `0.2.1-rc.2`    | Supported                        |
-| `0.2.1-rc.3`    | Supported                        |
-| `0.2.1-rc.4`    | Supported                        |
-| `0.2.1-rc.5`    | Supported                        |
-| `0.2.2-alpha.3` | Supported                        |
-| `0.2.2-rc.1`    | Recommended host (RC prerelease) |
+| DSH release     | Maintenance                          |
+| --------------- | ------------------------------------ |
+| `0.2.1-rc.1`    | Supported; minimum supported release |
+| `0.2.1-rc.2`    | Supported                            |
+| `0.2.1-rc.3`    | Supported                            |
+| `0.2.1-rc.4`    | Supported                            |
+| `0.2.1-rc.5`    | Supported                            |
+| `0.2.2-alpha.3` | Supported                            |
+| `0.2.2-rc.1`    | Supported                            |
+| `0.2.2-rc.2`    | Recommended host (RC prerelease)     |
 
-Legacy versions remain supported until an explicit retirement release; see the [support policy](docs/support-policy.md). Newer versions may load after capability checks, but are outside these exact compatibility declarations.
+`0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5` leave maintenance in `0.3.6`; their last supporting plugin is available `0.3.5`. Technical admission remains `>=0.2.1-alpha.3`, including prereleases without a new upper bound. Retired hosts may run with a warning after necessary checks; that is not a compatibility commitment. See the [support policy](docs/support-policy.md) for dates and migration, and the [bidirectional history](docs/support-history.md) for exact historical pairs. Dates never change installed plugin behavior, and unknown newer releases inherit no exact support.
 
-DSH `0.2.2-alpha.2` is retired in plugin `0.3.4` because fresh SDK resolution breaks native settings updates. Upgrade to `0.2.2-rc.1`; historical plugin `0.3.3` support does not repair that host dependency combination. See the [retirement exception](docs/support-policy.md#upstream-failure-exception).
+DSH `0.2.2-alpha.2` retired in plugin `0.3.4` because fresh SDK resolution breaks native settings updates; an old plugin cannot repair that dependency combination. Migrate to the recommended host with a verified matching plugin; see the [retirement exception](docs/support-policy.md#upstream-failure-exception).
 
 ## Install
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.3.5
+dsh plugin --profile web add dsh-auth-remote@0.3.6
 dsh plugin --profile web list
 ```
 
-Use this npm command after the release workflow has published the version. For an offline installation, substitute the absolute path to the verified release archive. Published `dsh-auth-remote@0.3.3` retains its nine declared hosts. Use the same data directory and profile for installation, initialization, and the running service. These commands use DSH's default `~/.dsh` directory and the `web` profile. First rehearse upgrades in an independent profile, following the [backup and rollback procedure](docs/deployment.md#backup-recovery-and-changes).
+Use this npm command after the release workflow has published the version. For an offline installation, substitute the absolute path to the verified release archive. Published `0.3.5` remains available for its historical ten hosts, including the three retired Alphas. Use the same data directory and profile for installation, initialization, and the running service. These commands use DSH's default `~/.dsh` directory and the `web` profile. First rehearse upgrades in an independent profile, following the [backup and rollback procedure](docs/deployment.md#backup-recovery-and-changes).
 
 ## Initialize the account
 
@@ -85,9 +83,11 @@ Mutating commands require interactive confirmation. If a submitted command loses
 
 Browser text supports English, Chinese, Japanese, Spanish, French, German, Russian, and Brazilian Portuguese. The embedded page follows DSH's language setting. The standalone login page uses the remembered DSH preference, then the browser language, then English; it has no language selector. CLI output is English.
 
-On DSH `0.2.2-alpha.3` and `0.2.2-rc.1`, the native navigation uses a shield for this page; the other eight declared hosts retain their default icon.
+On DSH `0.2.2-alpha.3`, `0.2.2-rc.1` and `0.2.2-rc.2`, the native navigation uses a shield for this page; the other five declared hosts retain their default icon.
 
 ## Sign in to an official DeepSeek account
+
+On `0.2.2-rc.2`, the adapter preserves the native account entry and notification children; older hosts retain public registration. Notifications use local protocol stand-ins; cross-product notification localization mapping is not fully verified.
 
 Remote DeepSeek account sign-in is enabled by default (`manualAccountLogin: true`):
 

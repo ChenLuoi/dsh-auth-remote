@@ -6,6 +6,15 @@ This file records user-visible changes to the released package. Version numbers 
 
 ## Unreleased
 
+## 0.3.6 - 2026-11-13
+
+- Preserve the native DSH `0.2.2-rc.2` account entry, notification children and ownership through real client/native-component HMR, disposal and later-writer protection. Older entries without children retain public registration. Document the private adaptation and its evidence boundaries in both languages.
+- Declare eight exact hosts, with minimum support `0.2.1-rc.1` and recommended development/migration RC prerelease `0.2.2-rc.2`. Retire maintenance of `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5`, preserving the original window and last-supporting plugin `0.3.5`. Technical admission remains `>=0.2.1-alpha.3`, including prereleases without a new upper bound.
+- Pin DSH `0.2.2-rc.2` development dependencies and the merged account provider. Local Platform/notification stand-ins cover account lifecycles and native Search/Fetch billing, credential save/replace/remove, refusal and restart persistence, without real external authorization or paid services.
+- Remove LiveShare Owner/Relay product-flow E2E and exclusive fixtures. Retain production Origin adaptation, real native viewer, Connection business-Origin/configuration-HMR and shared authentication checks; product flows are unverified.
+- Keep complete eight-host CLI/browser/smoke in ordinary/full. Only plugin `0.3.6` full/releases add three maintenance-retirement targets; independent `0.2.1-alpha.2` technical refusal remains. An unpackaged index binds each producer’s source, same archive, actual runtimes/SDKs and raw reports, refusing omissions, wrong hashes and partial suites.
+- Synchronize published `0.3.5` facts, full backups/independent-profile migration and rollback with matching host/plugin/configuration/data. This date records release preparation; final same-archive acceptance, Actions and publication remain pending.
+
 ## 0.3.5 - 2026-11-06
 
 - Prepare plugin `0.3.5` for release with exact DSH `0.2.2-rc.1` support, retaining all nine existing targets. Use this RC prerelease as the development default, recommended host and current migration target; admission and legacy/retirement history stay unchanged.

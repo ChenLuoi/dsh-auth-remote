@@ -8,7 +8,7 @@
 
 ## 准备源码环境
 
-使用带 `/proc` 的 Linux、Node.js 24 或更高版本、pnpm 12.5.1。在仓库根目录安装依赖和测试浏览器：
+使用带 `/proc` 的 Linux、Node.js 24（默认宿主至少 `24.9.0`）、pnpm 12.5.1。在仓库根目录安装依赖和测试浏览器：
 
 ```sh
 pnpm install --frozen-lockfile
@@ -26,4 +26,4 @@ pnpm check
 
 `CI Verify` 会在 Pull Request 和合入 `master` 后运行。维护者在创建发布标签前更新版本号和带日期的更新日志；具体流程见[发布指南](docs/releasing.zh-CN.md)。
 
-版本 `0.3.5` 正在准备发布，声明十个精确 DSH 目标，开发默认及推荐宿主为 RC 预发布 `0.2.2-rc.1`。已发布 `0.3.4` 保留九版历史声明，不追溯增加 RC；可用性由发布工作流和 npm registry 确认。支持或共享宿主变更须按发布指南消费同一最终归档，十版完整 CLI/browser/smoke。依次完成 PR CI、master CI、附注标签及可信发布；full/发布还要求独立 `0.2.1-alpha.2` 退役拒绝，ordinary 不运行真实旧宿主负向。六版一次性负向属于 `0.3.1` 迁移历史。不要在最终消费循环重建或打包。
+当前源码候选 `0.3.6` 声明八个精确 DSH 目标，默认及推荐迁移宿主为 RC 预发布 `0.2.2-rc.2`。已发布 `0.3.5` 保留十版历史声明，是 `0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5` 的最后支持插件。支持或共享宿主变更须消费同一最终归档，八版完整 CLI/browser/smoke；ordinary/full 均完整验证八版。full/发布保留独立 `0.2.1-alpha.2` 技术拒绝；仅已校验插件 `0.3.6` 的 full/发布增加三个 Alpha 的维护退役专项，其他版本不能被其阻塞。每个本地/PR/master/tag producer 的源码、归档、实际 runtime/SDK 和原始报告由包外验收索引关联。依次完成 PR CI、master CI、附注标签及可信发布；最终消费循环禁止重建或打包。当前 LiveShare 验证保留 native viewer/Origin/认证边界，未验证 Owner/Relay 产品流程。

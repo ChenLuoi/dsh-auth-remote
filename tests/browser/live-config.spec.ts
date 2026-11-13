@@ -76,7 +76,8 @@ test(
         'dsh-web-app': dshVersion,
         'dsh-host-webserver': dshVersion,
         'dsh-client-connection': dshVersion,
-        'dsh-deepseek-account-platform': dshVersion,
+        [dshVersion === '0.2.2-rc.2' ? 'dsh-deepseek-account' : 'dsh-deepseek-account-platform']:
+          dshVersion,
       })
       assert.equal(before.enabled, true)
       // Real protected HTTP and upgrade carriers must remain open throughout each write.
