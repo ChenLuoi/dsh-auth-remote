@@ -14,18 +14,15 @@ import { AUTH_COOKIE } from '../../src/shared/auth-contract.js'
 import { packedCommand, packedProfile } from '../helpers/packed-runtime.js'
 import { clickThroughDshPrompts, launchBrowser, openDshSettings } from '../helpers/runtime.js'
 
-// Exercise the native release gate with exact installed runtimes. Only the
-// 0.2.1-alpha.3 destination lacks release metadata; no service is mocked.
+// Exercise seven real supported runtime round trips without changing upstream identity.
 const previousVersions: Record<string, string> = {
-  '0.2.1-alpha.4': '0.2.1-alpha.3',
-  '0.2.1-alpha.5': '0.2.1-alpha.4',
-  '0.2.1-rc.1': '0.2.1-alpha.5',
   '0.2.1-rc.2': '0.2.1-rc.1',
   '0.2.1-rc.3': '0.2.1-rc.2',
   '0.2.1-rc.4': '0.2.1-rc.3',
   '0.2.1-rc.5': '0.2.1-rc.4',
   '0.2.2-alpha.3': '0.2.1-rc.5',
   '0.2.2-rc.1': '0.2.2-alpha.3',
+  '0.2.2-rc.2': '0.2.2-rc.1',
 }
 const previousVersion = previousVersions[dshVersion]
 if (previousVersion)
@@ -145,10 +142,7 @@ if (previousVersion)
         assert.equal(await loadedVersion(), previousVersion)
         const prompt = page.getByRole('dialog', { name: '服务版本变化', exact: true })
         await expect(prompt).toBeVisible({ timeout: 45_000 })
-        // Preserve the unknown-identity case and check a known destination too.
-        await expect(prompt).toContainText(
-          previousVersion === '0.2.1-alpha.3' ? '未解析' : previousVersion,
-        )
+        await expect(prompt).toContainText(previousVersion)
         assert.equal(await boot(), dshVersion)
         const review = join(project, '.cache/ui-review', dshVersion)
         await mkdir(review, { recursive: true })
@@ -160,8 +154,7 @@ if (previousVersion)
         assert.equal((await checked).status(), 200)
         await expect(page.locator('[class*="frame"]').first()).toBeVisible()
         await expect(prompt).toHaveCount(0)
-        if (previousVersion === '0.2.1-alpha.3') assert.equal(await boot(), undefined)
-        else assert.equal(await boot(), previousVersion)
+        assert.equal(await boot(), previousVersion)
         await openDshSettings(page)
         await clickThroughDshPrompts(
           page,

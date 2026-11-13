@@ -29,6 +29,8 @@ jobs:
   validate:
     name: Validate artifact and matrix
     runs-on: ubuntu-latest
+    outputs:
+      maintenance-retirement-required: ${{ steps.identity.outputs.maintenance-retirement-required }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -40,6 +42,7 @@ jobs:
           name: ${{ inputs.artifact }}
           path: artifacts
       - name: Verify producer identity and complete plan
+        id: identity
         env:
           DSH_ARCHIVE_NAME: ${{ inputs.archive }}
           DSH_ARCHIVE_SHA: ${{ inputs.sha256 }}
@@ -48,7 +51,9 @@ jobs:
           DSH_BROWSER_MATRIX: ${{ inputs.browser-matrix }}
         run: |
           node scripts/packed-artifact.mjs check "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA"
+          node scripts/packed-artifact.mjs producer-check "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA"
           node scripts/packed-artifact.mjs plan
+          node scripts/packed-artifact.mjs gate "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA"
 
   cli-smoke:
     name: CLI and smoke (${{ matrix.dsh }})
@@ -77,6 +82,7 @@ jobs:
           DSH_EXACT_VERSION: ${{ matrix.dsh }}
         run: |
           node scripts/packed-artifact.mjs check "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA"
+          node scripts/packed-artifact.mjs producer-check "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA"
           node scripts/verify-packed.mjs --archive "artifacts/$DSH_ARCHIVE_NAME" --sha256 "$DSH_ARCHIVE_SHA" --dsh-version "$DSH_EXACT_VERSION" --suite cli --suite smoke
       - uses: actions/upload-artifact@v7
         if: always()
@@ -113,6 +119,7 @@ jobs:
           DSH_BROWSER_SUITE: ${{ matrix.suite }}
         run: |
           node scripts/packed-artifact.mjs check "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA"
+          node scripts/packed-artifact.mjs producer-check "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA"
           node scripts/verify-packed.mjs --archive "artifacts/$DSH_ARCHIVE_NAME" --sha256 "$DSH_ARCHIVE_SHA" --dsh-version "$DSH_EXACT_VERSION" --suite "$DSH_BROWSER_SUITE"
       - uses: actions/upload-artifact@v7
         if: always()
@@ -144,20 +151,61 @@ jobs:
           DSH_ARCHIVE_SHA: ${{ inputs.sha256 }}
         run: |
           node scripts/packed-artifact.mjs check "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA"
+          node scripts/packed-artifact.mjs producer-check "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA"
           node scripts/verify-retired.mjs --archive "artifacts/$DSH_ARCHIVE_NAME" --sha256 "$DSH_ARCHIVE_SHA" --retired-dsh-version 0.2.1-alpha.2
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: packed-retired-rejection-0.2.1-alpha.2
-          path: .cache/verify-retired/report-*.json
+          path: .cache/verify-retired/report-*
+          if-no-files-found: error
+
+  maintenance-retirement:
+    name: Maintenance retirement (${{ matrix.dsh }})
+    needs: validate
+    if: ${{ needs.validate.outputs.maintenance-retirement-required == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        dsh: ['0.2.1-alpha.3', '0.2.1-alpha.4', '0.2.1-alpha.5']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v3
+        with:
+          runtime: node@24
+          cache: true
+          require-lockfile: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.artifact }}
+          path: artifacts
+      - name: Verify this producer's maintenance boundary
+        env:
+          DSH_ARCHIVE_NAME: ${{ inputs.archive }}
+          DSH_ARCHIVE_SHA: ${{ inputs.sha256 }}
+          DSH_EXACT_VERSION: ${{ matrix.dsh }}
+        run: |
+          node scripts/packed-artifact.mjs producer-check "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA"
+          node scripts/verify-maintenance-retired.mjs --archive "artifacts/$DSH_ARCHIVE_NAME" --sha256 "$DSH_ARCHIVE_SHA" --dsh-version "$DSH_EXACT_VERSION"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: packed-maintenance-retirement-${{ matrix.dsh }}
+          path: .cache/verify-maintenance-retired/report-*
           if-no-files-found: error
 
   verified:
     name: Packed verification complete
-    needs: [validate, cli-smoke, browser, retired-rejection]
+    needs: [validate, cli-smoke, browser, retired-rejection, maintenance-retirement]
     if: always()
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          package-manager-cache: false
       - name: Require every planned job to succeed
         env:
           DSH_JOB_RESULTS: ${{ toJSON(needs) }}
@@ -168,9 +216,34 @@ jobs:
           const jobs = JSON.parse(process.env.DSH_JOB_RESULTS)
           const plan = process.env.DSH_VERIFY_PLAN
           assert(['full', 'ordinary'].includes(plan), 'Unknown verification plan')
-          assert.deepEqual(Object.keys(jobs).sort(), ['browser', 'cli-smoke', 'retired-rejection', 'validate'])
+          assert.deepEqual(Object.keys(jobs).sort(), ['browser', 'cli-smoke', 'maintenance-retirement', 'retired-rejection', 'validate'])
+          const required = jobs.validate.outputs?.['maintenance-retirement-required']
+          assert(['true', 'false'].includes(required), 'Missing or unknown maintenance-retirement requirement')
+          assert(plan === 'full' || required === 'false', 'Ordinary plan cannot require maintenance retirement')
           for (const [name, job] of Object.entries(jobs)) {
-            const expected = plan === 'ordinary' && name === 'retired-rejection' ? 'skipped' : 'success'
+            const skipped = (plan === 'ordinary' && name === 'retired-rejection') || (required === 'false' && name === 'maintenance-retirement')
+            const expected = skipped ? 'skipped' : 'success'
             assert.equal(job.result, expected, name)
           }
           JS
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.artifact }}
+          path: artifacts
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: packed-*
+          path: .cache/acceptance-evidence
+      - name: Bind complete raw evidence to this producer
+        env:
+          DSH_ARCHIVE_NAME: ${{ inputs.archive }}
+          DSH_ARCHIVE_SHA: ${{ inputs.sha256 }}
+          DSH_VERIFY_PLAN: ${{ inputs.plan }}
+        run: node scripts/packed-artifact.mjs index "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA" .cache/acceptance-evidence artifacts/acceptance-index.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: acceptance-index-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/acceptance-index.json
+          if-no-files-found: error

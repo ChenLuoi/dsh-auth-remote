@@ -21,17 +21,20 @@ export function packedCommand(
   })
   let stdout = ''
   let stderr = ''
+  let combined = ''
   child.stdout.on('data', (chunk: Buffer) => {
     stdout += chunk.toString('utf8')
+    combined += chunk.toString('utf8')
   })
   child.stderr.on('data', (chunk: Buffer) => {
     stderr += chunk.toString('utf8')
+    combined += chunk.toString('utf8')
   })
   const done = once(child, 'close').then(([code]) => ({ code, stdout, stderr }))
   return {
     child,
     done,
-    output: () => ({ stdout, stderr }),
+    output: () => ({ stdout, stderr, combined }),
     async stop() {
       if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM')
       await done
@@ -43,17 +46,18 @@ export async function packedAdmin(
   home: string,
   command: string,
   prompts: readonly (readonly [string, string])[] = [],
+  binary = dsh,
 ) {
   const args = ['plugin', '--profile', 'web', 'exec', packageName, command]
   if (prompts.length === 0) {
-    const result = await packedCommand(home, [...args, '--json']).done
+    const result = await packedCommand(home, [...args, '--json'], home, {}, binary).done
     assert.equal(result.code, 0, result.stderr)
     return result.stdout
   }
   const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`
   const child = spawn(
     'script',
-    ['-q', '-e', '-f', '-c', [dsh, ...args].map(quote).join(' '), '/dev/null'],
+    ['-q', '-e', '-f', '-c', [binary, ...args].map(quote).join(' '), '/dev/null'],
     { cwd: home, env: isolatedDshEnv(home), stdio: ['pipe', 'pipe', 'pipe'] },
   )
   let output = ''
@@ -85,11 +89,21 @@ export async function packedAdmin(
   }
 }
 
-export async function packedProfile(config: Record<string, unknown>, strictFixture = false) {
+export async function packedProfile(
+  config: Record<string, unknown>,
+  strictFixture = false,
+  options: { binary?: string; archive?: string } = {},
+) {
   const home = await mkdtemp(join(tmpdir(), 'dsh-auth-remote-native-packed-'))
   const model = await localModelEndpoint()
   try {
-    const installed = await packedCommand(home, ['plugin', '--profile', 'web', 'add', archive]).done
+    const installed = await packedCommand(
+      home,
+      ['plugin', '--profile', 'web', 'add', options.archive ?? archive],
+      home,
+      {},
+      options.binary ?? dsh,
+    ).done
     assert.equal(installed.code, 0, installed.stderr)
     const profile = join(home, 'profiles/web')
     const cwd = join(home, 'launch-cwd')

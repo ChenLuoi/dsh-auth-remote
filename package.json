@@ -1,6 +1,6 @@
 {
   "name": "dsh-auth-remote",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "Single-user remote authentication for DeepSeek Harness: password, TOTP and revocable sessions.",
   "license": "MIT",
   "repository": {
@@ -92,17 +92,17 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.1.0",
-    "@deepseek-ai/dsh-authorization": "0.2.2-rc.1",
-    "@deepseek-ai/dsh-client-connection": "0.2.2-rc.1",
-    "@deepseek-ai/dsh-client-locale": "0.2.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-settings": "0.2.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-slots": "0.2.2-rc.1",
-    "@deepseek-ai/dsh-deepseek-account": "0.2.2-rc.1",
-    "@deepseek-ai/dsh-deepseek-account-platform": "0.2.2-rc.1",
-    "@deepseek-ai/dsh-host-webserver": "0.2.2-rc.1",
-    "@deepseek-ai/dsh-llm": "0.2.2-rc.1",
-    "@deepseek-ai/dsh-scope": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-authorization": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-client-connection": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-client-locale": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-deepseek-account": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-error": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-scope": "0.2.2-rc.2",
     "@deepseek-ai/schemastery": "3.19.0",
     "@playwright/test": "1.63.0",
     "@types/node": "24.13.6",
@@ -133,16 +133,14 @@
     },
     "compatibility": {
       "dshReleases": {
-        "0.2.1-alpha.3": "compatible",
-        "0.2.1-alpha.4": "compatible",
-        "0.2.1-alpha.5": "compatible",
         "0.2.1-rc.1": "compatible",
         "0.2.1-rc.2": "compatible",
         "0.2.1-rc.3": "compatible",
         "0.2.1-rc.4": "compatible",
         "0.2.1-rc.5": "compatible",
         "0.2.2-alpha.3": "compatible",
-        "0.2.2-rc.1": "compatible"
+        "0.2.2-rc.1": "compatible",
+        "0.2.2-rc.2": "compatible"
       }
     }
   },

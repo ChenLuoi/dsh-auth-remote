@@ -61,6 +61,7 @@ jobs:
           path: |
             artifacts/*.tgz
             artifacts/SHA256SUMS
+            artifacts/producer.json
           if-no-files-found: error
 
   verify:
@@ -100,6 +101,7 @@ jobs:
           DSH_ARCHIVE_SHA: ${{ needs.package.outputs.sha256 }}
         run: |
           node scripts/packed-artifact.mjs check "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA"
+          node scripts/packed-artifact.mjs producer-check "artifacts/$DSH_ARCHIVE_NAME" "$DSH_ARCHIVE_SHA"
           archive="artifacts/$DSH_ARCHIVE_NAME"
           status="$(node scripts/check-npm-publication.mjs "$archive")"
           echo "status=$status" >> "$GITHUB_OUTPUT"

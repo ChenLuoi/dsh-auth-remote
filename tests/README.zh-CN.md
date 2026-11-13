@@ -2,9 +2,9 @@
 
 [English](README.md)
 
-本指南描述版本 `0.3.5` 的十版精确验证目标，默认 DSH `0.2.2-rc.1`。最终同包测试报告不进入 npm 归档，不把专项或历史候选认证为最终归档。
+候选 `0.3.6` 声明八个精确目标：`0.2.1-rc.1`、`0.2.1-rc.2`、`0.2.1-rc.3`、`0.2.1-rc.4`、`0.2.1-rc.5`、`0.2.2-alpha.3`、`0.2.2-rc.1`、`0.2.2-rc.2`。默认及推荐宿主 `0.2.2-rc.2` 是上游RC预发布，要求Node.js `>=24.9.0`。候选尚未发布；最终同包报告、Actions和公开分发分别记录，历史或partial结果不认证修订后的最终归档。
 
-在 Linux 源码检出目录准备 Node.js 24+、pnpm 12.5.1 和 Playwright Chromium：
+使用带 `/proc` 的Linux、Node.js 24、pnpm 12.5.1和Playwright Chromium：
 
 ```sh
 pnpm install --frozen-lockfile
@@ -12,61 +12,37 @@ pnpm exec playwright install chromium
 pnpm check
 ```
 
-`pnpm check` 执行静态检查与全部四组测试。开发时可单独运行：
+| 分组   | 开发命令                | 契约                                                                                                             |
+| ------ | ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 单元   | `pnpm test:unit`        | 认证、TOTP/备用码、会话、Origin、语言、存储/锁、精确支持、consumer/归档/索引与workflow拒绝                       |
+| 集成   | `pnpm test:integration` | 真实HTTP/WebSocket、原生就绪、cookie、变更/撤销、原生账号PKCE、资源流式响应/背压                                 |
+| CLI    | `pnpm test:cli`         | 真实归档/profile执行、私有终端输入、固定英语、profile访问前拒绝--lang、稳定JSON、Unix socket、离线锁及不确定结果 |
+| 浏览器 | `pnpm test:browser`     | 精确原生DSH、匿名/登录/安全/设置/工作区/聊天/上传/预览、SSE/WebSocket、TLS/代理与生命周期                        |
 
-| 分组   | 命令                    | 验证契约                                                                                                                |
-| ------ | ----------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| 单元   | `pnpm test:unit`        | 密码/TOTP/备用码、会话、来源策略、翻译、JSON 持久性及锁恢复。                                                           |
-| 集成   | `pnpm test:integration` | 真实 HTTP/WebSocket socket、Host/Origin 策略、原生就绪、Cookie、API 修改和撤销。                                        |
-| CLI    | `pnpm test:cli`         | 真实本地包、DSH profile 执行、伪终端提示、固定英语、--lang/环境变量无效检查、JSON 输出、Unix socket、离线锁和结果不明。 |
-| 浏览器 | `pnpm test:browser`     | 固定 DSH 启动、匿名门禁、登录、安全设置、原生设置、工作区、聊天流、上传/预览、SSE/WebSocket 和 HTTPS 转发。             |
+开发CLI/browser包装命令会重建/重打包，最终循环必须使用[固定归档运行器](../docs/development.zh-CN.md#消费固定归档)。`DSH_TEST_VERSION` 只接受上述八版；`DSH_TEST_BIN` 必须报告所选精确版本。`DSH_TEST_BROWSER` 可指定程序，否则使用受管理Chromium。测试runtime位于 `.cache/test-runtime/<version>`，profile临时创建；普通开发/smoke使用 `.dev`，固定归档smoke独占新建且带标记的短 `.cache/v-*`、独立runtime/home和 `--port 0`。不得使用真实账号目录。
 
-脚本把 DSH `0.2.2-rc.1` 准备到 `.cache/test-runtime/<version>`，并创建临时 `DSH_HOME`。`DSH_TEST_BIN` 只有在可执行文件的 `--version` 精确报告所选的 `DSH_TEST_VERSION`（默认 `0.2.2-rc.1`） 时才能覆盖；`DSH_TEST_BROWSER` 可覆盖 Playwright 浏览器程序。默认使用 Playwright 管理的 Chromium。
+runtime采用pnpm copy安装，HMR/故障编辑前核对普通文件nlink=1。`isolatedDshEnv` 仅允许指定Host环境变量，移除真实凭据/端点；浏览器移除环境代理。首次输入测试key前将原生模型baseURL指向本地替身，不预置key、不关闭onboarding。UI用例模型调用为零；代理聊天只允许预期本地聊天/标题POST，fixture关闭时校验意外请求。[TLS夹具指南](fixtures/tls/README.md)说明专用证书、SAN、信任和浏览器pin；私钥/profile/task/截图/证据不入npm。真实IPv4/IPv6 HTTP/HTTPS及Node转发不可用就失败，不静默跳过。
 
-正向目标为 `0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5`、`0.2.1-rc.1`、`0.2.1-rc.2`、`0.2.1-rc.3`、`0.2.1-rc.4`、`0.2.1-rc.5`、`0.2.2-alpha.3`、`0.2.2-rc.1`，由 `DSH_TEST_VERSION` 选择；十版均运行 CLI/smoke。启动经过真实 Loader，核对模型 runtime context、`DSH_WEB_URL` 和所有 Web 段无重复 URL/token。原生传输覆盖十版 IPv4/IPv6 HTTP/HTTPS、Host/Origin、上传/长连接/Secure/CLI 撤销；IPv6/TLS 环境缺失失败，不跳过。
+`integration/account-login.test.ts` 使用锁定的真实 `@deepseek-ai/dsh-deepseek-account@0.2.2-rc.2` 和本地Platform，检查PKCE/redirect相等、state/URL/会话归属、一次回调、取消/到期/重试。浏览器使用逐版真实安装provider；观测明确选择旧platform包或合并account包，仅在不存在effectiveConfig访问器的旧宿主回退config，旧宿主保持自己的实际SDK链。
 
-`tests/helpers/` 的 Node HTTP/HTTPS 转发器代替本地代理安装。`tests/fixtures/tls/` 包含 `.test` 主机名专用自签测试证书和私钥；它们不是安装或生产凭证，不进入压缩包。浏览器聊天使用本地模型替身，无需真实外部账号、OAuth token 或付费模型请求。
+八版均保留完整手动登录/设置：说明优先、失败loopback导航后粘贴确认、弹窗阻止、初始/延迟偏好读取、镜像失败/暂缺、已接纳设置及进行中授权。检查八语实际访问集合、明暗/窄屏、安全概览/弹窗、键盘/焦点、TOTP/备用码复制和退出/撤销后偏好，截图遮蔽秘密。原生语言目录不改；旧locale缓存继续忽略/保留，已发布0.2.0技术拒绝夹具保留历史中文CLI契约。
 
-[TLS fixture 说明](fixtures/tls/README.md)记录原生监听证书的 IPv4/IPv6 SAN、Node 信任和浏览器公钥 pin。转发器也验证 TLS upstream，覆盖 HTTPS→HTTP 和 HTTP→原生 HTTPS 两种代理链。
+两个必注册的 `0.2.2-rc.2` 账号用例各准备独立私有原生runtime，保留entry/children/inject/options/disposer归属，执行真实客户端/原生组件源码HMR、true/false、卸载/重装、第三方后写、停用wrapper委托、挂起describe和活动授权取消。本地通知list/content/events覆盖语言和生命周期，外网/模型请求及page errors为零。跨产品通知本地化映射未完全验证；私有观测点和证据边界见[库存](../docs/legacy-compatibility.zh-CN.md) `DSH-ACCOUNT-SLOT-001`。
 
-不要让这些命令指向现有账号目录。浏览器和 CLI 夹具使用独立临时 home；`pnpm smoke` 使用带标记的 `.dev/dsh-home`。[开发指南](../docs/development.zh-CN.md)说明隔离开发流程，[部署指南](../docs/deployment.zh-CN.md)说明正式 profile 与备份步骤。
+`live-config.spec.ts` 观测真实Loader引用/fiber、auth/store/锁/监听器和SSE/WebSocket连续性，执行true→false→true→false及重启。`account-login.spec.ts` 以普通sessionHours变更执行真实配置HMR，检查独立Settings排队和真正嵌套拒绝；源码HMR故障先在导入失败时保留原实例，再于替换实例初始化后抛错，核验清理/回滚、锁nonce、mux关闭及恢复保存。canonical file URL、显式watch root及被动公开日志不替代原生HMR服务。
 
-共享 `isolatedDshEnv` 从 allowlist 构造 Host 环境，移除真实模型凭据/endpoint；浏览器启动环境同时清除 ambient HTTP(S)/ALL_PROXY。`localModelEndpoint` 在第一次输入 Key 前把原生 llm-deepseek baseURL 指向本地 HTTP fixture；不预存 Key、不关闭引导，仍检查原生 API Key 选择、保存、重开及刷新持久化。只操作 UI 的用例必须零模型请求；代理聊天只接纳预期的本地 chat 与原生 session-title 两次 POST，计数在 fixture 关闭时核验。
+八版 `startup-compatibility.spec.ts` 都只破坏安装插件副本：不兼容engines触发Loader skip且不导入；自身准入范围故障触发导入后拒绝。profile独立禁用原生webserver，进程自然非零退出，TCP/HTTP/readiness/WebSocket均拒绝，上游包身份/依赖图/候选字节不改。七组真实宿主往返、原会话/设置和原生完整版本提示见[跨版本验证](../docs/development.zh-CN.md#跨版本验证)；最低 `0.2.1-rc.1` 无前版用例。
 
-`integration/account-login.test.ts` 使用锁定开发依赖中实际安装的 DSH `0.2.2-rc.1` 账号提供者和本地平台替身，覆盖 PKCE、redirect URI 一致性、state、回调解析、会话归属、单次提交、取消、过期与重试。`browser/account-login.spec.ts` 验证先说明再授权、回环导航失败后粘贴完成、弹窗拦截和八语响应式主题；十版正向均保留完整账号流程，全程不使用真实官方账号。
+旧Search/Fetch表单适用于 `0.2.1-rc.2`、`0.2.1-rc.3`、`0.2.1-rc.4`、`0.2.1-rc.5`、`0.2.2-alpha.3`、`0.2.2-rc.1`。`0.2.2-rc.2` 的真实原生表单分别选择Search/Fetch auto/account/api-key计费，检查拒绝保存/草稿保留、刷新/重启持久化、凭据保存/替换/移除和响应不回显，以及匿名/撤销401；本地模型/Search/Fetch/外网计数均为零。导航适用 `0.2.1-rc.3`、`0.2.1-rc.4`、`0.2.1-rc.5`、`0.2.2-alpha.3`、`0.2.2-rc.1`、`0.2.2-rc.2`，检查全局/会话/右栏More、原生设置/模型选择及撤销。公开sessions/sessionProjections增加空完成turn，不聊天、不替换snapshot；只看Market/Creator入口，不安装或外部授权，官方动态 `/models` 内部语义未验证。
 
-`browser/live-config.spec.ts` 逐版观察真实 Loader 及实际依赖身份，执行开关 true→false→true→false、长连接保持和重启持久化。账号浏览器完整分支为 `0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5`、`0.2.1-rc.1`、`0.2.1-rc.2`、`0.2.1-rc.3`、`0.2.1-rc.4`、`0.2.1-rc.5`、`0.2.2-alpha.3`、`0.2.2-rc.1`；覆盖真实原生 Settings 保存成功/失败、当前页新入口切换与已接纳授权继续完成。登录设置回归覆盖五项可信概览、密码/TOTP/当前及全部会话弹窗、键盘焦点、取消/错误、备用码复制失败与一次性展示；截图对密码及备用码脱敏。完整版本矩阵须使用同一最终包，每版校验 SHA-256，循环内不能使用会重新打包的标准测试命令。
+精确 `0.2.2-alpha.3`、`0.2.2-rc.1`、`0.2.2-rc.2` 保留真实native viewer/index/carrier隔离、资源/fallback/ETag GET/HEAD/304及mux HTTPS/代理/压缩/到期/撤销。传输归原生Gateway/ws。盾牌测试覆盖size/currentColor/选中、明暗/窄屏、贡献释放/默认恢复和声明撤下/重建/卸载；其他五版保留默认图标。viewer不安装管理员效果。
 
-`browser/account-login.spec.ts` 在全部声明版本通过普通 `sessionHours` 字段变化触发真实配置 HMR，并验证 Settings 写入仍等待原生事务队列、真正嵌套仍被拒绝。测试专用 `fixtures/hmr-config-probe.mjs` 调用真实 HMR 服务。精确目标 `0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5`、`0.2.1-rc.1`、`0.2.1-rc.2`、`0.2.1-rc.3`、`0.2.1-rc.4`、`0.2.1-rc.5`、`0.2.2-alpha.3`、`0.2.2-rc.1` 还替换隔离安装的插件入口代码，随后重新开启手动登录。
+LiveShare是官方已发布、默认关闭的实验性可选插件，本插件不启用它。Owner/Relay产品E2E和专用替身已删除；`business-origin-observer.mjs` 在两个精确Owner POST路径使用真实Connection.fetch，不加载Host/Relay、不以高优先WebServer绕过、不构造Request/waterfall结果。native-transport保留准入、可信外层Origin、单次恢复、原始重复/缺失/错误/cross-site拒绝、HTTP/HTTPS/代理及真实配置HMR。生产适配、共享集成和capability检查保留；产品流程、生产Relay/OAuth、访客模型和文件写入未验证，历史产品报告只属于旧归档。
 
-HMR 队列用例在配置重载前后核对精确启动维护提示。独立 legacy 用例将同一候选的 package.json 与 dist 复制到隔离 profile 的目录，禁用原宿主条目，按公开 Loader 契约插入副本入口，并显式设置原生 HMR `base/root` 开启源码监听。用例观察真实模块替换和下一代监听器，确认同一进程仅提示一次且会话仍有效。旧版默认模块监听排除 node_modules，本夹具不表示该位置会自动替换；正常支持目标不得输出维护提示。`unit/dsh-support.test.ts` 检查日期、到期后分类不变、虚构退役输入及进程级去重，这些夹具不修改真实宿主版本。
+ordinary/full均完整运行八版CLI/browser/smoke；[白名单](../docs/development.zh-CN.md#普通与全量-ci-计划)只决定额外退役任务。full保留独立 `0.2.1-alpha.2` 技术拒绝，使用已发布0.2.0 baseline验证真实安装回滚和完整不兼容bundle peer skip/无延迟监听。六版历史技术目标只由 `verify-retired.mjs` 选择，不扩大DSH_TEST_VERSION；ordinary跳过该job。
 
-`browser/startup-compatibility.spec.ts` 在十版验证损坏副本两路径：`0.2.1-alpha.3` 修改 Host peer（原生 Loader 不读 engines），其余九版修改 engines，均要求 Loader skip 且不导入插件；各版还注入插件自己的范围，要求导入后运行拒绝。profile 独立禁用 webserver，进程自然非零结束、各类探测拒绝连接，patch/上游/候选归档不变。
+仅已校验插件0.3.6的full/发布额外以 `verify-maintenance-retired.mjs` 验证精确 `0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5`。每版三个真实CLI/HTTP场景检查ready前告警及真实配置/源码HMR后只告警一次、会话连续后撤销、Loader skip、自身导入后拒绝及无监听。`0.2.1-alpha.3` 破坏Host peer，其余两个精确目标破坏engines，只改私有插件副本，原生webserver独立禁用，不启动Chromium。此一发布专项在browser glob之外，不恢复支持；Alpha正向独占分支移除后仍保留通用日期/告警单元。
 
-`browser/host-release.spec.ts` 固定九组真实宿主往返切换：`0.2.1-alpha.4` ↔ `0.2.1-alpha.3`、`0.2.1-alpha.5` ↔ `0.2.1-alpha.4`、`0.2.1-rc.1` ↔ `0.2.1-alpha.5`、`0.2.1-rc.2` ↔ `0.2.1-rc.1`、`0.2.1-rc.3` ↔ `0.2.1-rc.2`、`0.2.1-rc.4` ↔ `0.2.1-rc.3`、`0.2.1-rc.5` ↔ `0.2.1-rc.4`、`0.2.2-alpha.3` ↔ `0.2.1-rc.5`、`0.2.2-rc.1` ↔ `0.2.2-alpha.3`。同一临时 profile/端口保留页面，检查原生版本提示，刷新后核对认证、原会话和持久设置，再恢复起始版本。只有 `0.2.1-alpha.3` 无 release 元数据并显示未解析；其余目的宿主必须显示真实完整版本。不修改上游源码、版本或依赖图元数据。
+每个producer记录源码/归档身份；消费者sidecar保留旧report schema，将原始JSON/TAP/日志关联真实CLI、lock、八包SDK链及私有copy receipt。索引按套件要求primary、独立smoke、精确前版及两个private-account runtime；遗漏receipt和引用、摘要/报告不符、混producer、partial均失败。完整套件必注册名还拒绝缺失账号/通知/Search/Origin/viewer/资源/mux/HMR/图标真实用例，逐版显式空文件例外不计作实际用例。CI严格检查成功/预期skip，包外上传原始证据和producer索引；最终发布消费同一归档，循环禁止build/pack。
 
-`browser/web-search-settings.spec.ts` 在 `0.2.1-rc.2`、`0.2.1-rc.3`、`0.2.1-rc.4`、`0.2.1-rc.5`、`0.2.2-alpha.3`、`0.2.2-rc.1` 注册。通过已认证的远程 Host 打开原生 Search/Fetch 设置，检查 `web`、`web-search-deepseek`、`web-deepseek-api`，切换提供者、保存地址/限制及测试凭据，观察校验和注入的传输拒绝，再验证刷新及真实进程重启后的持久化。匿名请求、会话撤销后重新提交原 Cookie 的设置/凭据读写均须拒绝。本地提供者统计请求并必须为零；只验证设置与认证边界，不验证 Search/Fetch 结果、不发付费请求或真实账号授权，不替换宿主提供者。
-
-固定归档验证使用 `pnpm verify:packed --archive <archive> --sha256 <recorded-sha256> --dsh-version <exact-version> --suite <suite>`，不重新构建或打包。[开发指南](../docs/development.zh-CN.md#消费固定归档) 列出全部固定 suite 和筛选规则。运行器先恢复归档 dist 供 CLI/安装比较，拒绝空用例或跳过，记录 SHA-256 与数量，并使 smoke 独立于 `.dev` 和 13090。`unit/verify-packed.test.ts` 覆盖损坏/逃逸/链接归档、真实 Node 空筛选输出和带标记目录保护。发布全量验证仍须对每个声明版本使用相同归档运行 CLI、完整 browser 与 smoke。
-
-CI 使用[普通/全量计划](../docs/development.zh-CN.md#普通与全量-ci-计划)。普通保留十版 CLI/smoke，`0.2.1-alpha.3`、`0.2.1-rc.2`、`0.2.1-rc.3`、`0.2.1-rc.4`、`0.2.1-rc.5`、`0.2.2-alpha.3`、`0.2.2-rc.1` 完整 browser，`0.2.1-alpha.4`、`0.2.1-alpha.5` host-release、`0.2.1-rc.1` rc-bootstrap；源码/设施/未知变更、手动/每周与发布全量运行十版完整 browser，并独立运行 `0.2.1-alpha.2` 真实退役拒绝。ordinary 精确接受负向 job 的唯一预定 skip；full 要求其成功，缺失/未知 plan/其他 skip 均拒绝。每个必需文件须有真实用例，仅明确不适用文件可零注册：LiveShare 仅在 `0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5`、`0.2.1-rc.1`、`0.2.1-rc.2`、`0.2.1-rc.3`、`0.2.1-rc.4`、`0.2.1-rc.5` 不适用；新版资源、mux、Search/Fetch 和导航必须有真实用例。
-
-`browser/rc-navigation.spec.ts` 在 `0.2.1-rc.3`、`0.2.1-rc.4`、`0.2.1-rc.5`、`0.2.2-alpha.3`、`0.2.2-rc.1` 检查全局/会话/右侧栏 More、原生设置/模型选择和撤销后拒绝。仅查看市场/Creator 入口，不安装。专用 `fixtures/rc-navigation-state.mjs` 经公开 sessions/sessionProjections 为真实原生会话添加空完成 turn，拒绝已有 turn，不发送聊天或修改快照，模型调用必须为零。官方动态 `/models` 的内部语义与完整官方授权未验证。
-
-独立 `scripts/verify-retired.mjs` 只接受六个明确退役目标，不扩展正向选版；核验同包摘要、已发布 `0.2.0` 基线、真实安装回滚及完整不兼容 bundle 的原生 peer skip/持续无监听。六版一次性验收属于 `0.3.1` 迁移历史；当前 full/发布只跑 `0.2.1-alpha.2`，ordinary 不跑。命令与报告边界见开发指南。
-
-精确 DSH `0.2.2-alpha.3`、`0.2.2-rc.1` 的 `native-transport.spec.ts` 比较真实原生 asset/fallback 文件与 ETag，覆盖 GET/HEAD/304、匿名/撤销携正确 ETag 仍拒绝；真实 bundle/map/chunk 保留 immutable 200，index 不采用 immutable 缓存。四个真实 `/api/remote.mux` 用例覆盖原生 HTTPS/代理、默认/none 压缩、whole-frame 阈值/RSV1、成功 ready 帧和真实到期/撤销；传输和压缩仍由原生 Gateway/ws 实现。
-
-新版 `account-login.spec.ts` 的 source HMR 故障用例在导入失败时保留原实例，再于真实替换实例完成初始化后抛错，验证旧/失败资源清理和原生自动回滚。检查真实 provider fiber、监听器、状态锁 nonce、mux 关闭、认证持久性、恢复后的首次 Settings 保存和最终锁再获取。副本入口使用统一 file URL 与显式原生监听 root；公开日志 exporter 只观测 warn，不替换 HMR。
-
-浏览器语言测试覆盖插件八语、登录回退/记忆、原生已接纳偏好与乐观选择、延迟/不可用/失败读取和保存、存储失败，以及退出/撤销后保留；不改变 DSH 原生语言目录。CLI 在不同环境语言下须固定英语，各种 `--lang` 在 profile 访问前拒绝；退役夹具对已发布 `0.2.0` 保留历史中文合同。
-
-`liveshare.spec.ts` 在精确 `0.2.2-alpha.3`、`0.2.2-rc.1` 注册：真实原生 Host/Owner PKCE/分享 worker/查看页载体和停止操作配本地 Relay 身份/传输替身；viewer 不挂载管理员功能。不宣称真实 Relay/OAuth、访客模型或文件写入已验证。局部筛选报告和文件 placeholder 不认证最终十版归档。
-
-版本 `0.3.5` 的发布可用性由发布工作流和 npm registry 确认；已发布 `0.3.4` 保留九版声明，新增精确 `0.2.2-rc.1` 不追溯给旧包。发布以同一最终归档的全量验收为前提；Linux/Node.js 24（新默认至少 `24.9.0`）/Chromium 为本次边界，其他 Node 大版本不能替代验收，真实代理产品/外部授权/非回环 IPv6 网卡/其他平台浏览器仍未验证。
-
-直接开发依赖为 DSH `0.2.2-rc.1`、Cordis `4.1.0`、Schemastery `3.19.0`；实际新宿主链使用 Loader `1.1.0` 和 Include `1.1.0`。这些是分发包版本。保留 `autoInstallPeers: false`，发布时间例外只列经核验且安装器要求的精确版本。配置观测读取 canonical `entry.fiber.ctx.fiber` 的 `effectiveConfig`，只有不存在访问器的旧宿主才回退 `config`；未激活、缺值或非 `.get()` 引用报错。生产构造参数继续保留原生 Volatile。
-
-`settings-icon.spec.ts` 在十版均注册：`0.2.2-alpha.3`、`0.2.2-rc.1` 验证原生盾牌/size/currentColor/选中态、明暗窄屏、贡献释放默认恢复、真实声明撤下重建去重及卸载；其他八版验证默认图标。观测和释放入口仅在 fixture，模块仍由宿主 Loader 解析；viewer 不安装管理员效果。完整 browser 除整文件非空外，还核对必需 mux/资源/HMR/图标 TAP 名称；名称筛选明确为 partial。八语用例断言实际访问集合，不以标题代替执行。
-
-LiveShare 是官方已发布、默认关闭的实验性可选插件（`listedByDefault: false`），本插件不自动启用。必要兼容只在精确 `0.2.2-alpha.3`、`0.2.2-rc.1` 维护；本地协议替身不证明生产 Relay/OAuth、真实访客模型或文件写入。私有接口依赖与未知宿主限制见兼容库存。
+测试边界为Linux/Node.js 24/Chromium、原生回环IPv4/IPv6 HTTP/HTTPS及既有Node转发。其他平台/浏览器/Node大版本、真实非回环IPv6网卡、Nginx/Traefik二进制、真实外部授权、付费provider及跨产品通知本地化未验证。完整备份、独立profile及匹配宿主/插件/配置/完整数据的回退见[部署指南](../docs/deployment.zh-CN.md)。

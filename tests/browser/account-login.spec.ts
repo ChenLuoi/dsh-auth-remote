@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { execFile, spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import {
   appendFile,
   copyFile,
@@ -14,8 +14,9 @@ import {
   writeFile,
 } from 'node:fs/promises'
 import { createServer } from 'node:net'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 import { promisify } from 'node:util'
 import { pathToFileURL } from 'node:url'
@@ -34,8 +35,9 @@ import {
   openDshSettings,
   project,
   selectDshTheme,
+  waitForAnimations,
 } from '../helpers/runtime.js'
-import { dshVersion } from '../../scripts/runtime.mjs'
+import { dshVersion, prepareDshRuntime } from '../../scripts/runtime.mjs'
 import { classifyDshSupport, dshSupportWarning } from '../../src/shared/dsh-support.js'
 import { accountPlatform } from '../helpers/account-platform.js'
 import { nativeHttp } from '../helpers/native-http.js'
@@ -49,6 +51,8 @@ async function fixture({
   supportReloadProbe = false,
   observeClient = false,
   lifecycleProbe = false,
+  entryObserver = false,
+  privateRuntime = false,
 } = {}) {
   const home = await mkdtemp(join(tmpdir(), 'auth-remote-manual-browser-'))
   const platform = await accountPlatform()
@@ -63,15 +67,78 @@ async function fixture({
   const env: NodeJS.ProcessEnv = isolatedDshEnv(home)
   let child: ReturnType<typeof spawn> | undefined
   let browser: Awaited<ReturnType<typeof launchBrowser>> | undefined
+  let currentPage: Page | undefined
   let output = ''
+  let phase = 'boot'
+  const consoleErrors: { phase: string; text: string }[] = []
+  const externalRequests: string[] = []
   const stopServer = async () => {
     if (child && child.exitCode === null && child.signalCode === null) {
       child.kill('SIGTERM')
       await once(child, 'exit').catch(() => {})
     }
   }
+  const cleanup = async () => {
+    const failures: unknown[] = []
+    for (const close of [
+      () => currentPage?.unrouteAll({ behavior: 'wait' }),
+      () => browser?.close(),
+      stopServer,
+      () => platform.close(),
+      () => model.close(),
+      () => rm(home, { recursive: true, force: true }),
+    ]) {
+      try {
+        await close()
+      } catch (error) {
+        failures.push(error)
+      }
+    }
+    if (failures.length) throw new AggregateError(failures, 'Account fixture cleanup failed')
+  }
   try {
-    await promisify(execFile)(dsh, ['plugin', '--profile', 'web', 'add', archive], {
+    const runtime = join(home, 'private-runtime')
+    const binary = privateRuntime
+      ? await prepareDshRuntime(
+          runtime,
+          'auth-remote-private-client-runtime',
+          dshVersion,
+          undefined,
+          'private-account',
+        )
+      : dsh
+    let nativeClient: string | undefined
+    if (privateRuntime) {
+      const installed = createRequire(join(runtime, 'package.json'))
+      const host = createRequire(installed.resolve('@deepseek-ai/dsh/package.json'))
+      const web = createRequire(host.resolve('@deepseek-ai/dsh-web-app/package.json'))
+      const manifest = web.resolve('@deepseek-ai/dsh-client-ui-settings-account/package.json')
+      assert.equal(JSON.parse(await readFile(manifest, 'utf8')).version, dshVersion)
+      nativeClient = join(dirname(manifest), 'lib/client.js')
+      assert.equal((await stat(nativeClient)).nlink, 1)
+      console.info(
+        'private account runtime',
+        JSON.stringify({
+          dsh: dshVersion,
+          lockSha256: createHash('sha256')
+            .update(await readFile(join(runtime, 'pnpm-lock.yaml')))
+            .digest('hex'),
+          nativeClientSha256: createHash('sha256')
+            .update(await readFile(nativeClient))
+            .digest('hex'),
+          packages: Object.fromEntries(
+            [
+              '@deepseek-ai/cordis',
+              '@deepseek-ai/schemastery',
+              '@deepseek-ai/cordis-plugin-loader',
+              '@deepseek-ai/cordis-plugin-include',
+              '@deepseek-ai/dsh-deepseek-account',
+            ].map((name) => [name, web(name + '/package.json').version]),
+          ),
+        }),
+      )
+    }
+    await promisify(execFile)(binary, ['plugin', '--profile', 'web', 'add', archive], {
       cwd: home,
       env,
     })
@@ -138,6 +205,12 @@ async function fixture({
         '- id: deepseek-account',
         '  config:',
         `    platformOrigin: ${platform.origin}`,
+        ...(dshVersion === '0.2.2-rc.2'
+          ? [
+              `    harnessOrigin: ${platform.origin}`,
+              `    inferenceOrigin: ${new URL(model.baseURL).origin}`,
+            ]
+          : []),
         '    allowLoopbackHttp: true',
         ...(hmrProbeEnabled
           ? [
@@ -171,7 +244,7 @@ async function fixture({
       await store.close()
     }
     child = spawn(
-      dsh,
+      binary,
       [
         'web',
         '--no-open',
@@ -213,18 +286,36 @@ async function fixture({
       '--host-resolver-rules=MAP account-remote.test 127.0.0.1',
     ])
     const context = await browser.newContext({ locale: 'zh-CN' })
-    if (observeClient)
+    if (entryObserver) {
+      await context.addInitScript({
+        path: new URL('../fixtures/account-entry-observer.js', import.meta.url).pathname,
+      })
+      await context.route('**/*', async (route) => {
+        const url = new URL(route.request().url())
+        if (['account-remote.test', '127.0.0.1', 'localhost', '[::1]'].includes(url.hostname))
+          await route.continue()
+        else {
+          externalRequests.push(url.origin)
+          await route.abort()
+        }
+      })
+    } else if (observeClient)
       await context.addInitScript({
         path: new URL('../fixtures/liveshare-client-observer.js', import.meta.url).pathname,
       })
     await context.addCookies([{ name: AUTH_COOKIE, value: token!, url: origin }])
     const page = await context.newPage()
+    currentPage = page
     const errors: string[] = []
     const resources: { path: string; status: number }[] = []
     page.on('response', (response) =>
       resources.push({ path: new URL(response.url()).pathname, status: response.status() }),
     )
     page.on('pageerror', (error) => errors.push(error.message))
+    if (entryObserver)
+      page.on('console', (message) => {
+        if (message.type() === 'error') consoleErrors.push({ phase, text: message.text() })
+      })
     await page.goto(origin, { waitUntil: 'load' })
     try {
       await page.waitForSelector('[class*="frame"]')
@@ -273,12 +364,19 @@ async function fixture({
     return {
       profile,
       moduleEntry,
+      nativeClient,
+      binary,
       page,
       context,
       platform,
       model,
       origin,
       errors,
+      consoleErrors,
+      externalRequests,
+      setPhase(value: string) {
+        phase = value
+      },
       output: () => output,
       stopServer,
       async open(locale: 'zh' | 'en' = 'zh') {
@@ -300,20 +398,15 @@ async function fixture({
       async close() {
         // Settings can issue another describe after the last UI assertion.
         // Finish active route callbacks before disposing their request context.
-        await page.unrouteAll({ behavior: 'wait' })
-        await browser?.close()
-        await stopServer()
-        await platform.close()
-        await model.close()
-        await rm(home, { recursive: true, force: true })
+        await cleanup()
       },
     }
   } catch (error) {
-    await browser?.close()
-    await stopServer()
-    await platform.close()
-    await model.close()
-    await rm(home, { recursive: true, force: true })
+    try {
+      await cleanup()
+    } catch (failure) {
+      throw new AggregateError([error, failure], 'Account fixture setup and cleanup failed')
+    }
     throw error
   }
 }
@@ -348,6 +441,578 @@ async function nativeSettingsRpc(page: Page, method: string, args: Record<string
   )
 }
 
+if (dshVersion === '0.2.2-rc.2') {
+  test(
+    'native account entry decoration preserves child ownership across client reloads',
+    { timeout: 240_000 },
+    async () => {
+      const f = await fixture({ entryObserver: true, privateRuntime: true, loopback: true })
+      const facts = () => f.page.evaluate(() => (window as any).__accountEntry.snapshot())
+      const owned = async () => {
+        await expect.poll(facts).toMatchObject({ entryCount: 1, decorated: true, roots: 1 })
+        const value = await facts()
+        for (const key of [
+          'sameEntry',
+          'sameChildren',
+          'sameInject',
+          'sameOptions',
+          'sameRegistrant',
+        ])
+          assert.equal(value[key], true, key)
+        assert.equal(value.childIds.length, 1)
+        assert(
+          value.renders.some(
+            (render: any) => render.entryId === value.entryId && render.bindingType === 'function',
+          ),
+        )
+        return value
+      }
+      const preference = async (value: boolean) => {
+        const described = await nativeSettingsRpc(f.page, 'settings/describe', {})
+        const namespace = described.result.value.namespaces.find(
+          (row: any) => row.ns === 'auth-remote',
+        )
+        const saved = await nativeSettingsRpc(f.page, 'settings/mutate', {
+          ns: 'auth-remote',
+          expectedRevision: namespace.revision,
+          ops: [{ op: 'set', path: ['manualAccountLogin'], value }],
+        })
+        assert.equal(saved.result.ok, true)
+        await expect
+          .poll(() =>
+            f.page.evaluate(() => {
+              const ctx = (window as any).__accountEntry.auth.ctx
+              return ctx.get('configForms').get('auth-remote').getSnapshot().value
+                ?.manualAccountLogin
+            }),
+          )
+          .toBe(value)
+      }
+      const nativeStart = async (phase: string) => {
+        f.setPhase(phase)
+        const count = f.platform.attempts.length
+        await clickThroughDshPrompts(
+          f.page,
+          f.page.getByRole('button', { name: '账号菜单', exact: true }),
+        )
+        await f.page.getByRole('menuitem', { name: '登录', exact: true }).click()
+        await expect.poll(() => f.platform.attempts.length).toBe(count + 1)
+        assert.equal(await f.page.locator('.auth-remote-account-dialog').count(), 0)
+        await f.page.evaluate(async () => {
+          const s = (window as any).__accountEntry
+          const answer = await s.native.ctx.remote.account.getState()
+          if (answer.value.attempt?.id)
+            await s.native.ctx.remote.account.cancelSignIn(answer.value.attempt.id)
+          s.records.at(-1).entry.inject().showLogin(false)
+        })
+        for (const popup of f.context.pages()) if (popup !== f.page) await popup.close()
+      }
+      try {
+        const initial = await owned()
+        assert.equal(initial.registrations, 1)
+        const before = await f.page.evaluate(async () => (await fetch('/auth-remote/me')).json())
+        const dialog = await f.open()
+        assert.equal(f.platform.attempts.length, 0)
+        await dialog.getByRole('button', { name: '关闭', exact: true }).click()
+        await preference(false)
+        await nativeStart('native-delegation')
+        await preference(true)
+
+        // Real client module HMR, independently of Host entry HMR or fiber.restart.
+        for (const [kind, path] of [
+          ['auth', join(f.profile, 'node_modules/dsh-auth-remote/dist/client.js')],
+          ['native', f.nativeClient!],
+        ] as const) {
+          f.setPhase(`${kind}-client-hmr`)
+          let release!: () => void
+          const held = new Promise<void>((resolve) => {
+            release = resolve
+          })
+          let navigations = 0
+          const authorize = f.platform.origin + '/dsh/authorize?**'
+          // Keep the preopened window owned until cleanup; cross-origin COOP can sever its handle.
+          await f.context.route(authorize, async (route) => {
+            if (
+              route.request().isNavigationRequest() &&
+              route.request().frame().parentFrame() === null
+            ) {
+              navigations++
+              await held
+            }
+            await route.continue()
+          })
+          try {
+            const activeDialog = await f.open()
+            const attempts = f.platform.attempts.length
+            const popups = (await facts()).popupClosed.length
+            const start = activeDialog.getByRole('button', { name: /^(?:打开登录页|重新开始)$/u })
+            await expect(start).toBeEnabled()
+            await start.click()
+            await expect(activeDialog.getByLabel('完整回调地址', { exact: true })).toBeEnabled()
+            await expect.poll(() => navigations).toBe(1)
+            assert.deepEqual((await facts()).popupClosed.slice(popups), [false])
+            assert.equal(f.platform.attempts.length, attempts + 1)
+            const attempt = f.platform.attempts.at(-1)!.id
+            assert.equal((await stat(path)).nlink, 1)
+            const old = await facts()
+            const marker = `account entry ${kind} client source HMR ${randomUUID()}`
+            const loaded = f.page.waitForEvent('console', {
+              predicate: (message) => message.text() === marker,
+              timeout: 30_000,
+            })
+            await appendFile(path, '\nconsole.info(' + JSON.stringify(marker) + ');\n')
+            await loaded
+            await expect.poll(facts, { timeout: 30_000 }).toMatchObject({
+              applies: { [kind]: old.applies[kind] + 1 },
+              disposals: { [kind]: old.disposals[kind] + 1 },
+            })
+            const fresh = await owned()
+            await expect(f.page.locator('.auth-remote-account-dialog')).toHaveCount(0)
+            await expect.poll(async () => (await facts()).popupClosed.slice(popups)).toEqual([true])
+            await expect
+              .poll(() => f.platform.cancellations.filter((id) => id === attempt).length)
+              .toBe(1)
+            assert.equal(
+              f.platform.attempts.length,
+              attempts + 1,
+              'client reload must not start another authorization',
+            )
+            if (kind === 'auth') {
+              assert.equal(fresh.entryId, old.entryId)
+              assert.deepEqual(fresh.childIds, old.childIds)
+              await expect(f.page.locator('.auth-remote-account-dialog')).toHaveCount(0)
+            } else {
+              assert.notEqual(fresh.entryId, old.entryId)
+              assert.notDeepEqual(fresh.childIds, old.childIds)
+            }
+            assert.deepEqual(
+              await f.page.evaluate(async () => (await fetch('/auth-remote/me')).json()),
+              before,
+            )
+          } finally {
+            release()
+            await f.context.unroute(authorize)
+          }
+        }
+
+        const native = await owned()
+        for (let iteration = 0; iteration < 2; iteration++) {
+          await f.page.evaluate(async () => {
+            const s = (window as any).__accountEntry
+            s.savedAuth = { parent: s.auth.parent, exports: s.auth.exports }
+            await s.auth.ctx.fiber.dispose()
+          })
+          await expect
+            .poll(facts)
+            .toMatchObject({ roots: 0, original: true, entryId: native.entryId })
+          assert.deepEqual((await facts()).childIds, native.childIds)
+          await f.page.evaluate(async () => {
+            const s = (window as any).__accountEntry
+            await s.savedAuth.parent.plugin(s.savedAuth.exports)
+            await s.savedAuth.parent.fiber.await()
+          })
+          assert.equal((await owned()).entryId, native.entryId)
+        }
+
+        await f.page.evaluate(() => (window as any).__accountEntry.retainWrapper())
+        await f.page.evaluate(async () => {
+          await (window as any).__accountEntry.auth.ctx.fiber.dispose()
+        })
+        assert.equal(
+          await f.page.evaluate(() => {
+            const p = (window as any).__accountEntry.thirdParty
+            return p.entry.component === p.component
+          }),
+          true,
+        )
+        assert.equal((await facts()).roots, 0)
+        await nativeStart('inactive-wrapper')
+        await f.page.evaluate(() => {
+          const p = (window as any).__accountEntry.thirdParty
+          p.entry.component = p.native
+          p.release()
+        })
+        // A real local credential prevents fresh native onboarding from opening its own dialog.
+        await f.page.reload()
+        await owned()
+        const setup = await f.open()
+        await setup.getByRole('button', { name: '使用 API Key', exact: true }).click()
+        const editor = f.page.getByRole('dialog', {
+          name: '添加一个 API Key 开始使用',
+          exact: true,
+        })
+        await expect(editor).toBeVisible()
+        await editor
+          .getByRole('textbox', { name: 'API 密钥', exact: true })
+          .fill('pending-entry-local-test-key')
+        const saved = f.page.waitForResponse(
+          (response) => new URL(response.url()).pathname === '/api/credentials/set',
+        )
+        await editor.getByRole('button', { name: '保存并继续', exact: true }).click()
+        assert.equal((await (await saved).json()).result.ok, true)
+        const credential = await nativeSettingsRpc(f.page, 'credentials/describe', {
+          refs: ['DEEPSEEK_API_KEY'],
+        })
+        assert.equal(credential.result.value.DEEPSEEK_API_KEY.configured, true)
+        await editor.getByRole('button', { name: '稍后配置', exact: true }).click()
+        await expect(editor).not.toBeVisible()
+        // Hold the real settings read while the clicked wrapper awaits mirror.ensure().
+        for (const value of [true, false]) {
+          await f.page.reload()
+          await owned()
+          await preference(value)
+          for (const target of ['auth', 'native'] as const) {
+            f.setPhase(`pending-${target}-${value}`)
+            let release!: () => void
+            const held = new Promise<void>((resolve) => {
+              release = resolve
+            })
+            let reads = 0
+            const count = f.platform.attempts.length
+            await f.page.route('**/api/settings/describe', async (route) => {
+              reads++
+              await held
+              await route.continue()
+            })
+            try {
+              await f.page.reload()
+              await owned()
+              await expect.poll(() => reads).toBeGreaterThan(0)
+              await f.page.getByRole('button', { name: '账号菜单', exact: true }).click()
+              await f.page.getByRole('menuitem', { name: '登录', exact: true }).click()
+              await expect.poll(facts).toMatchObject({ starts: 1, settledStarts: 0 })
+              assert.equal(f.platform.attempts.length, count)
+              await expect(f.page.locator('.auth-remote-account-dialog')).toHaveCount(0)
+              const pendingEntry = (await facts()).entryId
+              await f.page.evaluate(async (target) => {
+                const s = (window as any).__accountEntry
+                s.pendingOwner = { parent: s[target].parent, exports: s[target].exports }
+                if (target === 'auth') s.retainWrapper()
+                await s[target].ctx.fiber.dispose()
+              }, target)
+              await expect.poll(facts).toMatchObject({ roots: 0 })
+              if (target === 'native') {
+                await f.page.evaluate(async () => {
+                  const s = (window as any).__accountEntry
+                  await s.pendingOwner.parent.plugin(s.pendingOwner.exports)
+                  await s.pendingOwner.parent.fiber.await()
+                })
+                await expect.poll(facts).toMatchObject({ roots: 1, decorated: true })
+                assert.notEqual((await facts()).entryId, pendingEntry)
+              }
+              release()
+              await expect.poll(facts).toMatchObject({ settledStarts: 1 })
+              await expect(f.page.locator('.auth-remote-account-dialog')).toHaveCount(0)
+              assert.equal(f.platform.attempts.length, count)
+              if (target === 'auth')
+                await f.page.evaluate(async () => {
+                  const s = (window as any).__accountEntry
+                  if (s.thirdParty) {
+                    s.thirdParty.entry.component = s.thirdParty.native
+                    s.thirdParty.release()
+                  }
+                  await s.pendingOwner.parent.plugin(s.pendingOwner.exports)
+                  await s.pendingOwner.parent.fiber.await()
+                })
+              await owned()
+            } finally {
+              release()
+              await f.page.unroute('**/api/settings/describe')
+            }
+          }
+        }
+        assert.deepEqual(f.errors, [])
+        assert.deepEqual(f.externalRequests, [])
+        const popup =
+          /^Unsafe attempt to initiate navigation for frame with URL 'http:\/\/127\.0\.0\.1:\d+\/dsh\/authorize\?/u
+        const normalize = (text: string) =>
+          text.replaceAll(/:[0-9]+/gu, ':PORT').replaceAll(/[a-f0-9]{8}-[a-f0-9-]{27,}/gu, 'ID')
+        const control = f.consoleErrors
+          .filter((row) => row.phase === 'inactive-wrapper')
+          .map((row) => normalize(row.text))
+        for (const row of f.consoleErrors) {
+          assert(
+            [
+              'native-delegation',
+              'inactive-wrapper',
+              'auth-client-hmr',
+              'native-client-hmr',
+            ].includes(row.phase),
+            JSON.stringify(row),
+          )
+          assert.match(row.text, popup)
+          assert(control.includes(normalize(row.text)))
+        }
+      } catch (error) {
+        console.error('Account entry observation:', await facts().catch(String))
+        console.error('Account entry page errors:', f.errors)
+        console.error('Account entry console:', f.consoleErrors)
+        console.error(
+          'Account entry attempts:',
+          f.platform.attempts.map(({ id, cancelled }) => ({ id, cancelled })),
+          f.platform.cancellations,
+        )
+        console.error(
+          'Account entry pages:',
+          f.context.pages().map((page) => page.url()),
+        )
+        console.error(
+          'Account entry client services:',
+          await f.page.evaluate(() => {
+            const ctx = (window as any).__accountEntry.auth.ctx
+            return {
+              baseline: (window as any).__DSH_REMOTE_ACCESS__,
+              services: [
+                'slots',
+                'configForms',
+                'remote',
+                'remote.account',
+                'remote.session',
+                'remoteAccess',
+              ].map((name) => [name, !!ctx.get(name)]),
+              entries: [...ctx.get('loader').entries()]
+                .filter((entry: any) => entry.options.name.includes('account'))
+                .map((entry: any) => ({
+                  name: entry.options.name,
+                  state: entry.fiber?.state,
+                  error: String(entry.fiber?.error ?? ''),
+                })),
+            }
+          }),
+        )
+        console.error('Account entry Host output:', f.output())
+        throw error
+      } finally {
+        await f.close()
+      }
+    },
+  )
+
+  test(
+    'native account notifications remain local across language and lifecycle changes',
+    { timeout: 180_000 },
+    async () => {
+      const f = await fixture({ entryObserver: true, privateRuntime: true })
+      f.platform.localizeNotifications()
+      const facts = () => f.page.evaluate(() => (window as any).__accountEntry.snapshot())
+      const card = f.page.locator('aside').filter({
+        has: f.page.getByRole('status').filter({ hasText: f.platform.notification.title }),
+      })
+      const resize = async (width: number) => {
+        await f.page.setViewportSize({ width, height: 900 })
+        const drawer = f.page.locator('[data-sidebar-drawer]')
+        if (width === 390) {
+          await expect(drawer).toHaveCount(1)
+          if ((await drawer.getAttribute('data-sidebar-collapsed')) !== null)
+            await f.page.locator('button[data-sidebar-opener]').click()
+          await expect(drawer).not.toHaveAttribute('data-sidebar-collapsed', 'true')
+        } else await expect(drawer).toHaveCount(0)
+        await waitForAnimations(f.page)
+        await expect(card).toBeVisible()
+      }
+      const closeLabels = {
+        zh: '关闭',
+        en: 'Close',
+        ja: '閉じる',
+        es: 'Cerrar',
+        fr: 'Fermer',
+        de: 'Schließen',
+        ru: 'Закрыть',
+        pt: 'Fechar',
+      }
+      const review = join(project, '.cache/ui-review', dshVersion, 'notifications')
+      await mkdir(review, { recursive: true })
+      try {
+        const dialog = await f.open()
+        const opened = f.context.waitForEvent('page')
+        await dialog.getByRole('button', { name: '打开登录页', exact: true }).click()
+        const popup = await opened
+        await popup.getByRole('button', { name: 'Authorize test account' }).waitFor()
+        await dialog.getByLabel('完整回调地址', { exact: true }).fill(f.platform.callback())
+        await dialog.getByRole('button', { name: '确认登录', exact: true }).click()
+        await expect(dialog).not.toBeVisible()
+        assert.equal(f.platform.exchanges.length, 1)
+        await popup.close()
+        await expect(card).toBeVisible()
+        await expect
+          .poll(
+            () =>
+              f.platform.notificationEvents.filter((event) => event.type === 'displayed').length,
+          )
+          .toBe(1)
+        const initial = await facts()
+        assert.equal(initial.entryCount, 1)
+        assert.equal(initial.childIds.length, 1)
+        for (const locale of Object.keys(closeLabels) as Locale[]) {
+          const wireLocale = locale === 'zh' ? 'zh_CN' : 'en_US'
+          const reads = f.platform.notificationRequests.filter((request) =>
+            request.path.endsWith('/content'),
+          ).length
+          await f.page.evaluate(
+            (locale) => (window as any).__accountEntry.auth.ctx.locale.setLocale(locale),
+            locale,
+          )
+          if (locale !== 'zh')
+            await expect
+              .poll(
+                () =>
+                  f.platform.notificationRequests.filter((request) =>
+                    request.path.endsWith('/content'),
+                  ).length,
+              )
+              .toBeGreaterThan(reads)
+          await expect(
+            card.getByText(f.platform.notificationFor(wireLocale).title, { exact: true }),
+          ).toBeVisible()
+          await expect(
+            card.getByText(f.platform.notificationFor(wireLocale).body, { exact: true }),
+          ).toBeVisible()
+          await expect(
+            card.getByRole('button', { name: closeLabels[locale], exact: true }),
+          ).toBeVisible()
+          await expect(
+            card.getByRole('button', { name: `Account [${wireLocale}]`, exact: true }),
+          ).toBeVisible()
+          for (const width of [1280, 390]) {
+            await resize(width)
+            await expect
+              .poll(
+                () =>
+                  card.evaluate((node) => {
+                    const bounds = node.getBoundingClientRect()
+                    return (
+                      node.scrollWidth <= node.clientWidth &&
+                      bounds.left >= 0 &&
+                      bounds.right <= innerWidth + 1
+                    )
+                  }),
+                { message: `${locale} notification at ${width}px` },
+              )
+              .toBe(true)
+            await f.page.screenshot({ path: join(review, `${locale}-light-${width}.png`) })
+          }
+          const current = await facts()
+          assert.equal(current.entryId, initial.entryId)
+          assert.deepEqual(current.childIds, initial.childIds)
+          assert.deepEqual(current.childRegistrants, initial.childRegistrants)
+        }
+        assert.deepEqual(
+          [...new Set(f.platform.notificationRequests.map((request) => request.locale))].sort(),
+          ['en_US', 'zh_CN'],
+        )
+        assert.equal(
+          f.platform.notificationEvents.filter((event) => event.type === 'displayed').length,
+          1,
+          'language and viewport changes retain consumption',
+        )
+        await card.getByRole('button', { name: 'Account [en_US]', exact: true }).click()
+        await expect
+          .poll(
+            () =>
+              f.platform.notificationEvents.filter((event) => event.type === 'cta_clicked').length,
+          )
+          .toBe(1)
+        await expect(
+          f.page.getByRole('dialog', { name: 'Configurações', exact: true }),
+        ).toBeVisible()
+        await f.page.keyboard.press('Escape')
+        await f.page.evaluate(() => (window as any).__accountEntry.auth.ctx.locale.setLocale('zh'))
+        await openDshSettings(f.page)
+        await f.page
+          .getByRole('dialog', { name: '设置', exact: true })
+          .getByRole('button', { name: '通用设置', exact: true })
+          .click()
+        await selectDshTheme(f.page, 'dark')
+        await f.page.keyboard.press('Escape')
+        for (const width of [1280, 390]) {
+          await resize(width)
+          await f.page.screenshot({ path: join(review, `zh-dark-${width}.png`) })
+        }
+        for (const [kind, path] of [
+          ['auth', join(f.profile, 'node_modules/dsh-auth-remote/dist/client.js')],
+          ['native', f.nativeClient!],
+        ] as const) {
+          f.setPhase(`${kind}-notification-hmr`)
+          const old = await facts()
+          const marker = `notification ${kind} client HMR ${randomUUID()}`
+          assert.equal((await stat(path)).nlink, 1)
+          const loaded = f.page.waitForEvent('console', {
+            predicate: (message) => message.text() === marker,
+            timeout: 30_000,
+          })
+          await appendFile(path, '\nconsole.info(' + JSON.stringify(marker) + ');\n')
+          await loaded
+          await expect.poll(facts, { timeout: 30_000 }).toMatchObject({
+            applies: { [kind]: old.applies[kind] + 1 },
+            disposals: { [kind]: old.disposals[kind] + 1 },
+            roots: 1,
+            decorated: true,
+          })
+          await expect(card).toBeVisible()
+          const current = await facts()
+          if (kind === 'auth') {
+            assert.deepEqual(current.childIds, old.childIds)
+            assert.deepEqual(current.childRegistrants, old.childRegistrants)
+          } else {
+            assert.notDeepEqual(current.childIds, old.childIds)
+          }
+          assert.equal(current.childIds.length, 1)
+          assert.equal(f.platform.exchanges.length, 1)
+        }
+        await card.getByRole('button', { name: '关闭', exact: true }).click()
+        await expect(card).toHaveCount(0)
+        await expect
+          .poll(
+            () =>
+              f.platform.notificationEvents.filter((event) => event.type === 'dismissed').length,
+          )
+          .toBe(1)
+        assert.deepEqual(
+          [...new Set(f.platform.notificationEvents.map((event) => event.type))].sort(),
+          ['cta_clicked', 'dismissed', 'displayed'],
+        )
+        assert(f.platform.notificationRequests.some((request) => request.path.endsWith('/list')))
+        assert(f.platform.notificationRequests.some((request) => request.path.endsWith('/content')))
+        assert(f.platform.notificationRequests.some((request) => request.path.endsWith('/events')))
+        assert.deepEqual(f.externalRequests, [])
+        assert.deepEqual(f.errors, [])
+        assert.equal(f.consoleErrors.length, 3)
+        const [navigation, initialization, reinitialization] = f.consoleErrors
+        assert.equal(navigation!.phase, 'boot')
+        assert.equal(
+          navigation!.text.split("'")[1],
+          `${f.platform.origin}/dsh/authorize?id=${f.platform.attempts[0]!.id}&theme=light`,
+        )
+        assert.equal(navigation!.text.split("'")[3], f.origin + '/')
+        assert.match(
+          navigation!.text,
+          /^Unsafe attempt to initiate navigation for frame with URL 'http:\/\/127\.0\.0\.1:\d+\/dsh\/authorize\?[^']+' from frame with URL 'http:\/\/account-remote\.test:\d+\/'. The frame attempting navigation is neither same-origin with the target, nor is it the target's parent or opener\.(?:\\n|\n)$/u,
+        )
+        assert.deepEqual(initialization, {
+          phase: 'boot',
+          text: '[deepseek-account] default model initialization failed {reason: refused}',
+        })
+        assert.deepEqual(reinitialization, {
+          phase: 'native-notification-hmr',
+          text: '[deepseek-account] default model initialization failed {reason: refused}',
+        })
+      } catch (error) {
+        console.error(
+          'Notification observation:',
+          await facts().catch(String),
+          f.consoleErrors,
+          f.platform.notificationRequests,
+          f.platform.notificationEvents,
+        )
+        console.error('Notification page:', await f.page.locator('body').innerText())
+        throw error
+      } finally {
+        await f.close()
+      }
+    },
+  )
+}
+
 test(
   'eight language dictionaries render the real manual account dialog and errors',
   { timeout: 90000 },
@@ -368,7 +1033,7 @@ test(
       await expect(
         dialog.getByText(dictionaries.zh.accountLoginInvalidCallback, { exact: true }),
       ).toBeVisible()
-      const locales: Locale[] = ['0.2.2-alpha.3', '0.2.2-rc.1'].includes(dshVersion)
+      const locales: Locale[] = ['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion)
         ? (Object.keys(dictionaries) as Locale[])
         : ['zh', 'en']
       assert.deepEqual(
@@ -413,7 +1078,7 @@ test(
         }
       }
       assert.deepEqual([...visited].sort(), [...locales].sort())
-      if (['0.2.2-alpha.3', '0.2.2-rc.1'].includes(dshVersion))
+      if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion))
         assert.deepEqual([...visited].sort(), ['de', 'en', 'es', 'fr', 'ja', 'pt', 'ru', 'zh'])
       console.log('actual manual account language coverage', JSON.stringify([...visited].sort()))
       assert.deepEqual(f.errors, [])
@@ -551,7 +1216,7 @@ test(
   },
 )
 
-if (['0.2.2-alpha.3', '0.2.2-rc.1'].includes(dshVersion))
+if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion))
   test(
     'native HMR preserves preflight failures and cleans allocated replacement resources before rollback',
     { timeout: 150000 },
@@ -752,41 +1417,6 @@ AuthRemoteWebServer.prototype[Service.init] = async function () {
         console.error('Native HMR lifecycle observation:', JSON.stringify(await ready()))
         console.error('Native HMR console:', f.output())
         throw error
-      } finally {
-        await f.close()
-      }
-    },
-  )
-
-if (classifyDshSupport(dshVersion, new Set([dshVersion])).state === 'legacy')
-  test(
-    'legacy maintenance diagnostics survive native source module replacement',
-    { timeout: 90000 },
-    async () => {
-      const f = await fixture({ hmrProbeEnabled: true, supportReloadProbe: true })
-      const maintenance = dshSupportWarning(classifyDshSupport(dshVersion, new Set([dshVersion])))!
-      const warningCount = () => f.output().split(maintenance).length - 1
-      const generation = () =>
-        f.page.evaluate(
-          async () => (await (await fetch('/plugins/hmr-config/state')).json()).generation,
-        )
-      try {
-        assert.equal(warningCount(), 1)
-        const previousGeneration = await generation()
-        const marker = 'auth-remote support diagnostic module replacement loaded'
-        await appendFile(f.moduleEntry, '\nconsole.info(' + JSON.stringify(marker) + ');\n')
-        try {
-          await expect.poll(f.output, { timeout: 20_000 }).toContain(marker)
-          await expect.poll(generation, { timeout: 20_000 }).toBe(previousGeneration + 1)
-        } catch (error) {
-          console.error('Support module HMR output:', f.output())
-          throw error
-        }
-        assert.equal(
-          await f.page.evaluate(async () => (await fetch('/auth-remote/me')).status),
-          200,
-        )
-        assert.equal(warningCount(), 1, 'module HMR must preserve process-wide warning history')
       } finally {
         await f.close()
       }

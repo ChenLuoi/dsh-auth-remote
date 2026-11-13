@@ -6,9 +6,6 @@ import { fileURLToPath } from 'node:url'
 
 export const project = resolve(fileURLToPath(new URL('..', import.meta.url)))
 export const testedDshVersions = [
-  '0.2.1-alpha.3',
-  '0.2.1-alpha.4',
-  '0.2.1-alpha.5',
   '0.2.1-rc.1',
   '0.2.1-rc.2',
   '0.2.1-rc.3',
@@ -16,8 +13,9 @@ export const testedDshVersions = [
   '0.2.1-rc.5',
   '0.2.2-alpha.3',
   '0.2.2-rc.1',
+  '0.2.2-rc.2',
 ]
-export const dshVersion = process.env.DSH_TEST_VERSION || '0.2.2-rc.1'
+export const dshVersion = process.env.DSH_TEST_VERSION || '0.2.2-rc.2'
 if (!testedDshVersions.includes(dshVersion)) {
   throw new Error(`DSH_TEST_VERSION must be one of: ${testedDshVersions.join(', ')}`)
 }
@@ -40,7 +38,41 @@ export function checkDshVersion(bin, version = dshVersion) {
   }
 }
 
-export async function prepareDshRuntime(directory, name, version = dshVersion, signal) {
+/** Detached verification children can outlive their leader; reap the whole group. */
+export async function stopProcessGroup(child) {
+  if (!child.pid) return
+  const alive = () => {
+    try {
+      process.kill(-child.pid, 0)
+      return true
+    } catch (error) {
+      if (error.code !== 'ESRCH') throw error
+      return false
+    }
+  }
+  const kill = (signal) => {
+    try {
+      process.kill(-child.pid, signal)
+    } catch (error) {
+      if (error.code !== 'ESRCH') throw error
+    }
+  }
+  if (alive()) kill('SIGTERM')
+  for (let attempt = 0; attempt < 50 && alive(); attempt++)
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  if (alive()) kill('SIGKILL')
+  for (let attempt = 0; attempt < 50 && alive(); attempt++)
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  if (alive()) throw new Error(`Verification process group remains: ${child.pid}`)
+}
+
+export async function prepareDshRuntime(
+  directory,
+  name,
+  version = dshVersion,
+  signal,
+  role = 'prepared',
+) {
   await mkdir(directory, { recursive: true })
   const stat = await lstat(directory)
   if (!stat.isDirectory() || stat.isSymbolicLink() || (await realpath(directory)) !== directory) {
@@ -89,28 +121,50 @@ export async function prepareDshRuntime(directory, name, version = dshVersion, s
     () => false,
   )
   signal?.throwIfAborted()
-  const install = spawn('pnpm', ['install', ...(lockExists ? ['--frozen-lockfile'] : [])], {
-    cwd: directory,
-    stdio: 'inherit',
-    detached: Boolean(signal),
-  })
+  const install = spawn(
+    'pnpm',
+    ['install', '--package-import-method=copy', ...(lockExists ? ['--frozen-lockfile'] : [])],
+    {
+      cwd: directory,
+      stdio: 'inherit',
+      detached: Boolean(signal),
+    },
+  )
+  let stopping
   const abort = () => {
-    try {
-      process.kill(-install.pid, 'SIGTERM')
-    } catch (error) {
-      if (error.code !== 'ESRCH') throw error
-    }
+    stopping ??= stopProcessGroup(install)
+    void stopping.catch(() => {})
   }
   signal?.addEventListener('abort', abort, { once: true })
+  if (signal?.aborted) abort()
   try {
     const [code] = await once(install, 'close')
     signal?.throwIfAborted()
     if (code !== 0) throw new Error(`Runtime install failed: ${directory}`)
   } finally {
     signal?.removeEventListener('abort', abort)
+    if (signal) await (stopping ?? stopProcessGroup(install))
   }
+  signal?.throwIfAborted()
   const bin = join(directory, 'node_modules/.bin/dsh')
   checkDshVersion(bin, version)
+  if (process.env.DSH_ACCEPTANCE_RUNTIME_DIR) {
+    const { recordRuntimeIdentity } = await import('./packed-artifact.mjs')
+    await recordRuntimeIdentity(
+      directory,
+      version,
+      {
+        directory: process.env.DSH_ACCEPTANCE_RUNTIME_DIR,
+        archiveSha256: process.env.DSH_ACCEPTANCE_ARCHIVE_SHA256,
+        producerSha256:
+          process.env.DSH_ACCEPTANCE_PRODUCER_SHA256 === 'none'
+            ? null
+            : process.env.DSH_ACCEPTANCE_PRODUCER_SHA256,
+        primaryDsh: process.env.DSH_ACCEPTANCE_PRIMARY_DSH,
+      },
+      role,
+    )
+  }
   return bin
 }
 

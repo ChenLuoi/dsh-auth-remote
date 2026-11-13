@@ -58,6 +58,7 @@ jobs:
           path: |
             artifacts/${{ steps.identity.outputs.archive }}
             artifacts/SHA256SUMS
+            artifacts/producer.json
           if-no-files-found: error
 
   runtimes:
@@ -78,6 +79,10 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          package-manager-cache: false
       - name: Require every planned check
         env:
           DSH_JOB_RESULTS: ${{ toJSON(needs) }}

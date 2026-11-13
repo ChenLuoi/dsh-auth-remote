@@ -118,10 +118,7 @@ test('suite and target selection fail closed, including actual Node zero-test ou
   ]
   assert.deepEqual(parseArguments(valid).suites, ['cli'])
   assert.throws(() => parseArguments([...valid.slice(0, -1), 'unknown']), /Unknown suite/u)
-  assert.throws(
-    () => parseArguments([...valid.slice(0, -1), 'rc-bootstrap']),
-    /no registered coverage/u,
-  )
+  assert.throws(() => parseArguments([...valid.slice(0, -1), 'rc-bootstrap']), /Unknown suite/u)
   assert.throws(
     () => parseArguments([...valid.slice(0, -1), 'theme', '--test-name-pattern', 'one']),
     /one cli or browser suite/u,
@@ -280,32 +277,15 @@ test('complete browser coverage permits only exact zero-registration exceptions 
         testNames: requiredBrowserTestNames(version),
       }
       const allowed =
-        file === 'host-release'
-          ? version === '0.2.1-alpha.3'
-          : file === 'web-search-settings'
-            ? ![
-                '0.2.1-rc.2',
-                '0.2.1-rc.3',
-                '0.2.1-rc.4',
-                '0.2.1-rc.5',
-                '0.2.2-alpha.3',
-                '0.2.2-rc.1',
-              ].includes(version)
-            : file === 'rc-navigation'
-              ? !['0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.3', '0.2.2-rc.1'].includes(
-                  version,
-                )
-              : file === 'liveshare' &&
-                [
-                  '0.2.1-alpha.3',
-                  '0.2.1-alpha.4',
-                  '0.2.1-alpha.5',
-                  '0.2.1-rc.1',
-                  '0.2.1-rc.2',
-                  '0.2.1-rc.3',
-                  '0.2.1-rc.4',
-                  '0.2.1-rc.5',
-                ].includes(version)
+        file === 'host-release' || file === 'web-search-settings'
+          ? version === '0.2.1-rc.1'
+          : file === 'rc-navigation'
+            ? ['0.2.1-rc.1', '0.2.1-rc.2'].includes(version)
+            : file === 'liveshare' &&
+              ['0.2.1-rc.1', '0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5'].includes(
+                version,
+              )
+
       if (allowed) assert.doesNotThrow(() => assertRegisteredCoverage('browser', version, counts))
       else
         assert.throws(
@@ -321,15 +301,15 @@ test('complete browser coverage permits only exact zero-registration exceptions 
   )
   assert.throws(
     () =>
-      assertRegisteredCoverage('rc-bootstrap', '0.2.1-rc.1', {
-        actualTests: 1,
+      assertRegisteredCoverage('host-release', '0.2.1-rc.2', {
+        actualTests: 2,
         placeholderFiles: [],
       }),
     /specialized test count/u,
   )
   assert.throws(
     () =>
-      assertRegisteredCoverage('account', '0.2.1-alpha.3', {
+      assertRegisteredCoverage('account', '0.2.1-rc.1', {
         actualTests: 1,
         placeholderFiles: [join(project, 'tests/browser/account-login.spec.ts')],
       }),
@@ -340,6 +320,22 @@ test('complete browser coverage permits only exact zero-registration exceptions 
 test('complete browser coverage rejects missing mandatory cases even when every file has other tests', () => {
   for (const version of testedDshVersions) {
     const names = requiredBrowserTestNames(version)
+    for (const title of [
+      'native account entry decoration preserves child ownership across client reloads',
+      'native account notifications remain local across language and lifecycle changes',
+      'native Search and Fetch billing preserves settings and credential boundaries',
+    ])
+      assert.equal(names.includes(title), version === '0.2.2-rc.2', `${version}: ${title}`)
+    assert.equal(
+      names.includes(
+        'native connection business Origin follows admission and survives configuration reload',
+      ),
+      ['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(version),
+    )
+    assert.equal(
+      names.some((title) => title.includes('real Owner PKCE login')),
+      false,
+    )
     assert.doesNotThrow(() =>
       assertRegisteredCoverage('browser', version, {
         actualTests: names.length,

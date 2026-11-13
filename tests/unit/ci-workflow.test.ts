@@ -37,6 +37,7 @@ test('CI plans before installation, produces one artifact, and passes the select
   assert.equal(upload.uses, 'actions/upload-artifact@v7')
   assert.equal(upload.with.name, 'ci-package')
   assert.match(upload.with.path, /SHA256SUMS/u)
+  assert.match(upload.with.path, /producer\.json/u)
   assert.deepEqual(ci.jobs.runtimes.needs, ['plan', 'package'])
   assert.equal(ci.jobs.runtimes.uses, './.github/workflows/verify-packed.yml')
   assert.deepEqual(ci.jobs.runtimes.with, {
@@ -54,7 +55,9 @@ test('CI Verify executes its real aggregate and rejects every failed, cancelled,
   assert.equal(jobs.verify.name, 'CI Verify')
   assert.equal(jobs.verify.if, 'always()')
   assert.deepEqual(jobs.verify.needs, ['plan', 'package', 'runtimes'])
-  const shell = jobs.verify.steps[0].run
+  const shell = jobs.verify.steps.find(
+    (step: any) => step.name === 'Require every planned check',
+  ).run
   const run = (needs: Record<string, { result: string }>) =>
     spawnSync('bash', ['-e', '-c', shell], {
       encoding: 'utf8',

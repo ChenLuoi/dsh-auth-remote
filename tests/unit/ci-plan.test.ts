@@ -76,23 +76,24 @@ test('unknown events, manual and weekly events, incomplete/empty input and renam
   assert.throws(() => parseNameStatus('M\0LICENSE'), /Truncated/u)
 })
 
-test('ordinary matrices retain all CLI targets and every fixed capability boundary', () => {
+test('ordinary matrices retain all CLI targets and complete browser coverage on every target', () => {
   const ordinary = ordinaryVerificationPlan()
-  assert.equal(ordinary.versions.length, 10)
-  assert.equal(ordinary.browser.include.length, 10)
+  assert.equal(ordinary.versions.length, 8)
+  assert.equal(ordinary.browser.include.length, 8)
   validateVerificationPlan(ordinary.kind, ordinary.versions, ordinary.browser)
   assert.deepEqual(
     ordinary.browser.include
       .filter(({ suite }: { suite: string }) => suite === 'browser')
       .map(({ dsh }: { dsh: string }) => dsh),
     [
-      '0.2.1-alpha.3',
+      '0.2.1-rc.1',
       '0.2.1-rc.2',
       '0.2.1-rc.3',
       '0.2.1-rc.4',
       '0.2.1-rc.5',
       '0.2.2-alpha.3',
       '0.2.2-rc.1',
+      '0.2.2-rc.2',
     ],
   )
   const missing = structuredClone(ordinary.browser)

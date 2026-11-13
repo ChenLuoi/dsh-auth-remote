@@ -8,13 +8,14 @@ export const inject = ['webServer', 'loader', 'profileContext']
 export function apply(ctx) {
   const runtime = createRequire(ctx.profileContext.installAnchor)
   const webApp = createRequire(runtime.resolve('@deepseek-ai/dsh-web-app/package.json'))
+  const version = webApp('@deepseek-ai/dsh-web-app/package.json').version
+  const accountPackage =
+    version === '0.2.2-rc.2' ? 'dsh-deepseek-account' : 'dsh-deepseek-account-platform'
   const packages = Object.fromEntries(
-    [
-      'dsh-web-app',
-      'dsh-host-webserver',
-      'dsh-client-connection',
-      'dsh-deepseek-account-platform',
-    ].map((name) => [name, webApp(`@deepseek-ai/${name}/package.json`).version]),
+    ['dsh-web-app', 'dsh-host-webserver', 'dsh-client-connection', accountPackage].map((name) => [
+      name,
+      webApp(`@deepseek-ai/${name}/package.json`).version,
+    ]),
   )
   const entry = [...ctx.loader.entries()].find((entry) => entry.options.id === 'auth-remote')
   if (!entry?.fiber) throw new Error('auth-remote Loader entry is missing')

@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { createHash, X509Certificate } from 'node:crypto'
-import { access, copyFile, readFile, readdir, appendFile } from 'node:fs/promises'
+import { access, copyFile, readFile, readdir, appendFile, writeFile } from 'node:fs/promises'
 import { once } from 'node:events'
+import { request as httpRequest } from 'node:http'
+import { request as httpsRequest } from 'node:https'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { networkInterfaces } from 'node:os'
@@ -70,7 +72,224 @@ function firstTextCompression(socket: any): Promise<boolean> {
   })
 }
 
-if (['0.2.2-alpha.3', '0.2.2-rc.1'].includes(dshVersion))
+if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion))
+  test(
+    'native connection business Origin follows admission and survives configuration reload',
+    { timeout: 120_000 },
+    async () => {
+      for (const ingress of ['native-http', 'native-https', 'https-http-proxy'] as const) {
+        const publicOrigin = `${ingress === 'native-http' ? 'http' : 'https'}://auth-remote.test:13158`
+        const f = await packedProfile({ port: 13159, publicUrl: publicOrigin, requireTotp: false })
+        let server: ReturnType<typeof packedCommand> | undefined
+        let proxy: Forwarder | undefined
+        try {
+          await packedAdmin(f.home, 'init', [
+            ['Username: ', 'alice'],
+            ['Password: ', password],
+            ['Enter password again: ', password],
+          ])
+          const fixture = join(f.profile, 'business-origin-observer.mjs')
+          await copyFile(
+            new URL('../fixtures/business-origin-observer.mjs', import.meta.url),
+            fixture,
+          )
+          const patch = join(f.profile, 'cordis.patch.yml')
+          await appendFile(
+            patch,
+            `- insert:\n    - id: business-origin-observer\n      name: ${JSON.stringify(fixture)}\n      inject: [webServer, connection]\n`,
+          )
+          server = packedCommand(
+            f.home,
+            [
+              'web',
+              '--no-open',
+              '--port',
+              '13159',
+              ...(ingress === 'native-https'
+                ? ['--tls-cert', nativeCertPath, '--tls-key', nativeKeyPath]
+                : []),
+            ],
+            f.cwd,
+          )
+          const options = { host: new URL(publicOrigin).host, origin: publicOrigin }
+          let target = await waitReady(
+            server,
+            () => server!.output().stdout.match(/dsh web start at\n  (https?:\/\/[^\s]+)/u)?.[1],
+            options,
+          )
+          if (ingress === 'https-http-proxy') {
+            proxy = await startForwarder({
+              listenPort: 13158,
+              upstreamPort: Number(new URL(target).port),
+              tls: { cert: nativeCertificate, key: await readFile(nativeKeyPath) },
+            })
+            target = 'https://127.0.0.1:13158'
+          }
+          const login = await nativeHttp(target, '/auth-remote/login', {
+            ...options,
+            method: 'POST',
+            body: JSON.stringify({ username: 'alice', password }),
+          })
+          assert.equal(login.status, 200, login.body)
+          const cookie = login.headers['set-cookie']![0]!.split(';')[0]!
+          const authenticated = { ...options, cookie }
+          const observation = async () => {
+            const response = await nativeHttp(
+              target,
+              '/api/auth-remote-origin-observation',
+              authenticated,
+            )
+            assert.equal(response.status, 200, response.body)
+            return JSON.parse(response.body)
+          }
+          const paths = ['/api/liveshare.ownerLoginStart', '/api/liveshare.ownerLoginRedeem']
+          const checkOrigin = async () => {
+            for (const path of paths) {
+              const body = JSON.stringify({ probe: ingress })
+              const response = await nativeHttp(target, path + '?probe=1', {
+                ...authenticated,
+                method: 'POST',
+                body,
+              })
+              assert.equal(response.status, 200, response.body)
+              const converted = JSON.parse(response.body)
+              assert.equal(converted.nativeRequest, true)
+              assert.equal(converted.path, path)
+              assert.equal(converted.method, 'POST')
+              assert.equal(converted.origin, publicOrigin)
+              assert.equal(converted.body, body)
+              await expect
+                .poll(async () => (await observation()).observations.at(-1)?.path)
+                .toBe(path)
+              const last = (await observation()).observations.at(-1)
+              assert.equal(last.status, 200)
+              assert.equal(last.writes.length, 3, 'bridge plus one public-Origin restoration pair')
+              assert.equal(last.writes[1], publicOrigin)
+              assert.equal(last.writes[0], last.writes[2])
+              assert.equal(last.finalOrigin, last.writes[0])
+              assert.notEqual(
+                last.finalOrigin,
+                publicOrigin,
+                'native admission must receive the internal authority',
+              )
+            }
+            return (await observation()).generation
+          }
+          const before = await checkOrigin()
+          const calls = (await observation()).calls
+          for (const path of paths) {
+            for (const rejected of [
+              { cookie: undefined },
+              { cookie, origin: 'https://evil.example' },
+              { cookie, origin: null },
+              { cookie, headers: { 'sec-fetch-site': 'cross-site' } },
+            ]) {
+              const response = await nativeHttp(target, path, {
+                ...options,
+                method: 'POST',
+                body: '{}',
+                ...rejected,
+              })
+              assert.equal(response.status, rejected.cookie === undefined ? 401 : 403)
+              assert.equal(
+                JSON.parse(response.body).error,
+                rejected.cookie === undefined ? 'unauthorized' : 'invalid_origin',
+              )
+            }
+            const duplicate = await new Promise<{ status: number; body: string }>(
+              (resolve, reject) => {
+                const req = (target.startsWith('https:') ? httpsRequest : httpRequest)(
+                  new URL(path, target),
+                  {
+                    method: 'POST',
+                    ca: nativeCertificate,
+                    agent: false,
+                    headers: [
+                      'Host',
+                      options.host,
+                      'Origin',
+                      publicOrigin,
+                      'Origin',
+                      publicOrigin,
+                      'Cookie',
+                      cookie,
+                    ],
+                  },
+                  (res) => {
+                    const chunks: Buffer[] = []
+                    res.on('data', (chunk: Buffer) => chunks.push(chunk))
+                    res.once('end', () =>
+                      resolve({
+                        status: res.statusCode!,
+                        body: Buffer.concat(chunks).toString('utf8'),
+                      }),
+                    )
+                  },
+                )
+                req.setTimeout(5000, () =>
+                  req.destroy(new Error('duplicate Origin request timed out')),
+                )
+                req.on('error', reject)
+                req.end()
+              },
+            )
+            assert.equal(duplicate.status, 403)
+            assert.equal(JSON.parse(duplicate.body).error, 'invalid_origin')
+          }
+          assert.equal(
+            (await observation()).calls,
+            calls,
+            'rejected requests reached the native Fetch route',
+          )
+          const initialPatch = await readFile(patch, 'utf8')
+          const updatedPatch = initialPatch.replace(
+            /^( +)requireTotp: false$/mu,
+            '$&\n$1sessionHours: 169',
+          )
+          assert.notEqual(updatedPatch, initialPatch)
+          await writeFile(patch, updatedPatch)
+          await expect
+            .poll(
+              async () => (await observation().catch(() => ({ generation: before }))).generation,
+              { timeout: 30_000 },
+            )
+            .not.toBe(before)
+          assert.notEqual(await checkOrigin(), before)
+          assert.equal((await nativeHttp(target, '/auth-remote/me', authenticated)).status, 200)
+          const beforeRevoke = (await observation()).calls
+          await packedAdmin(f.home, 'revoke-sessions', [
+            ['Enter web to confirm revoke-sessions: ', 'web'],
+          ])
+          for (const path of paths)
+            assert.equal(
+              (await nativeHttp(target, path, { ...authenticated, method: 'POST', body: '{}' }))
+                .status,
+              401,
+            )
+          const relogin = await nativeHttp(target, '/auth-remote/login', {
+            ...options,
+            method: 'POST',
+            body: JSON.stringify({ username: 'alice', password }),
+          })
+          assert.equal(relogin.status, 200, relogin.body)
+          const freshCookie = relogin.headers['set-cookie']![0]!.split(';')[0]!
+          const afterRevoke = await nativeHttp(target, '/api/auth-remote-origin-observation', {
+            ...options,
+            cookie: freshCookie,
+          })
+          assert.equal(afterRevoke.status, 200, afterRevoke.body)
+          assert.equal(JSON.parse(afterRevoke.body).calls, beforeRevoke)
+          assert.deepEqual(f.model.requests, [])
+        } finally {
+          await server?.stop()
+          await proxy?.close()
+          await f.cleanup()
+        }
+      }
+    },
+  )
+
+if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion))
   for (const ingress of ['native-https', 'https-http-proxy'] as const)
     for (const compression of ['default', 'none'] as const)
       test(
@@ -245,7 +464,7 @@ if (['0.2.2-alpha.3', '0.2.2-rc.1'].includes(dshVersion))
         },
       )
 
-if (['0.2.2-alpha.3', '0.2.2-rc.1'].includes(dshVersion))
+if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion))
   test(
     'native resource caching retains asset and fallback ETags, immutable code and all session gates',
     { timeout: 90000 },

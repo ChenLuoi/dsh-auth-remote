@@ -3,6 +3,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { ManualSignInDialog } from './dialog.js'
 import { hasManualAccountRuntime, manualAccountBinding } from './config.js'
+import { decorateNativeAccountEntry, type AccountRoot } from './native-entry.js'
 
 type NativeProps = Record<string, unknown> & {
   complete?: () => void
@@ -19,13 +20,14 @@ interface DialogOwner {
 
 interface NativeEntry {
   component: ComponentType<NativeProps>
+  children?: object
   options: { priority?: number }
   locale?: string
   inject?: (...args: never[]) => object
 }
 
 /** Narrow adapter for alpha.3's public slot inspection and shadowing APIs. */
-interface AccountSlots {
+interface AccountSlots extends AccountRoot {
   entries(name: string): readonly NativeEntry[]
   subscribe(name: string, callback: () => void): () => void
   inject(name: string, callback: () => () => void): void
@@ -149,15 +151,38 @@ export function installManualAccountLogin(ctx: Context): void {
               (entry) =>
                 entry.locale === 'settings.account' &&
                 entry.inject !== undefined &&
-                !wrappers.has(entry.component),
+                (entry === current || !wrappers.has(entry.component)),
             )
           if (native === current) return
           current = native
-          unregister?.()
+          const releasePrevious = unregister
           unregister = undefined
+          try {
+            releasePrevious?.()
+          } catch (error) {
+            current = undefined
+            throw error
+          }
           if (!native) return
           const Native = native.component
-          function ManualAccountEntry(props: NativeProps): JSX.Element | null {
+          let active = true
+          let ownedDialog: DialogOwner | undefined
+          const showOwned = (owner: DialogOwner) => {
+            if (!active) return
+            if (ownedDialog?.complete) completions.delete(ownedDialog.complete)
+            ownedDialog = owner
+            show(owner)
+          }
+          const deactivate = () => {
+            active = false
+            if (ownedDialog?.complete) completions.delete(ownedDialog.complete)
+            if (dialog && dialog === ownedDialog) {
+              dialog = undefined
+              notify()
+            }
+            ownedDialog = undefined
+          }
+          function ActiveManualAccountEntry(props: NativeProps): JSX.Element | null {
             const latest = useRef(props)
             latest.current = props
             const enabled = useSyncExternalStore(subscribePreference, preference)
@@ -169,6 +194,7 @@ export function installManualAccountLogin(ctx: Context): void {
             useEffect(() => {
               if (name !== 'settings.launcher' && manualOnboarding === true) {
                 const complete = () => {
+                  if (!active) return
                   latest.current.showLogin?.(false)
                   latest.current.complete?.()
                 }
@@ -177,14 +203,16 @@ export function installManualAccountLogin(ctx: Context): void {
                   ...(latest.current.useApiKey
                     ? {
                         useApiKey: () => {
+                          if (!active) return
                           latest.current.showLogin?.(false)
                           latest.current.useApiKey?.()
                         },
                       }
                     : {}),
                 }
-                show(owner)
+                showOwned(owner)
                 return () => {
+                  if (ownedDialog === owner) ownedDialog = undefined
                   completions.delete(complete)
                   if (dialog === owner && owner.useApiKey) {
                     dialog = {}
@@ -197,17 +225,20 @@ export function installManualAccountLogin(ctx: Context): void {
               ? createElement(Native, {
                   ...props,
                   start: async () => {
+                    if (!active) return
                     // Loading is not an accepted false preference. Keep
                     // this click pending on the shared native read, then
                     // choose the route from the latest accepted value.
                     if (preference() === undefined) await mirror?.ensure()
+                    if (!active) return
                     const manual = preference()
                     if (manual === undefined) return
                     if (!manual) return latest.current.start?.()
-                    show(
+                    showOwned(
                       latest.current.openOnboarding
                         ? {
                             useApiKey: () => {
+                              if (!active) return
                               latest.current.showLogin?.(false)
                               latest.current.openOnboarding?.('deepseek-official')
                             },
@@ -220,20 +251,50 @@ export function installManualAccountLogin(ctx: Context): void {
                 ? createElement(Native, props)
                 : null
           }
+          function ManualAccountEntry(props: NativeProps): JSX.Element | null {
+            return active
+              ? createElement(ActiveManualAccountEntry, props)
+              : createElement(Native, props)
+          }
           wrappers.add(ManualAccountEntry)
-          unregister = slots.register(
-            {
-              name,
-              priority: (native.options.priority ?? 0) - 100,
-              // Framework still binds the native menu's translations and Hooks.
-              ...(native.locale ? { locale: native.locale } : {}),
-              inject: native.inject,
-            },
-            ManualAccountEntry,
-          )
+          try {
+            if (native.children) {
+              unregister = decorateNativeAccountEntry(
+                native,
+                ManualAccountEntry,
+                activeSlots,
+                deactivate,
+              )
+            } else {
+              const release = slots.register(
+                {
+                  name,
+                  priority: (native.options.priority ?? 0) - 100,
+                  // Framework still binds the native menu's translations and Hooks.
+                  ...(native.locale ? { locale: native.locale } : {}),
+                  inject: native.inject,
+                },
+                ManualAccountEntry,
+              )
+              unregister = () => {
+                deactivate()
+                release()
+              }
+            }
+          } catch (error) {
+            current = undefined
+            deactivate()
+            throw error
+          }
         }
         const stop = slots.subscribe(name, update)
-        update()
+        try {
+          update()
+        } catch (error) {
+          stop()
+          unregister?.()
+          throw error
+        }
         return () => {
           stop()
           unregister?.()

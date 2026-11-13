@@ -9,7 +9,7 @@ import {
 import { dshVersion, packageName, prepareDshRuntime } from './runtime.mjs'
 
 await ensureDevHome()
-await prepareDshRuntime(runtime, `${packageName}-dev-runtime`)
+await prepareDshRuntime(runtime, `${packageName}-dev-runtime`, dshVersion, undefined, 'smoke')
 await assertRuntimeDirectory()
 console.info(`Development root: ${devRoot}`)
 console.info(`DSH_HOME: ${home}`)

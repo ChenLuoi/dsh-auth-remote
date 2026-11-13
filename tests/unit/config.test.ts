@@ -326,7 +326,7 @@ test('retired runtimes fail before configuration with concrete migration guidanc
         for (const text of [
           version,
           'minimum DSH 0.2.1-alpha.3',
-          'DSH 0.2.2-rc.1',
+          'DSH 0.2.2-rc.2',
           'plugin for older DSH: 0.2.0',
         ])
           assert(error.message.includes(text))

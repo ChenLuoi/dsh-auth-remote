@@ -3,7 +3,11 @@ import { spawnSync } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import { parseDocument } from 'yaml'
-import { fullVerificationPlan, validateVerificationPlan } from '../../scripts/packed-artifact.mjs'
+import {
+  fullVerificationPlan,
+  maintenanceRetirementRequired,
+  validateVerificationPlan,
+} from '../../scripts/packed-artifact.mjs'
 import { testedDshVersions } from '../../scripts/runtime.mjs'
 
 async function workflow(name: string) {
@@ -38,15 +42,20 @@ test('release producer builds and packs once and publication consumes only the v
   )
   const publish = release.jobs.publish.steps.map((step: any) => step.run ?? '').join('\n')
   assert.match(publish, /packed-artifact\.mjs check/u)
+  assert.match(publish, /packed-artifact\.mjs producer-check/u)
   assert.match(publish, /check-npm-publication\.mjs/u)
   assert.doesNotMatch(publish, /scripts\/pack\.mjs|pnpm (?:build|release:pack|test:)/u)
   assert.equal(release.jobs.publish.permissions['id-token'], 'write')
   assert.match(release.jobs.tag.steps.at(-1).run, /merge-base --is-ancestor/u)
+  assert.match(
+    producer.steps.find((step: any) => step.uses === 'actions/upload-artifact@v7').with.path,
+    /producer\.json/u,
+  )
 })
 
 test('complete artifact matrices are exact and missing, duplicate or narrowed targets fail', () => {
   const full = fullVerificationPlan()
-  assert.equal(full.versions.length, 10)
+  assert.equal(full.versions.length, 8)
   assert.deepEqual(full.versions, testedDshVersions)
   assert.deepEqual(
     full.browser.include.map(({ dsh }: { dsh: string }) => dsh),
@@ -74,13 +83,20 @@ test('shared workflow consumers never repack and its real aggregate rejects fail
     'cli-smoke',
     'browser',
     'retired-rejection',
+    'maintenance-retirement',
   ])
-  for (const name of ['cli-smoke', 'browser']) {
+  for (const name of ['cli-smoke', 'browser', 'maintenance-retirement']) {
     const job = shared.jobs[name]
     assert.equal(job.needs, 'validate')
     assert.equal(job.strategy['fail-fast'], false)
     const commands = job.steps.map((step: any) => step.run ?? '').join('\n')
-    assert.match(commands, /scripts\/verify-packed\.mjs/u)
+    assert.match(
+      commands,
+      name === 'maintenance-retirement'
+        ? /scripts\/verify-maintenance-retired\.mjs/u
+        : /scripts\/verify-packed\.mjs/u,
+    )
+    assert.match(commands, /producer-check/u)
     assert.doesNotMatch(commands, /scripts\/pack\.mjs|pnpm (?:build|release:pack|test:)/u)
     assert(job.steps.some((step: any) => step.uses === 'actions/download-artifact@v8'))
   }
@@ -92,24 +108,55 @@ test('shared workflow consumers never repack and its real aggregate rejects fail
   assert.match(retiredCommands, /packed-artifact\.mjs check/u)
   assert.doesNotMatch(retiredCommands, /scripts\/pack\.mjs|pnpm (?:build|release:pack|test:)/u)
   assert(retired.steps.some((step: any) => step.uses === 'actions/download-artifact@v8'))
-  assert.equal(shared.jobs.verified.steps[0].env.DSH_VERIFY_PLAN, '${{ inputs.plan }}')
-  const shell = shared.jobs.verified.steps[0].run
-  const names = ['validate', 'cli-smoke', 'browser', 'retired-rejection']
+  const maintenance = shared.jobs['maintenance-retirement']
+  assert.equal(
+    maintenance.if,
+    "${{ needs.validate.outputs.maintenance-retirement-required == 'true' }}",
+  )
+  assert.deepEqual(maintenance.strategy.matrix.dsh, [
+    '0.2.1-alpha.3',
+    '0.2.1-alpha.4',
+    '0.2.1-alpha.5',
+  ])
+  assert.equal(
+    shared.jobs.validate.outputs['maintenance-retirement-required'],
+    '${{ steps.identity.outputs.maintenance-retirement-required }}',
+  )
+  const validate = shared.jobs.validate.steps.find((step: any) => step.id === 'identity')
+  assert.match(validate.run, /packed-artifact\.mjs gate/u)
+  assert.match(validate.run, /packed-artifact\.mjs producer-check/u)
+  const aggregate = shared.jobs.verified.steps.find(
+    (step: any) => step.name === 'Require every planned job to succeed',
+  )
+  assert.equal(aggregate.env.DSH_VERIFY_PLAN, '${{ inputs.plan }}')
+  const shell = aggregate.run
+  const names = ['validate', 'cli-smoke', 'browser', 'retired-rejection', 'maintenance-retirement']
   const execute = (plan: string, jobs: Record<string, { result: string }>) =>
     spawnSync('bash', ['-e', '-c', shell], {
       encoding: 'utf8',
       env: { ...process.env, DSH_VERIFY_PLAN: plan, DSH_JOB_RESULTS: JSON.stringify(jobs) },
     })
-  for (const plan of ['full', 'ordinary']) {
+  for (const [plan, required] of [
+    ['full', 'true'],
+    ['full', 'false'],
+    ['ordinary', 'false'],
+  ]) {
     const expected = Object.fromEntries(
       names.map((name) => [
         name,
-        { result: plan === 'ordinary' && name === 'retired-rejection' ? 'skipped' : 'success' },
+        {
+          result:
+            (plan === 'ordinary' && name === 'retired-rejection') ||
+            (required === 'false' && name === 'maintenance-retirement')
+              ? 'skipped'
+              : 'success',
+        },
       ]),
     )
+    Object.assign(expected.validate!, { outputs: { 'maintenance-retirement-required': required } })
     assert.equal(execute(plan, expected).status, 0)
     for (const changed of names)
-      for (const result of ['success', 'failure', 'cancelled', 'skipped']) {
+      for (const result of ['success', 'failure', 'cancelled', 'skipped', 'unknown']) {
         const jobs = structuredClone(expected)
         jobs[changed]!.result = result
         const execution = execute(plan, jobs)
@@ -128,5 +175,41 @@ test('shared workflow consumers never repack and its real aggregate rejects fail
       assert.notEqual(execute(plan, jobs).status, 0)
     }
     assert.notEqual(execute('unknown', expected).status, 0)
+    for (const invalid of [undefined, '', 'unknown', 'TRUE']) {
+      const jobs = structuredClone(expected)
+      Object.assign(jobs.validate!, {
+        outputs: invalid === undefined ? {} : { 'maintenance-retirement-required': invalid },
+      })
+      assert.notEqual(execute(plan, jobs).status, 0, 'missing/unknown requirement must fail')
+    }
   }
+  const index = shared.jobs.verified.steps.find(
+    (step: any) => step.name === 'Bind complete raw evidence to this producer',
+  )
+  assert.match(index.run, /packed-artifact\.mjs index/u)
+  assert.match(index.run, /\.cache\/acceptance-evidence artifacts\/acceptance-index\.json/u)
+  assert(
+    shared.jobs.verified.steps.some(
+      (step: any) =>
+        step.uses === 'actions/upload-artifact@v7' &&
+        step.with.path === 'artifacts/acceptance-index.json',
+    ),
+  )
+})
+
+test('maintenance CI requirement is derived only from validated plugin0.3.6 and full plan', () => {
+  for (const version of ['0.3.5', '0.3.6', '0.3.7', '0.4.0'])
+    for (const plan of ['full', 'ordinary'])
+      assert.equal(
+        maintenanceRetirementRequired(version, plan),
+        version === '0.3.6' && plan === 'full',
+      )
+  assert.throws(
+    () => maintenanceRetirementRequired('0.3.6', 'unknown'),
+    /Unknown verification plan/u,
+  )
+  assert.throws(
+    () => maintenanceRetirementRequired(undefined, 'full'),
+    /Missing validated package version/u,
+  )
 })

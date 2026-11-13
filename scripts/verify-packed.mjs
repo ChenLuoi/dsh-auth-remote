@@ -28,7 +28,7 @@ export const suites = {
     count: 1,
   },
   account: {
-    versions: ['0.2.1-alpha.3'],
+    versions: ['0.2.1-rc.1'],
     files: [
       'tests/browser/startup-compatibility.spec.ts',
       'tests/browser/account-login.spec.ts',
@@ -38,22 +38,15 @@ export const suites = {
   'host-release': {
     files: ['tests/browser/host-release.spec.ts'],
     versions: [
-      '0.2.1-alpha.4',
-      '0.2.1-alpha.5',
-      '0.2.1-rc.1',
       '0.2.1-rc.2',
       '0.2.1-rc.3',
       '0.2.1-rc.4',
       '0.2.1-rc.5',
       '0.2.2-alpha.3',
       '0.2.2-rc.1',
+      '0.2.2-rc.2',
     ],
     count: 1,
-  },
-  'rc-bootstrap': {
-    versions: ['0.2.1-rc.1'],
-    count: 2,
-    files: ['tests/browser/host-release.spec.ts', 'tests/browser/dsh-bootstrap.spec.ts'],
   },
 }
 
@@ -165,17 +158,14 @@ export function requiredBrowserTestNames(version) {
   const names = [
     'native settings security icon preserves host navigation and contribution lifecycle',
   ]
-  if (['0.2.2-alpha.3', '0.2.2-rc.1'].includes(version)) {
+  if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(version)) {
     for (const ingress of ['native-https', 'https-http-proxy'])
       for (const compression of ['default', 'none'])
         names.push(
           `native mux ${ingress} ${compression} preserves native compression, expiry and revocation`,
         )
-    for (const ingress of ['native-https', 'https-http-proxy'])
-      names.push(
-        `liveshare: ${ingress} real Owner PKCE login, native share worker, viewer and stop keep independent lifetimes`,
-      )
     names.push(
+      'native connection business Origin follows admission and survives configuration reload',
       'native resource caching retains asset and fallback ETags, immutable code and all session gates',
       'native HMR preserves preflight failures and cleans allocated replacement resources before rollback',
       'eight languages render login and native security tasks at desktop and narrow widths',
@@ -183,6 +173,12 @@ export function requiredBrowserTestNames(version) {
       'liveshare: native viewer carrier and index retain non-owner transport and administrator client is inert',
     )
   }
+  if (version === '0.2.2-rc.2')
+    names.push(
+      'native account entry decoration preserves child ownership across client reloads',
+      'native account notifications remain local across language and lifecycle changes',
+      'native Search and Fetch billing preserves settings and credential boundaries',
+    )
   return names
 }
 
@@ -192,36 +188,20 @@ export function assertRegisteredCoverage(name, version, counts) {
   const optional =
     name === 'browser'
       ? [
-          ...(version === '0.2.1-alpha.3' ? ['tests/browser/host-release.spec.ts'] : []),
-          ...(![
-            '0.2.1-rc.2',
-            '0.2.1-rc.3',
-            '0.2.1-rc.4',
-            '0.2.1-rc.5',
-            '0.2.2-alpha.3',
-            '0.2.2-rc.1',
-          ].includes(version)
-            ? ['tests/browser/web-search-settings.spec.ts']
+          ...(version === '0.2.1-rc.1'
+            ? ['tests/browser/host-release.spec.ts', 'tests/browser/web-search-settings.spec.ts']
             : []),
-          ...(!['0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.3', '0.2.2-rc.1'].includes(
-            version,
-          )
+          ...(['0.2.1-rc.1', '0.2.1-rc.2'].includes(version)
             ? ['tests/browser/rc-navigation.spec.ts']
             : []),
-          ...([
-            '0.2.1-alpha.3',
-            '0.2.1-alpha.4',
-            '0.2.1-alpha.5',
-            '0.2.1-rc.1',
-            '0.2.1-rc.2',
-            '0.2.1-rc.3',
-            '0.2.1-rc.4',
-            '0.2.1-rc.5',
-          ].includes(version)
+          ...(['0.2.1-rc.1', '0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5'].includes(
+            version,
+          )
             ? ['tests/browser/liveshare.spec.ts']
             : []),
         ].map((path) => join(project, path))
       : []
+
   for (const path of counts.placeholderFiles)
     assert(optional.includes(path), `Required file registered zero tests: ${path}`)
   if (name === 'browser')
@@ -317,7 +297,10 @@ export async function verifyPacked(options) {
   assert(entry.isFile() && !entry.isSymbolicLink(), 'Archive must be a regular local file')
   const bytes = await readFile(source)
   const { files, manifest } = validateArchive(bytes, options.sha256, version)
+  const { createRuntimeReceipts, recordRuntimeIdentity, writeConsumerEvidence } =
+    await import('./packed-artifact.mjs')
   let root
+  let receipts
   const lock = join(verificationParent, 'consumer.lock')
   let locked = false
   const report = {
@@ -370,7 +353,13 @@ export async function verifyPacked(options) {
       await mkdir(dirname(target), { recursive: true })
       await writeFile(target, contents, { flag: 'wx' })
     }
-    const env = { ...process.env, DSH_TEST_VERSION: version, DSH_VERIFY_ROOT: root }
+    receipts = await createRuntimeReceipts(reportPath, source, options.sha256, version)
+    const env = {
+      ...process.env,
+      ...receipts.env,
+      DSH_TEST_VERSION: version,
+      DSH_VERIFY_ROOT: root,
+    }
     delete env.DSH_TEST_BIN
     const runtime = join(project, '.cache/test-runtime', version)
     await prepareDshRuntime(
@@ -379,6 +368,7 @@ export async function verifyPacked(options) {
       version,
       cancellation.signal,
     )
+    await recordRuntimeIdentity(runtime, version, receipts)
     for (const name of options.suites) {
       assert.equal(
         sha256(await readFile(consumerArchive)),
@@ -470,6 +460,12 @@ export async function verifyPacked(options) {
       markCancelled()
       await writeFile(reportPath, JSON.stringify(report, null, 2) + '\n')
     }
+    if (receipts) await writeConsumerEvidence(reportPath, receipts)
+    if (cancellation.signal.aborted) {
+      markCancelled()
+      await writeFile(reportPath, JSON.stringify(report, null, 2) + '\n')
+      if (receipts) await writeConsumerEvidence(reportPath, receipts)
+    }
     process.off('SIGINT', sigint)
     process.off('SIGTERM', sigterm)
     console.info(`Packed verification report: ${reportPath}`)
@@ -479,10 +475,10 @@ export async function verifyPacked(options) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try {
-    await verifyPacked(parseArguments(process.argv.slice(2)))
-  } catch (error) {
+  // Let the validator module finish loading before its artifact helpers import it.
+  const main = async () => verifyPacked(parseArguments(process.argv.slice(2)))
+  void main().catch((error) => {
     console.error(error)
     process.exitCode = 1
-  }
+  })
 }

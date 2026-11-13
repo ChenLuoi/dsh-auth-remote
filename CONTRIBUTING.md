@@ -6,7 +6,7 @@ Thanks for helping improve dsh-auth-remote. Changes to authentication or deploym
 
 ## Prepare a checkout
 
-Use Linux with `/proc`, Node.js 24 or newer, and pnpm 12.5.1. Install dependencies and the managed browser from the repository root:
+Use Linux with `/proc`, Node.js 24 (at least `24.9.0` for the default host), and pnpm 12.5.1. Install dependencies and the managed browser from the repository root:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -26,4 +26,4 @@ Create a focused branch from `master`. Include the reason for the change, its us
 
 The `CI Verify` check runs on pull requests and again after a merge to `master`. A maintainer updates the version and dated changelog entry before creating a release tag. The [release guide](docs/releasing.md) describes that process.
 
-Version `0.3.5` is prepared for release with ten exact DSH targets, defaulting to recommended RC prerelease `0.2.2-rc.1`. Published `0.3.4` retains nine historical declarations without retroactive RC support; availability is confirmed by the release workflow and npm registry. Support/shared-host changes require one final archive across ten complete CLI/browser/smoke targets. Follow PR CI, master CI, annotated-tag and trusted publication in the release guide. Full/releases also require independent `0.2.1-alpha.2` refusal; ordinary runs no real retired-host negative job. The six-host one-time negative acceptance belongs to the `0.3.1` migration history. Never rebuild or pack in the final consumer loop.
+Current source candidate `0.3.6` declares eight exact DSH targets, defaulting to recommended RC prerelease `0.2.2-rc.2`. Published `0.3.5` retains ten historical declarations and is the last supporting plugin for `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5`. Support/shared-host changes require one final archive across all eight complete CLI/browser/smoke targets; ordinary/full both keep complete eight-host coverage. Full/releases retain independent `0.2.1-alpha.2` technical refusal. Only validated plugin `0.3.6` full/releases add the three Alpha maintenance-retirement checks; they must not block other plugin versions. Each local/PR/master/tag producer has an unpackaged acceptance index linking source, archive, actual runtime/SDK and raw reports. Follow PR CI, master CI, annotated-tag and trusted publication; never rebuild or pack in the final consumer loop. Current LiveShare verification retains native viewer/Origin/authentication boundaries; Owner/Relay product flows are unverified.

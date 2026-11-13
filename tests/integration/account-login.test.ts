@@ -9,7 +9,7 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 import { Context } from '@deepseek-ai/cordis'
 import * as Connection from '@deepseek-ai/dsh-client-connection'
-import PlatformAccount from '@deepseek-ai/dsh-deepseek-account-platform'
+import DeepSeekAccount from '@deepseek-ai/dsh-deepseek-account'
 import Authorization from '@deepseek-ai/dsh-authorization'
 import { Config } from '../../src/config.js'
 import { AuthRemoteWebServer } from '../../src/index.js'
@@ -19,10 +19,7 @@ import { AUTH_COOKIE } from '../../src/shared/auth-contract.js'
 import { AuthStateStore } from '../../src/storage/store.js'
 
 const require = createRequire(import.meta.url)
-assert.equal(
-  require('@deepseek-ai/dsh-deepseek-account-platform/package.json').version,
-  '0.2.2-rc.1',
-)
+assert.equal(require('@deepseek-ai/dsh-deepseek-account/package.json').version, '0.2.2-rc.2')
 const origin = 'https://manual.example'
 
 async function fixture() {
@@ -64,8 +61,10 @@ async function fixture() {
     const server = ctx.webServer as AuthRemoteWebServer
     await ctx.plugin(Connection, { trustedHosts: [...server.connectionTrustedHosts] })
     await ctx.plugin(Authorization)
-    const accountFiber = await ctx.plugin(PlatformAccount, {
+    const accountFiber = await ctx.plugin(DeepSeekAccount, {
       platformOrigin: platform.origin,
+      harnessOrigin: platform.origin,
+      inferenceOrigin: platform.origin,
       allowLoopbackHttp: true,
     })
     await ctx.fiber.await()
@@ -146,7 +145,7 @@ async function fixture() {
   }
 }
 
-test('manual callback completes the actual 0.2.2-rc.1 provider with the original PKCE and redirect URI', async () => {
+test('manual callback completes the actual 0.2.2-rc.2 provider with the original PKCE and redirect URI', async () => {
   const f = await fixture()
   try {
     assert.equal((await f.call('/auth-remote/account/state', undefined, '')).status, 401)
@@ -169,6 +168,17 @@ test('manual callback completes the actual 0.2.2-rc.1 provider with the original
     assert.equal(JSON.stringify(submitted.body).includes('dsh_mock_manual_account'), false)
     assert.equal(f.platform.exchanges.length, 1)
     assert.equal(f.platform.requests.includes('/dsh/authorized'), false)
+    const provider = f.ctx.get('deepseekAccount') as DeepSeekAccount
+    const client = { version: '0.2.2-rc.2', locale: 'en', timezoneOffsetSeconds: 0 }
+    const notifications = await provider.getNotifications(client)
+    assert.ok(notifications)
+    assert.equal(notifications.nextPollAfterSeconds, 600)
+    assert.equal(notifications.notifications.length, 1)
+    const notice = notifications.notifications[0]!
+    assert.equal(notice.title, f.platform.notification.title)
+    assert.deepEqual(await provider.getNotificationContent(notice.id, client), notice)
+    assert.equal(await provider.reportNotificationEvent(notice.id, 'displayed', client), true)
+    assert.deepEqual(f.platform.notificationEvents, [{ id: notice.id, type: 'displayed' }])
     assert.equal(
       (
         await f.call('/auth-remote/account/submit', {
@@ -181,6 +191,12 @@ test('manual callback completes the actual 0.2.2-rc.1 provider with the original
   } finally {
     await f.close()
   }
+})
+
+test('local Platform rejects unexpected requests instead of silently certifying isolation', async () => {
+  const platform = await accountPlatform()
+  assert.equal((await fetch(platform.origin + '/unexpected-endpoint')).status, 404)
+  await assert.rejects(platform.close(), /Unexpected local Platform requests/)
 })
 
 test('clipboard handoff rejects forged origins, states, duplicates and another session without consuming a valid attempt', async () => {
@@ -411,8 +427,10 @@ test('account provider replacement withdraws its pending callback and permits a 
         .error,
       'account_unavailable',
     )
-    await f.ctx.plugin(PlatformAccount, {
+    await f.ctx.plugin(DeepSeekAccount, {
       platformOrigin: f.platform.origin,
+      harnessOrigin: f.platform.origin,
+      inferenceOrigin: f.platform.origin,
       allowLoopbackHttp: true,
     })
     await f.ctx.fiber.await()
@@ -523,7 +541,7 @@ test('without a manual owner the captured callback delegates to the native flow 
     f.setManual(false)
     const provider = f.ctx.get('deepseekAccount') as any
     await provider.startSignIn(
-      { version: '0.2.2-rc.1', locale: 'en', timezoneOffsetSeconds: 0 },
+      { version: '0.2.2-rc.2', locale: 'en', timezoneOffsetSeconds: 0 },
       'http://127.0.0.1:54321',
       'web',
     )
@@ -624,7 +642,7 @@ test('native cancellation followed by authorization regains its callback without
     const provider = f.ctx.get('deepseekAccount') as any
     await provider.cancelSignIn(manual.id)
     await provider.startSignIn(
-      { version: '0.2.2-rc.1', locale: 'en', timezoneOffsetSeconds: 0 },
+      { version: '0.2.2-rc.2', locale: 'en', timezoneOffsetSeconds: 0 },
       'http://127.0.0.1:54321',
       'web',
     )
@@ -674,7 +692,7 @@ test('failed native cancellation retains the manual callback boundary until nati
     provider.cancelSignIn = cancel
     await cancel(attempt.id)
     await provider.startSignIn(
-      { version: '0.2.2-rc.1', locale: 'en', timezoneOffsetSeconds: 0 },
+      { version: '0.2.2-rc.2', locale: 'en', timezoneOffsetSeconds: 0 },
       'http://127.0.0.1:54321',
       'web',
     )

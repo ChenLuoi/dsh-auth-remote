@@ -2,7 +2,7 @@
 
 [简体中文](support-policy.zh-CN.md)
 
-Last updated: 2026-11-06. This policy separates maintenance commitments, exact-version verification and technical admission. Version **`0.3.5`** is prepared for release, adding DSH `0.2.2-rc.1` and retaining all nine existing targets for ten exact declarations. Published `0.3.4` keeps its nine historical declarations. Publication requires one final archive to pass on all ten targets. Declarations do not establish verification, GitHub Actions success or publication; actual availability is confirmed by the release workflow and npm registry.
+Last updated: 2026-11-13. This policy separates maintenance commitments, exact-version verification and technical admission. Source candidate **`0.3.6`** declares eight hosts, adds recommended RC prerelease `0.2.2-rc.2` and retires maintenance of three Alphas; final same-archive acceptance and publication remain pending. Published `0.3.5` retains ten original declarations; its registry integrity and original archive were checked on 2026-11-13. Declarations, real tests, Actions success and public distribution are recorded separately.
 
 ## Support states and runtime admission
 
@@ -20,23 +20,24 @@ Diagnostics belong in startup logs, before protected service is offered: legacy 
 
 ## Current maintenance schedule
 
-Plugin `0.3.5` retains the explicit 2026-10-28 legacy announcement for `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5`. Adding `0.2.2-rc.1` changes none of those dates. All ten supported releases remain in release-blocking verification. Dates use Asia/Shanghai at local 00:00; eligibility never automatically ends support.
+Candidate `0.3.6` explicitly retires maintenance of `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5`. Their original legacySince=2026-10-28, windowDays=14 and eligibleRetirement=2026-11-11 (Asia/Shanghai) are not reset. effectivePlugin=`0.3.6`, lastSupportedPlugin=`0.3.5`, retiredOn=2026-11-13 (preparation date; record the actual registry timestamp separately). Publication makes the new release’s withdrawal effective; dates never change old installed behavior. All eight remaining hosts stay in complete release-blocking verification.
 
-| Exact DSH release | Maintenance state                                   | Legacy since | Window in calendar days | Earliest eligible retirement |
-| ----------------- | --------------------------------------------------- | ------------ | ----------------------- | ---------------------------- |
-| `0.2.1-alpha.3`   | Legacy; supported                                   | 2026-10-28   | 14                      | 2026-11-11                   |
-| `0.2.1-alpha.4`   | Legacy; supported                                   | 2026-10-28   | 14                      | 2026-11-11                   |
-| `0.2.1-alpha.5`   | Legacy; supported                                   | 2026-10-28   | 14                      | 2026-11-11                   |
-| `0.2.1-rc.1`      | Supported                                           | —            | —                       | Not announced                |
-| `0.2.1-rc.2`      | Supported                                           | —            | —                       | Not announced                |
-| `0.2.1-rc.3`      | Supported                                           | —            | —                       | Not announced                |
-| `0.2.1-rc.4`      | Supported                                           | —            | —                       | Not announced                |
-| `0.2.1-rc.5`      | Supported; added in `0.3.3`                         | —            | —                       | Not announced                |
-| `0.2.2-alpha.2`   | Retired in `0.3.4`; upstream failure exception      | 2026-11-05   | 0                       | 2026-11-05                   |
-| `0.2.2-alpha.3`   | Supported                                           | —            | —                       | Not announced                |
-| `0.2.2-rc.1`      | Supported; development default and recommended host | —            | —                       | Not announced                |
+| Exact DSH release | Maintenance state                                                   | Legacy since | Window in calendar days | Earliest eligible retirement |
+| ----------------- | ------------------------------------------------------------------- | ------------ | ----------------------- | ---------------------------- |
+| `0.2.1-alpha.3`   | Maintenance retired in candidate `0.3.6`; last support `0.3.5`      | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-alpha.4`   | Maintenance retired in candidate `0.3.6`; last support `0.3.5`      | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-alpha.5`   | Maintenance retired in candidate `0.3.6`; last support `0.3.5`      | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-rc.1`      | Supported                                                           | —            | —                       | Not announced                |
+| `0.2.1-rc.2`      | Supported                                                           | —            | —                       | Not announced                |
+| `0.2.1-rc.3`      | Supported                                                           | —            | —                       | Not announced                |
+| `0.2.1-rc.4`      | Supported                                                           | —            | —                       | Not announced                |
+| `0.2.1-rc.5`      | Supported; added in `0.3.3`                                         | —            | —                       | Not announced                |
+| `0.2.2-alpha.2`   | Retired in `0.3.4`; upstream failure exception                      | 2026-11-05   | 0                       | 2026-11-05                   |
+| `0.2.2-alpha.3`   | Supported                                                           | —            | —                       | Not announced                |
+| `0.2.2-rc.1`      | Supported                                                           | —            | —                       | Not announced                |
+| `0.2.2-rc.2`      | Supported; development default and recommended host (RC prerelease) | —            | —                       | Not announced                |
 
-The migration recommendation is DSH `0.2.2-rc.1` with plugin `0.3.5`; the host is still an upstream RC prerelease. Install the npm version after successful publication, or use the absolute path to its verified release archive. Published `0.3.4` retains its nine historical declarations; it does not repair the broken host SDK combination. Forward-admitted unknown releases retain no exact support commitment.
+Migrate to DSH `0.2.2-rc.2` with a verified plugin `0.3.6` candidate archive; use the npm version only after successful publication. This adapts an upstream RC prerelease, not a stable host. Last-supporting plugin `0.3.5` is published and available, with original archive SHA-256 `9d5d1cab4017112251aa3864f5e27ff28739d27136eef7440080c5969d52be34`. Keep that archive and a complete data backup, and rehearse in an independent profile. Rollback must restore matching host, plugin, configuration and complete data backup; old hosts are not promised to read new data. See the [deployment guide](deployment.md#backup-recovery-and-changes).
 
 <a id="upstream-failure-exception"></a>
 
@@ -46,7 +47,7 @@ On 2026-11-05 (Asia/Shanghai), development explicitly approved withdrawing suppo
 
 Fresh installation resolves the host's `~4.0.6-alpha.1` Cordis range to `4.0.6-alpha.2`. The shipped `@deepseek-ai/dsh-app-boot@0.2.2-alpha.2` global `internal/update` callback expects `(config, noSave, next)`, while the new Core supplies `(config, next)`. Native settings writes fail with `next is not a function`, including welcome-notice acknowledgement without this plugin installed. The original SDK combination succeeds. The CI run `41807651546` / browser job `126499190719` and isolated native reproduction establish the failure; old passing reports apply only to their original dependency composition. This exception reflects a reproduced native failure, not the Alpha label or test duration.
 
-The historical migration recommendation on 2026-11-05 was DSH `0.2.2-alpha.3`, which uses the matching callback contract. Registry archives/integrities for that host and last historically supporting plugin `0.3.3` were checked that day, separately from the then-required final `0.3.4` artifact acceptance. Downgrading the plugin does not repair the host, and the old declaration is not a fresh-install recommendation. The current recommendation above is DSH `0.2.2-rc.1` with pending plugin `0.3.5`; follow the [deployment guide](deployment.md) for complete backups and independent-profile rehearsal, using the npm version after publication or its verified archive.
+The historical migration recommendation on 2026-11-05 was DSH `0.2.2-alpha.3`, which uses the matching callback contract. Registry archives/integrities for that host and last historically supporting plugin `0.3.3` were checked that day, separately from the then-required final `0.3.4` artifact acceptance. Downgrading the plugin does not repair the host, and the old declaration is not a fresh-install recommendation. The current recommendation above is DSH `0.2.2-rc.2` with candidate plugin `0.3.6`; follow the [deployment guide](deployment.md) for complete backups and independent-profile rehearsal, using the npm version after publication or its verified archive.
 
 The `0.3.4` change removed `0.2.2-alpha.2` from exact declarations and positive CI targets while retaining the other nine targets; `0.3.5` adds `0.2.2-rc.1` for ten. Keep all shared adaptations/security checks and independent retired `0.2.1-alpha.2` refusal verification. Technical admission remains `>=0.2.1-alpha.3` with identity/API checks and an explicit retired-version warning. This change makes no blanket startup refusal or native settings repair claim. The profile must still independently disable the native webserver.
 
@@ -106,7 +107,7 @@ An installed plugin must not retire versions by calendar timer. A scheduled CI r
 
 ## Verification and delivery rules
 
-Every pull request and main-branch check retains static, unit, integration and all-supported-release CLI/install smoke. The ordinary browser plan is permitted only for the explicit low-risk whitelist; source, shared behavior, dependencies, support documents, build/package/consumer mechanisms, unknown paths and uncertain diffs require full verification. Weekly verification at Monday 00:00 UTC (08:00 Asia/Shanghai), manual runs and releases use the full exact-version matrix. Representative ordinary checks do not replace another release's evidence.
+Every pull request and main-branch check retains static, unit, integration and all-supported-release CLI/install smoke. The ordinary plan is permitted only for the explicit low-risk whitelist; source, shared behavior, dependencies, support documents, build/package/consumer mechanisms, unknown paths and uncertain diffs require full verification. Weekly verification at Monday 00:00 UTC (08:00 Asia/Shanghai), manual runs and releases use the full exact-version matrix. Ordinary and full both run eight complete CLI/browser/smoke targets. Full retains independent `0.2.1-alpha.2` technical refusal. Only validated plugin `0.3.6` full/releases also require three maintenance-retirement targets; ordinary and other plugin versions expect that job to skip. These three CLI/HTTP checks do not restore full support.
 
 Release verification must consume one immutable archive produced once after static/core checks. Independent jobs validate the same archive identity and SHA-256, restore its own `dist`, and run serial test files against isolated profiles. Reject failures, cancellations, unexpected skips and empty targeted suites. Publish depends on all required jobs and consumes the verified artifact without rebuilding or repacking. Real GitHub Actions results must be recorded separately from local workflow-equivalent checks.
 
@@ -117,3 +118,5 @@ See the [development guide](development.md) for verification commands and isolat
 The support policy defines decisions and operations. [Support history](support-history.md) provides [DSH → plugin](support-history.md#by-dsh) and [plugin → exact DSH](support-history.md#by-plugin) queries for all verifiable releases, availability, evidence grades, dates and installation guidance. The [compatibility inventory](legacy-compatibility.md) maintains feature → version and version → feature views, stable IDs, code/tests and adaptation retirement evidence. README lists current normal/legacy support and links to detailed queries; history survives removal from README.
 
 Maintain these layers in English and Chinese for support additions, legacy announcements and actual retirement. Distinguish explicit historical declaration, real verification, technical admission only and unknown. Recommend only a verified available distribution; an old obtainable package is not thereby maintained or covered by current security verification. Record unavailable or missing evidence instead of inventing compatibility. Historical support must not be rewritten from a new candidate's manifest.
+
+Each local/PR/master/tag producer has an unpackaged acceptance index linking source identity, the same archive digest, actual runtime lock/SDK chains, required nested runtimes and raw JSON/TAP/log hashes. Missing reports, wrong hashes, mixed producers and partial suites are refused. Current LiveShare verification retains native viewer, business Origin/real configuration HMR and authentication isolation; Owner/Relay product flows, production Relay/OAuth, real external authorization and cross-product notification localization mapping remain unverified.
