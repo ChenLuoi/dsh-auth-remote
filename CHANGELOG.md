@@ -10,9 +10,9 @@ This file records user-visible changes to the released package. Version numbers 
 
 ## 0.3.7 - 2026-11-20
 
-- Prepare exact support for DSH `0.2.2-rc.3`, `0.2.2-rc.4` and `0.2.2-rc.5` alongside the eight existing hosts. Use the upstream RC prerelease `0.2.2-rc.5` for development and migration guidance. Technical admission and maintenance history remain in effect.
+- Add exact support for DSH `0.2.2-rc.3`, `0.2.2-rc.4` and `0.2.2-rc.5` alongside the eight existing hosts. Use the upstream RC prerelease `0.2.2-rc.5` for development and migration guidance. Technical admission and maintenance history remain in effect.
 - Extend real host regressions for native account and notification slots, Settings, resources and uploads, LiveShare viewer isolation and adjacent host switches. The `0.2.2-rc.5` Search settings regression checks automatic selection, removal of the saved override and persistence across restart. The tests use local endpoints and require zero external service requests.
-- Require one archive to pass complete CLI, browser and smoke on eleven hosts. Full and release plans also require independent technical refusal on DSH `0.2.1-alpha.2`. Release acceptance and publication are pending at preparation.
+- Require one archive to pass complete CLI, browser and smoke on eleven hosts. Full and release plans also require independent technical refusal on DSH `0.2.1-alpha.2`. The released archive passed all 34 coverage entries. See the [publication record](docs/support-history.md#plugin-0.3.7).
 
 ## 0.3.6 - 2026-11-13
 

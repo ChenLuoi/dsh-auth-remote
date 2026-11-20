@@ -11,21 +11,21 @@ Single-user remote sign-in for DeepSeek Harness (DSH), with password, TOTP, one-
 
 ## DSH compatibility
 
-Candidate **`0.3.7`** declares these eleven exact DSH releases. Upstream RC prerelease **`0.2.2-rc.5`** is the development default and candidate migration host. Final archive acceptance and publication are pending. Public installation uses `0.3.6` and its eight supported releases. See the [support history](docs/support-history.md#plugin-0.3.6).
+Published **`0.3.7`** supports the eleven exact DSH releases below. Upstream RC prerelease **`0.2.2-rc.5`** is the development default and recommended migration host. The tag acceptance and public download evidence are in the [support history](docs/support-history.md#plugin-0.3.7).
 
-| DSH release     | Maintenance                                                                                            |
-| --------------- | ------------------------------------------------------------------------------------------------------ |
-| `0.2.1-rc.1`    | Supported; minimum supported release                                                                   |
-| `0.2.1-rc.2`    | Supported                                                                                              |
-| `0.2.1-rc.3`    | Supported                                                                                              |
-| `0.2.1-rc.4`    | Supported                                                                                              |
-| `0.2.1-rc.5`    | Supported                                                                                              |
-| `0.2.2-alpha.3` | Supported                                                                                              |
-| `0.2.2-rc.1`    | Supported                                                                                              |
-| `0.2.2-rc.2`    | Supported, recommended for `0.3.6`                                                                     |
-| `0.2.2-rc.3`    | Supported by the `0.3.7` candidate                                                                     |
-| `0.2.2-rc.4`    | Supported by the `0.3.7` candidate                                                                     |
-| `0.2.2-rc.5`    | Supported by the `0.3.7` candidate, development default and recommended migration host (RC prerelease) |
+| DSH release     | Maintenance                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| `0.2.1-rc.1`    | Supported; minimum supported release                                                        |
+| `0.2.1-rc.2`    | Supported                                                                                   |
+| `0.2.1-rc.3`    | Supported                                                                                   |
+| `0.2.1-rc.4`    | Supported                                                                                   |
+| `0.2.1-rc.5`    | Supported                                                                                   |
+| `0.2.2-alpha.3` | Supported                                                                                   |
+| `0.2.2-rc.1`    | Supported                                                                                   |
+| `0.2.2-rc.2`    | Supported, recommended for `0.3.6`                                                          |
+| `0.2.2-rc.3`    | Supported since `0.3.7`                                                                     |
+| `0.2.2-rc.4`    | Supported since `0.3.7`                                                                     |
+| `0.2.2-rc.5`    | Supported since `0.3.7`, development default and recommended migration host (RC prerelease) |
 
 `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5` leave maintenance in `0.3.6`; their last supporting plugin is available `0.3.5`. Technical admission remains `>=0.2.1-alpha.3`, including prereleases without a new upper bound. Retired hosts may run with a warning after necessary checks; that is not a compatibility commitment. See the [support policy](docs/support-policy.md) for dates and migration, and the [bidirectional history](docs/support-history.md) for exact historical pairs. Dates never change installed plugin behavior, and unknown newer releases inherit no exact support.
 
@@ -35,11 +35,11 @@ DSH `0.2.2-alpha.2` retired in plugin `0.3.4` because fresh SDK resolution break
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.3.6
+dsh plugin --profile web add dsh-auth-remote@0.3.7
 dsh plugin --profile web list
 ```
 
-This command installs published `0.3.6` on one of its exact supported hosts. Use the [fixed-archive process](docs/development.md#consume-a-fixed-archive) for candidate verification. For an offline installation, substitute the absolute path to the verified release archive. Published `0.3.5` remains available for its historical ten hosts, including the three retired Alphas. Use the same data directory and profile for installation, initialization, and the running service. These commands use DSH's default `~/.dsh` directory and the `web` profile. First rehearse upgrades in an independent profile, following the [backup and rollback procedure](docs/deployment.md#backup-recovery-and-changes).
+This command installs published `0.3.7` on one of its exact supported hosts. Published `0.3.6` remains available for its eight declared hosts. For an offline installation, substitute the absolute path to the verified release archive. Published `0.3.5` remains available for its historical ten hosts, including the three retired Alphas. Use the same data directory and profile for installation, initialization, and the running service. These commands use DSH's default `~/.dsh` directory and the `web` profile. First rehearse upgrades in an independent profile, following the [backup and rollback procedure](docs/deployment.md#backup-recovery-and-changes).
 
 ## Initialize the account
 
@@ -86,7 +86,7 @@ Mutating commands require interactive confirmation. If a submitted command loses
 
 Browser text supports English, Chinese, Japanese, Spanish, French, German, Russian, and Brazilian Portuguese. The embedded page follows DSH's language setting. The standalone login page uses the remembered DSH preference, then the browser language, then English; it has no language selector. CLI output is English.
 
-Native navigation shows a shield on DSH `0.2.2-alpha.3`, `0.2.2-rc.1`, `0.2.2-rc.2`, `0.2.2-rc.3`, `0.2.2-rc.4`, `0.2.2-rc.5`. The other five candidate hosts use their default icon.
+Native navigation shows a shield on DSH `0.2.2-alpha.3`, `0.2.2-rc.1`, `0.2.2-rc.2`, `0.2.2-rc.3`, `0.2.2-rc.4`, `0.2.2-rc.5`. The other five supported hosts use their default icon.
 
 ## Sign in to an official DeepSeek account
 

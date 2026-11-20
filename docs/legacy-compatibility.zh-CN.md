@@ -8,15 +8,15 @@
 
 ## 当前发布范围
 
-候选插件 `0.3.7` 声明十一版精确 DSH：`0.2.1-rc.1`、`0.2.1-rc.2`、`0.2.1-rc.3`、`0.2.1-rc.4`、`0.2.1-rc.5`、`0.2.2-alpha.3`、`0.2.2-rc.1`、`0.2.2-rc.2`、`0.2.2-rc.3`、`0.2.2-rc.4`、`0.2.2-rc.5`。最低支持宿主为 `0.2.1-rc.1`，开发默认和候选迁移推荐为上游 RC 预发布 `0.2.2-rc.5`。技术准入为包含预发布的 `>=0.2.1-alpha.3`，沿用身份与 API 校验。已发布 `0.3.6` 的八版声明和公开验收见[支持历史](support-history.zh-CN.md#plugin-0.3.6)。
+已发布插件 `0.3.7` 声明十一版精确 DSH：`0.2.1-rc.1`、`0.2.1-rc.2`、`0.2.1-rc.3`、`0.2.1-rc.4`、`0.2.1-rc.5`、`0.2.2-alpha.3`、`0.2.2-rc.1`、`0.2.2-rc.2`、`0.2.2-rc.3`、`0.2.2-rc.4`、`0.2.2-rc.5`。最低支持宿主为 `0.2.1-rc.1`，开发默认和迁移推荐为上游 RC 预发布 `0.2.2-rc.5`。技术准入为包含预发布的 `>=0.2.1-alpha.3`，沿用身份与 API 校验。[支持历史](support-history.zh-CN.md#plugin-0.3.7)记录 `0.3.7` 的标签与公开验收，并保留 `0.3.6` 的八版历史声明。
 
 `0.2.1-alpha.3`、`0.2.1-alpha.4`、`0.2.1-alpha.5` 从插件 `0.3.6` 维护退役，最后支持插件 `0.3.5`。legacySince=2026-10-28、windowDays=14、eligibleRetirement=2026-11-11 保持；retiredOn=2026-11-13 是准备日期，实际 registry 时间另记。技术检查通过后仍可带告警运行，不加入技术拒绝集合。已发布 `0.3.5` 保留其十版历史声明及行为，原始归档可获取；`0.2.2-alpha.2` 的 `0.3.4` 上游故障退役和六版 `0.3.1` 技术退役不改写。
 
-HOST、PROTOCOL、PUBLIC 参数/文本、THEME radius/thumb 和 TEST 直接导航的独占路径维持原退役决定。共享检查继续覆盖新宿主。ACCOUNT 和 HMR 与候选名单仍有交集。RESOURCE、LIVESHARE 的受支持交集和 SETTINGS-ICON 的盾牌范围均为 `0.2.2-alpha.3`、`0.2.2-rc.1`、`0.2.2-rc.2`、`0.2.2-rc.3`、`0.2.2-rc.4`、`0.2.2-rc.5`。ACCOUNT-SLOT 适用于 `0.2.2-rc.2`、`0.2.2-rc.3`、`0.2.2-rc.4`、`0.2.2-rc.5`。候选完整同包证据另记。
+HOST、PROTOCOL、PUBLIC 参数/文本、THEME radius/thumb 和 TEST 直接导航的独占路径维持原退役决定。共享检查继续覆盖新宿主。ACCOUNT 和 HMR 与支持名单仍有交集。RESOURCE、LIVESHARE 的受支持交集和 SETTINGS-ICON 的盾牌范围均为 `0.2.2-alpha.3`、`0.2.2-rc.1`、`0.2.2-rc.2`、`0.2.2-rc.3`、`0.2.2-rc.4`、`0.2.2-rc.5`。ACCOUNT-SLOT 适用于 `0.2.2-rc.2`、`0.2.2-rc.3`、`0.2.2-rc.4`、`0.2.2-rc.5`。发布的完整同包证据见支持历史。
 
 ## 范围与复核规则
 
-候选十一版精确声明如上。DSH `0.2.2-alpha.2`、`0.2.2-alpha.3`、`0.2.2-rc.1`、`0.2.2-rc.2`、`0.2.2-rc.3`、`0.2.2-rc.4`、`0.2.2-rc.5` 要求 Node `>=24.9.0`，插件引擎为 `>=24`。包含预发布的前向准入须检查身份及 API。账号适配须满足能力并使用 live `manualAccountLogin`。未知版本没有精确验证承诺。
+已发布 manifest 的十一版精确声明如上。DSH `0.2.2-alpha.2`、`0.2.2-alpha.3`、`0.2.2-rc.1`、`0.2.2-rc.2`、`0.2.2-rc.3`、`0.2.2-rc.4`、`0.2.2-rc.5` 要求 Node `>=24.9.0`，插件引擎为 `>=24`。包含预发布的前向准入须检查身份及 API。账号适配须满足能力并使用 live `manualAccountLogin`。未知版本没有精确验证承诺。
 
 - 修改 peers、`dsh.compatibility`、运行时准入、测试目标、CI 或用户兼容声明前，对照两张矩阵及所有相关条目。
 - `dsh-runtime`：适用版本与支持集合仍有交集则保留相应适配；交集为空时，在同一次变更删除专属实现与测试，更新两种语言的矩阵、条目和指南。共享安全校验不随专属分支删除。
@@ -73,10 +73,10 @@ HOST、PROTOCOL、PUBLIC 参数/文本、THEME radius/thumb 和 TEST 直接导�
 | `0.2.2-alpha.2` | `0.3.4` 退役（2026-11-05）；最后历史支持 `0.3.3` | DSH-RESOURCE-001, DSH-LIVESHARE-001, DSH-ACCOUNT-001, DSH-HMR-001, DSH-THEME-001; 保留原生验证、context/主题/Settings 共同检查；最终同包报告另记; DSH-SETTINGS-ICON-001：宿主默认                                                                                                |
 | `0.2.2-alpha.3` | 受支持                                           | DSH-THEME-001、DSH-ACCOUNT-001、DSH-HMR-001、DSH-RESOURCE-001、DSH-LIVESHARE-001、DSH-SETTINGS-ICON-001 原生盾牌；保留共享原生/安全检查；DSH-TEST-001：Search/Fetch 开关；LIVESHARE 当前保留 viewer 与业务 Origin/HMR，产品流程报告仅属历史。                                    |
 | `0.2.2-rc.1`    | 受支持                                           | DSH-THEME-001、DSH-ACCOUNT-001、DSH-HMR-001、DSH-RESOURCE-001、DSH-LIVESHARE-001、DSH-SETTINGS-ICON-001 原生盾牌；保留共享原生/安全检查；DSH-TEST-001：Search/Fetch 开关；LIVESHARE 当前保留 viewer 与业务 Origin/HMR，产品流程报告仅属历史。                                    |
-| `0.2.2-rc.2`    | 已发布 `0.3.6` 支持                              | DSH-THEME-001, DSH-ACCOUNT-001, DSH-ACCOUNT-SLOT-001, DSH-HMR-001, DSH-RESOURCE-001, DSH-LIVESHARE-001, DSH-SETTINGS-ICON-001; 保留共享原生/安全检查，最终同包证据另记；DSH-TEST-001：provider/billing 菜单；LIVESHARE 当前保留 viewer 与业务 Origin/HMR，产品流程报告仅属历史。 |
-| `0.2.2-rc.3`    | `0.3.7` 候选支持                                 | DSH-THEME-001、DSH-ACCOUNT-001、DSH-ACCOUNT-SLOT-001、DSH-HMR-001、DSH-RESOURCE-001、DSH-LIVESHARE-001、DSH-SETTINGS-ICON-001。保留共享原生和安全检查，LiveShare 覆盖 viewer 和业务 Origin/HMR。 DSH-TEST-001: provider/billing 菜单.                                            |
-| `0.2.2-rc.4`    | `0.3.7` 候选支持                                 | DSH-THEME-001、DSH-ACCOUNT-001、DSH-ACCOUNT-SLOT-001、DSH-HMR-001、DSH-RESOURCE-001、DSH-LIVESHARE-001、DSH-SETTINGS-ICON-001。保留共享原生和安全检查，LiveShare 覆盖 viewer 和业务 Origin/HMR。 DSH-TEST-001: provider/billing 菜单.                                            |
-| `0.2.2-rc.5`    | `0.3.7` 候选支持，开发默认及推荐 RC              | DSH-THEME-001、DSH-ACCOUNT-001、DSH-ACCOUNT-SLOT-001、DSH-HMR-001、DSH-RESOURCE-001、DSH-LIVESHARE-001、DSH-SETTINGS-ICON-001。保留共享原生和安全检查，LiveShare 覆盖 viewer 和业务 Origin/HMR。 DSH-TEST-001: 搜索自动选择与独立计费.                                           |
+| `0.2.2-rc.2`    | 自 `0.3.6` 起支持                                | DSH-THEME-001, DSH-ACCOUNT-001, DSH-ACCOUNT-SLOT-001, DSH-HMR-001, DSH-RESOURCE-001, DSH-LIVESHARE-001, DSH-SETTINGS-ICON-001; 保留共享原生/安全检查，最终同包证据另记；DSH-TEST-001：provider/billing 菜单；LIVESHARE 当前保留 viewer 与业务 Origin/HMR，产品流程报告仅属历史。 |
+| `0.2.2-rc.3`    | 自 `0.3.7` 起支持                                | DSH-THEME-001、DSH-ACCOUNT-001、DSH-ACCOUNT-SLOT-001、DSH-HMR-001、DSH-RESOURCE-001、DSH-LIVESHARE-001、DSH-SETTINGS-ICON-001。保留共享原生和安全检查，LiveShare 覆盖 viewer 和业务 Origin/HMR。 DSH-TEST-001: provider/billing 菜单.                                            |
+| `0.2.2-rc.4`    | 自 `0.3.7` 起支持                                | DSH-THEME-001、DSH-ACCOUNT-001、DSH-ACCOUNT-SLOT-001、DSH-HMR-001、DSH-RESOURCE-001、DSH-LIVESHARE-001、DSH-SETTINGS-ICON-001。保留共享原生和安全检查，LiveShare 覆盖 viewer 和业务 Origin/HMR。 DSH-TEST-001: provider/billing 菜单.                                            |
+| `0.2.2-rc.5`    | 自 `0.3.7` 起支持，开发默认及推荐 RC             | DSH-THEME-001、DSH-ACCOUNT-001、DSH-ACCOUNT-SLOT-001、DSH-HMR-001、DSH-RESOURCE-001、DSH-LIVESHARE-001、DSH-SETTINGS-ICON-001。保留共享原生和安全检查，LiveShare 覆盖 viewer 和业务 Origin/HMR。 DSH-TEST-001: 搜索自动选择与独立计费.                                           |
 
 PLUGIN-CONFIG-001、PLUGIN-LOCALE-001、PLUGIN-CLI-001 与共享认证检查均独立于运行时适配退役，适用于当前插件的全部宿主；前向准入不构成精确实测。
 
@@ -203,7 +203,7 @@ PLUGIN-CONFIG-001、PLUGIN-LOCALE-001、PLUGIN-CLI-001 与共享认证检查均�
 
 - 上游证据：tag `dsh-v0.2.2-rc.2`（`ddac96760b6edf8fa0fe17cbdcf0b512f4c12b2c`）；精确 ui-settings-account 的 launcher 声明 notifications children，ui-renderer 按原 StoredEntry 绑定 renderSlot，重复声明 children 会拒绝。 新增三个精确发布的 `@deepseek-ai/dsh-client-ui-settings-account/lib/client.js` 与 `0.2.2-rc.2` 相比仅内嵌版本字符串不同，`@deepseek-ai/dsh-client-ui-renderer/lib/client.js` 逐字相同。
 - 实现：`src/client/account/native-entry.ts`、`src/client/account/index.tsx`。仅替换可写 component，保留原 entry/children/inject/options/registrant/disposer；自有 provideRoot 贡献触发安装/卸载重绘，条件恢复保护第三方后写。停用 wrapper 委托原生，不继续插件授权；异步偏好读取后再次检查存活状态。无 children 的宿主保持公开 shadow 注册。
-- 验证：`tests/unit/account-entry.test.ts` 覆盖形状、失败回滚、重装、条件恢复及释放。`tests/browser/account-login.spec.ts` 在精确 `0.2.2-rc.2`、`0.2.2-rc.3`、`0.2.2-rc.4`、`0.2.2-rc.5` 必注册 `native account entry decoration preserves child ownership across client reloads` 与 `native account notifications remain local across language and lifecycle changes`；`tests/fixtures/account-entry-observer.js` 观测真实条目、绑定、root 贡献与模块生命周期。回归包含活动授权期间的 client bundle HMR、停用后保留的 wrapper、新入口先替换而旧偏好读取后完成，以及八种UI语言下的本地通知内容与事件；实际本地wire locale为 `zh_CN` 与 `en_US`，不是八种独立本地化服务响应。偏好异步读取用例在重载前通过原生凭据接口写入本地测试密钥。无凭据首启用例单独验证原生编辑器。真实通知服务和跨产品通知本地化映射仍未验证。阶段探针及浏览器报告绑定各自候选摘要。最终十一版支持验收另记，不能由原型推定。
+- 验证：`tests/unit/account-entry.test.ts` 覆盖形状、失败回滚、重装、条件恢复及释放。`tests/browser/account-login.spec.ts` 在精确 `0.2.2-rc.2`、`0.2.2-rc.3`、`0.2.2-rc.4`、`0.2.2-rc.5` 必注册 `native account entry decoration preserves child ownership across client reloads` 与 `native account notifications remain local across language and lifecycle changes`；`tests/fixtures/account-entry-observer.js` 观测真实条目、绑定、root 贡献与模块生命周期。回归包含活动授权期间的 client bundle HMR、停用后保留的 wrapper、新入口先替换而旧偏好读取后完成，以及八种UI语言下的本地通知内容与事件；实际本地wire locale为 `zh_CN` 与 `en_US`，不是八种独立本地化服务响应。偏好异步读取用例在重载前通过原生凭据接口写入本地测试密钥。无凭据首启用例单独验证原生编辑器。真实通知服务和跨产品通知本地化映射仍未验证。阶段探针及浏览器报告绑定各自候选摘要。[标签全量验收记录](support-history.zh-CN.md#publication-0.3.7)记录十一版最终验收。
 - 迁移/退役：初始发布证据归属 `0.2.2-rc.2` 和 `0.3.6`。与支持集合有交集时保留；只有公开替代接口经每个适用受支持精确宿主验证，或适用集合完全退出支持，才移除私有实现及专用测试。保留共享认证、安全和原生子槽所有权检查。`DSH-ACCOUNT-001` 继续拥有 loopback 回调合同。
 
 ## DSH-HMR-001
@@ -298,7 +298,7 @@ PLUGIN-CONFIG-001、PLUGIN-LOCALE-001、PLUGIN-CLI-001 与共享认证检查均�
 
 远程profile必须独立禁用原生 `webserver`。`tests/browser/startup-compatibility.spec.ts` 在十一个候选宿主均以插件自身engines故障验证Loader skip，并分别以自身准入范围故障验证导入后拒绝。三个退役Alpha改由 `scripts/verify-maintenance-retired.mjs` 的0.3.6 full专项验证：`0.2.1-alpha.3` 使用Host peer故障，`0.2.1-alpha.4`、`0.2.1-alpha.5` 使用engines；均仅改私有插件副本。`scripts/verify-retired.mjs` 独立验证历史技术拒绝宿主的原样候选安装回滚及完整包peer skip；full保留精确 `0.2.1-alpha.2`。各路径均要求无TCP/HTTP/readiness/WebSocket监听，保留上游身份和审计。
 
-`src/index.ts` 读取已安装 manifest，由 `src/shared/dsh-support.ts` 根据精确声明分类。十一个候选声明为：`0.2.1-rc.1`、`0.2.1-rc.2`、`0.2.1-rc.3`、`0.2.1-rc.4`、`0.2.1-rc.5`、`0.2.2-alpha.3`、`0.2.2-rc.1`、`0.2.2-rc.2`、`0.2.2-rc.3`、`0.2.2-rc.4`、`0.2.2-rc.5`。三个Alpha单列维护退役生命周期：effectivePlugin=0.3.6、lastSupportedPlugin=0.3.5、原legacySince=2026-10-28/windowDays=14/eligibleRetirement=2026-11-11及准备日期retiredOn=2026-11-13。六个技术退役宿主最后支持0.2.0不变，`0.2.2-alpha.2` 仍于0.3.4按2026-11-05例外退役、最后支持0.3.3。日期不是npm时间或定时拒绝；进程/HMR告警去重及必要API/身份/安全检查保留。
+`src/index.ts` 读取已安装 manifest，由 `src/shared/dsh-support.ts` 根据精确声明分类。`0.3.7` 的十一条声明为：`0.2.1-rc.1`、`0.2.1-rc.2`、`0.2.1-rc.3`、`0.2.1-rc.4`、`0.2.1-rc.5`、`0.2.2-alpha.3`、`0.2.2-rc.1`、`0.2.2-rc.2`、`0.2.2-rc.3`、`0.2.2-rc.4`、`0.2.2-rc.5`。三个Alpha单列维护退役生命周期：effectivePlugin=0.3.6、lastSupportedPlugin=0.3.5、原legacySince=2026-10-28/windowDays=14/eligibleRetirement=2026-11-11及准备日期retiredOn=2026-11-13。六个技术退役宿主最后支持0.2.0不变，`0.2.2-alpha.2` 仍于0.3.4按2026-11-05例外退役、最后支持0.3.3。日期不是npm时间或定时拒绝；进程/HMR告警去重及必要API/身份/安全检查保留。
 
 包身份、向前准入后的 API 检查、具体监听、原始 Host/Origin/Fetch Metadata、回环准入、密码/TOTP、会话、流撤销、存储故障与 CLI 确认适用于所有声明版本。反向代理 HTTPS → HTTP、Host 设置能力 `ownsHost` 和服务端原生浏览器认证交换也不能仅因某个适配退役而删除。
 
@@ -368,11 +368,11 @@ PLUGIN-CONFIG-001、PLUGIN-LOCALE-001、PLUGIN-CLI-001 与共享认证检查均�
 
 保留全部14个稳定条目ID及双向精确版本矩阵的适用关系，仅更新发布/验收状态；本事实更新不退役任何运行时适配或独立插件合同。
 
-## 2026-11-20 候选交集复核
+## 2026-11-20 发布交集复核
 
 三个精确 npm `@deepseek-ai/dsh` 归档均匹配 registry 完整性声明。`0.2.2-rc.3` 对应标签 `dsh-v0.2.2-rc.3` 和提交 `38a6a5c965aa99ab525161efb7cc5cf1fe62fced`，`0.2.2-rc.4` 对应标签 `dsh-v0.2.2-rc.4` 和提交 `3f321d32bfe382212a8ed8785c1d47a5a300aa23`，`0.2.2-rc.5` 对应标签 `dsh-v0.2.2-rc.5` 和提交 `9c2670d3bce5275e0d1610272958121af87787bb`。[按 DSH 查询](support-history.zh-CN.md#by-dsh)提供精确 registry 入口。独立安装的 WebApp、WebServer、Connection 和合并账号均解析到所属精确宿主版本，实装 Cordis `4.1.0`、Schemastery `3.19.0`、Loader `1.1.0`、Include `1.1.0`。
 
 - `DSH-HOST-001`、`DSH-PROTOCOL-001`、`DSH-PUBLIC-001`、`DSH-THEME-001` 和 `DSH-TEST-001` 已退役独占路径的交集仍为空。实装 WebServer、Connection、WebApp 和主题继续提供原生校验、公开上下文及焦点规则。三版纳入共享传输、登录与导航检查。各类搜索表单按 `DSH-TEST-001` 的精确适用集合维护。
 - `DSH-ACCOUNT-001` 和 `DSH-HMR-001` 的非空交集扩至 `0.2.2-rc.3`、`0.2.2-rc.4` 和 `0.2.2-rc.5`。合并账号仍使用原生 loopback PKCE，HMR 保留私有事务接口。`DSH-ACCOUNT-SLOT-001` 在 `0.2.2-rc.2`、`0.2.2-rc.3`、`0.2.2-rc.4` 和 `0.2.2-rc.5` 保留私有组件装饰。逐版 `account-login.spec.ts` 和 `live-config.spec.ts` 验证私有账号运行、Loader 所有权和回滚。
 - `DSH-RESOURCE-001`、`DSH-LIVESHARE-001` 和 `DSH-SETTINGS-ICON-001` 保留功能表所列精确交集。`native-transport.spec.ts`、`liveshare.spec.ts` 与 `settings-icon.spec.ts` 验证新增三版的原生资源、viewer、Origin 和盾牌。`0.2.2-rc.4` 的上游 Electron tunnel worker 变更属于桌面产品范围。`0.2.2-rc.3` 引入的可选会话导入复用原生上传传输，`proxy-chain.spec.ts` 与原生传输集成用例覆盖上传准入和撤销。会话导入和真实模型、计费、Platform 或 Relay 操作在验收范围之外。
-- `PLUGIN-CONFIG-001`、`PLUGIN-LOCALE-001`、`PLUGIN-CLI-001` 继续独立契约。保留 14 个稳定 ID 与历史退役证据。三个新宿主在同一阶段归档各通过 82 项 Chromium 用例。最终十一版和标签归档分别使用自己的 producer 验收。
+- `PLUGIN-CONFIG-001`、`PLUGIN-LOCALE-001`、`PLUGIN-CLI-001` 继续独立契约。保留 14 个稳定 ID 与历史退役证据。三个新宿主在同一阶段归档各通过 82 项 Chromium 用例。[标签与公开验收](support-history.zh-CN.md#publication-0.3.7)记录独立核验的发布 producer 和分发。
