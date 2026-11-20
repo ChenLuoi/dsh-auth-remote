@@ -73,7 +73,7 @@ test('retired selection is independent, exact and rejects malformed inputs befor
   )
 })
 
-test('retired consumer reuses digest, checksum and complete eight-version archive checks before runtime work', async () => {
+test('retired consumer reuses digest, checksum and complete declaration checks before runtime work', async () => {
   const root = await mkdtemp(join(tmpdir(), 'retired-archive-'))
   try {
     const packageRoot = join(root, 'package')
@@ -106,13 +106,16 @@ test('retired consumer reuses digest, checksum and complete eight-version archiv
     await assert.rejects(verifyRetired(options), /SHA-256 mismatch/u)
     await writeFile(join(root, 'SHA256SUMS'), 'wrong\n')
     await assert.rejects(verifyRetired({ ...options, sha256: digest }), /Checksum file/u)
-    const narrowed = structuredClone(packageManifest)
-    delete narrowed.dsh.compatibility.dshReleases['0.2.1-rc.1']
-    const partial = await pack(narrowed)
-    await assert.rejects(
-      verifyRetired({ ...options, sha256: partial }),
-      /declarations and verification targets differ/u,
-    )
+    for (const [version, expected] of [
+      ['0.2.1-rc.1', /declarations and verification targets differ/u],
+      ['0.2.2-rc.4', /declarations and verification targets differ/u],
+      ['0.2.2-rc.5', /Archive does not declare the selected DSH release/u],
+    ] as const) {
+      const narrowed = structuredClone(packageManifest)
+      delete narrowed.dsh.compatibility.dshReleases[version]
+      const partial = await pack(narrowed)
+      await assert.rejects(verifyRetired({ ...options, sha256: partial }), expected)
+    }
   } finally {
     await rm(root, { recursive: true, force: true })
   }

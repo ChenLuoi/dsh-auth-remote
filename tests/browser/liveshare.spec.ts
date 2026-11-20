@@ -7,7 +7,11 @@ import { dshVersion } from '../../scripts/runtime.mjs'
 import { packedAdmin, packedCommand, packedProfile } from '../helpers/packed-runtime.js'
 import { launchBrowser } from '../helpers/runtime.js'
 
-if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion))
+if (
+  ['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.5'].includes(
+    dshVersion,
+  )
+)
   test(
     'liveshare: native viewer carrier and index retain non-owner transport and administrator client is inert',
     { timeout: 90_000 },

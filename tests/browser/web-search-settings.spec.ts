@@ -15,7 +15,8 @@ import { packedCommand, packedProfile } from '../helpers/packed-runtime.js'
 import { clickThroughDshPrompts, launchBrowser } from '../helpers/runtime.js'
 import { accountPlatform } from '../helpers/account-platform.js'
 
-const billing = dshVersion === '0.2.2-rc.2'
+const automaticSearch = dshVersion === '0.2.2-rc.5'
+const billing = ['0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.5'].includes(dshVersion)
 
 // Verify the three-namespace native form on each exact RC target.
 if (
@@ -27,12 +28,17 @@ if (
     '0.2.2-alpha.3',
     '0.2.2-rc.1',
     '0.2.2-rc.2',
+    '0.2.2-rc.3',
+    '0.2.2-rc.4',
+    '0.2.2-rc.5',
   ].includes(dshVersion)
 )
   test(
-    billing
-      ? 'native Search and Fetch billing preserves settings and credential boundaries'
-      : `DSH ${dshVersion} native web search settings persist all three namespaces and credentials behind the remote session gate`,
+    automaticSearch
+      ? 'native Search provider automatic selection clears the override and survives restart'
+      : billing
+        ? 'native Search and Fetch billing preserves settings and credential boundaries'
+        : `DSH ${dshVersion} native web search settings persist all three namespaces and credentials behind the remote session gate`,
     { timeout: 120_000 },
     async () => {
       const probe = createServer().listen(0, '127.0.0.1')
@@ -97,7 +103,9 @@ if (
             f.home,
             ['web', '--no-open', '--port', String(port)],
             f.cwd,
-            billing ? { DEEPSEEK_BASE_URL: messagesUrl } : {},
+            billing
+              ? { DEEPSEEK_BASE_URL: messagesUrl, DEEPSEEK_SEARCH_BASE_URL: messagesUrl }
+              : {},
           )
           await expect
             .poll(
@@ -151,15 +159,20 @@ if (
             { method, args, omit, rpcId: randomUUID() },
           )
         }
-        async function describe() {
+        async function describeNamespaces() {
           const result = await rpc('settings/describe', {})
           assert.equal(result.status, 200)
           assert.equal(result.body.result.ok, true)
           assert.equal(JSON.stringify(result.body).includes(testKey), false)
           assert.equal(JSON.stringify(result.body).includes(replacementKey), false)
-          return Object.fromEntries(
-            result.body.result.value.namespaces.map((ns: any) => [ns.ns, ns.value]),
-          )
+          return result.body.result.value.namespaces as {
+            ns: string
+            user: Record<string, unknown>
+            value: Record<string, unknown>
+          }[]
+        }
+        async function describe() {
+          return Object.fromEntries((await describeNamespaces()).map((ns) => [ns.ns, ns.value]))
         }
         async function openSearch() {
           await page.goto(origin)
@@ -176,6 +189,13 @@ if (
             await expect(page.locator('#plugin-config-web-search-provider')).toBeVisible()
           else
             await expect(page.getByRole('switch', { name: '启用新版 Web 搜索 API' })).toBeVisible()
+        }
+        async function restartSearch() {
+          await page.close()
+          await server!.stop()
+          await start()
+          page = await context.newPage()
+          await openSearch()
         }
         const saved = (ns: string) =>
           page.waitForResponse(
@@ -195,6 +215,9 @@ if (
         await openSearch()
         if (billing) {
           const saveButton = page.getByRole('button', { name: '保存', exact: true })
+          const searchProvider = () => page.locator('#plugin-config-web-search-provider')
+          const fetchProvider = () => page.locator('#plugin-config-web-fetch-provider')
+          const serverSearch = automaticSearch ? 'DeepSeek 服务端搜索' : 'DeepSeek（旧版）'
           const select = async (id: string, label: string) => {
             await page.locator('#plugin-config-web-' + id).click()
             await page.getByRole('menuitem', { name: label, exact: true }).click()
@@ -227,14 +250,25 @@ if (
           const initial = await describe()
           for (const ns of ['web', 'web-search-deepseek', 'web-deepseek-api'])
             assert.ok(initial[ns], ns)
+          assert.equal(
+            initial.web.searchProvider,
+            automaticSearch ? undefined : 'deepseek-search-api',
+          )
+          assert.equal(initial.web.fetchProvider, 'http')
+          await expect(searchProvider()).toHaveText(
+            automaticSearch ? '自动选择' : 'DeepSeek Search API',
+          )
+          await expect(fetchProvider()).toHaveText('本机直接获取')
           assert.equal(initial['web-deepseek-api'].searchBilling, 'auto')
           assert.equal(initial['web-deepseek-api'].fetchBilling, 'auto')
           assert.equal(initial['web-deepseek-api'].count, 10)
-          await select('search-provider', 'DeepSeek（旧版）')
+          await select('search-provider', serverSearch)
+          if (automaticSearch) await expect(searchProvider()).toHaveText(serverSearch)
           await page.getByLabel('Base URL', { exact: true }).fill(messagesUrl)
           await page.getByLabel('单次请求最多搜索次数', { exact: true }).fill('3')
           await page.getByLabel('API Key', { exact: true }).fill(testKey)
           await save('web-search-deepseek')
+          assert.equal((await describe()).web.searchProvider, 'deepseek-official')
           await credential(true)
           await expect(page.getByLabel('API Key', { exact: true })).toHaveValue('')
           await saveKey(replacementKey)
@@ -299,12 +333,10 @@ if (
           const automatic = await describe()
           assert.equal(automatic['web-deepseek-api'].searchBilling, 'auto')
           assert.equal(automatic['web-deepseek-api'].fetchBilling, 'auto')
-          const document = await rpc('settings/describe', {})
-          const user = document.body.result.value.namespaces.find(
-            (row: any) => row.ns === 'web-deepseek-api',
-          ).user
+          const api = (await describeNamespaces()).find((row) => row.ns === 'web-deepseek-api')
+          assert(api)
           for (const field of ['searchBilling', 'fetchBilling'])
-            assert.equal(Object.hasOwn(user, field), false)
+            assert.equal(Object.hasOwn(api.user, field), false)
           await select('search-billing', '已登录的 DeepSeek 账号')
           await select('fetch-billing', 'DeepSeek API Key')
           await save('web-deepseek-api')
@@ -316,11 +348,9 @@ if (
           await expect(page.locator('#plugin-config-web-fetch-billing')).toHaveText(
             'DeepSeek API Key',
           )
-          await page.close()
-          await server!.stop()
-          await start()
-          page = await context.newPage()
-          await openSearch()
+          await restartSearch()
+          await expect(searchProvider()).toHaveText('DeepSeek Search API')
+          await expect(fetchProvider()).toHaveText('DeepSeek Fetch API')
           await expect(page.getByLabel('每次搜索结果数', { exact: true })).toHaveValue('7')
           await expect(page.locator('#plugin-config-web-search-billing')).toHaveText(
             '已登录的 DeepSeek 账号',
@@ -339,7 +369,7 @@ if (
               (await readFile(join(f.profile, 'cordis.patch.yml'), 'utf8')).includes(secret),
               false,
             )
-          await select('search-provider', 'DeepSeek（旧版）')
+          await select('search-provider', serverSearch)
           await save('web')
           await expect(page.getByLabel('API Key', { exact: true })).toHaveValue('')
           const removed = await rpc('credentials/unset', { ref: 'DEEPSEEK_API_KEY' })
@@ -355,6 +385,29 @@ if (
           await save('web')
           assert.equal((await describe())['web-deepseek-api'].searchBilling, 'account')
           assert.equal((await describe())['web-deepseek-api'].fetchBilling, 'api-key')
+          if (automaticSearch) {
+            const assertAutomaticSearch = async () => {
+              const web = (await describeNamespaces()).find((ns) => ns.ns === 'web')
+              assert(web)
+              assert.equal(Object.hasOwn(web.user, 'searchProvider'), false)
+              assert.equal(web.value.searchProvider, undefined)
+              await expect(searchProvider()).toHaveText('自动选择')
+              await expect(fetchProvider()).toHaveText('DeepSeek Fetch API')
+              await expect(page.locator('#plugin-config-web-fetch-billing')).toHaveText(
+                'DeepSeek API Key',
+              )
+            }
+            const beforeClear = (await describeNamespaces()).find((ns) => ns.ns === 'web')
+            assert(beforeClear)
+            assert.equal(beforeClear.user.searchProvider, 'deepseek-search-api')
+            await select('search-provider', '自动选择')
+            await save('web')
+            await assertAutomaticSearch()
+            await openSearch()
+            await assertAutomaticSearch()
+            await restartSearch()
+            await assertAutomaticSearch()
+          }
         } else {
           let sections = await describe()
           for (const ns of ['web', 'web-search-deepseek', 'web-deepseek-api'])
@@ -432,11 +485,7 @@ if (
           await openSearch()
           await expect(page.getByRole('switch', { name: '启用新版 Web 搜索 API' })).toBeChecked()
           await expect(page.getByLabel('每次搜索结果数', { exact: true })).toHaveValue('7')
-          await page.close()
-          await server!.stop()
-          await start()
-          page = await context.newPage()
-          await openSearch()
+          await restartSearch()
           await expect(page.getByRole('switch', { name: '启用新版 Web 搜索 API' })).toBeChecked()
           await expect(page.getByLabel('Search / Fetch API 基础地址', { exact: true })).toHaveValue(
             apiUrl,

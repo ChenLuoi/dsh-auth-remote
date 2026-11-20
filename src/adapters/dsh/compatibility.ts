@@ -4,6 +4,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import WebServer from '@deepseek-ai/dsh-host-webserver'
 import type { HostConnectionHandle } from '@deepseek-ai/dsh-client-connection'
 import semver from 'semver'
+import { RECOMMENDED_DSH_RELEASE } from '../../shared/dsh-support.js'
 
 const WEB_SERVER_PACKAGE = '@deepseek-ai/dsh-host-webserver'
 const CONNECTION_PACKAGE = '@deepseek-ai/dsh-client-connection'
@@ -28,7 +29,7 @@ function packageManifest(
     !semver.satisfies(manifest.version, SUPPORTED_DSH_RANGE, { includePrerelease: true })
   ) {
     throw new Error(
-      `auth-remote: unsupported ${packageName} version ${manifest.version}; minimum DSH 0.2.1-alpha.3. Upgrade to DSH 0.2.2-rc.2; last supported plugin for older DSH: 0.2.0. See README.md and docs/support-history.md.`,
+      `auth-remote: unsupported ${packageName} version ${manifest.version}; minimum DSH 0.2.1-alpha.3. Upgrade to DSH ${RECOMMENDED_DSH_RELEASE}; last supported plugin for older DSH: 0.2.0. See README.md and docs/support-history.md.`,
     )
   }
   return { path, manifest }

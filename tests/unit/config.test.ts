@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { test } from 'node:test'
+import { testedDshVersions } from '../../scripts/runtime.mjs'
 import { Config } from '../../src/config.js'
 
 async function api() {
@@ -130,21 +131,10 @@ test('TLS chooses whole CLI or file pair and resolves paths against their own ba
     )
 })
 
-test('ten declared versions enforce native transport capabilities and concrete bindings', async () => {
+test('declared and maintenance-retired hosts enforce native transport capabilities and concrete bindings', async () => {
   const { resolveStartupConfig } = await api()
   assert.equal(typeof resolveStartupConfig, 'function')
-  for (const version of [
-    '0.2.1-alpha.3',
-    '0.2.1-alpha.4',
-    '0.2.1-alpha.5',
-    '0.2.1-rc.1',
-    '0.2.1-rc.2',
-    '0.2.1-rc.3',
-    '0.2.1-rc.4',
-    '0.2.1-rc.5',
-    '0.2.2-alpha.3',
-    '0.2.2-rc.1',
-  ]) {
+  for (const version of ['0.2.1-alpha.3', '0.2.1-alpha.4', '0.2.1-alpha.5', ...testedDshVersions]) {
     const options = { ...context, version }
     assert.equal(resolveStartupConfig({ host: '192.0.2.10' }, {}, options).host, '192.0.2.10')
     for (const host of ['0.0.0.0', '::', '::ffff:0.0.0.0', 'localhost', 'app.example'])
@@ -188,14 +178,8 @@ test('version admission remains independent of native API validation', async () 
     '0.2.1-alpha.3',
     '0.2.1-alpha.4',
     '0.2.1-alpha.5',
-    '0.2.1-rc.1',
-    '0.2.1-rc.2',
-    '0.2.1-rc.3',
-    '0.2.1-rc.4',
-    '0.2.1-rc.5',
     '0.2.2-alpha.2',
-    '0.2.2-alpha.3',
-    '0.2.2-rc.1',
+    ...testedDshVersions,
     '1.0.0',
   ])
     assert.doesNotThrow(() => assertRuntimeVersion(version))
@@ -326,7 +310,7 @@ test('retired runtimes fail before configuration with concrete migration guidanc
         for (const text of [
           version,
           'minimum DSH 0.2.1-alpha.3',
-          'DSH 0.2.2-rc.2',
+          'DSH 0.2.2-rc.5',
           'plugin for older DSH: 0.2.0',
         ])
           assert(error.message.includes(text))

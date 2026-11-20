@@ -45,10 +45,16 @@ export const suites = {
       '0.2.2-alpha.3',
       '0.2.2-rc.1',
       '0.2.2-rc.2',
+      '0.2.2-rc.3',
+      '0.2.2-rc.4',
+      '0.2.2-rc.5',
     ],
     count: 1,
   },
 }
+
+const hostReleaseTest =
+  'native host-release prompt survives a real runtime switch and reload rechecks authentication and saved settings'
 
 export const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex')
 
@@ -157,8 +163,36 @@ export function testCounts(output, selectedFiles = []) {
 export function requiredBrowserTestNames(version) {
   const names = [
     'native settings security icon preserves host navigation and contribution lifecycle',
+    'native Settings updates the live Loader reference without replacing auth, lock or long connections and survives restart',
+    'Node HTTPS and HTTP forwarding preserve public authority and guarded transport',
   ]
-  if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(version)) {
+  if (suites['host-release'].versions.includes(version)) names.push(hostReleaseTest)
+  if (
+    [
+      '0.2.1-rc.3',
+      '0.2.1-rc.4',
+      '0.2.1-rc.5',
+      '0.2.2-alpha.3',
+      '0.2.2-rc.1',
+      '0.2.2-rc.2',
+      '0.2.2-rc.3',
+      '0.2.2-rc.4',
+      '0.2.2-rc.5',
+    ].includes(version)
+  )
+    names.push(
+      `DSH ${version} exposes three native More menus, model controls and security behind a revocable remote session`,
+    )
+  if (
+    [
+      '0.2.2-alpha.3',
+      '0.2.2-rc.1',
+      '0.2.2-rc.2',
+      '0.2.2-rc.3',
+      '0.2.2-rc.4',
+      '0.2.2-rc.5',
+    ].includes(version)
+  ) {
     for (const ingress of ['native-https', 'https-http-proxy'])
       for (const compression of ['default', 'none'])
         names.push(
@@ -173,11 +207,29 @@ export function requiredBrowserTestNames(version) {
       'liveshare: native viewer carrier and index retain non-owner transport and administrator client is inert',
     )
   }
-  if (version === '0.2.2-rc.2')
+  if (['0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.5'].includes(version))
     names.push(
       'native account entry decoration preserves child ownership across client reloads',
       'native account notifications remain local across language and lifecycle changes',
-      'native Search and Fetch billing preserves settings and credential boundaries',
+    )
+  if (version === '0.2.2-rc.5')
+    names.push(
+      'native Search provider automatic selection clears the override and survives restart',
+    )
+  else if (['0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4'].includes(version))
+    names.push('native Search and Fetch billing preserves settings and credential boundaries')
+  else if (
+    [
+      '0.2.1-rc.2',
+      '0.2.1-rc.3',
+      '0.2.1-rc.4',
+      '0.2.1-rc.5',
+      '0.2.2-alpha.3',
+      '0.2.2-rc.1',
+    ].includes(version)
+  )
+    names.push(
+      `DSH ${version} native web search settings persist all three namespaces and credentials behind the remote session gate`,
     )
   return names
 }
@@ -209,6 +261,11 @@ export function assertRegisteredCoverage(name, version, counts) {
       assert(counts.testNames?.includes(title), `Required browser test did not register: ${title}`)
   if (suites[name].count)
     assert.equal(counts.actualTests, suites[name].count, 'Wrong specialized test count')
+  if (name === 'host-release')
+    assert(
+      counts.testNames?.includes(hostReleaseTest),
+      `Required browser test did not register: ${hostReleaseTest}`,
+    )
 }
 
 export function parseArguments(argv) {

@@ -19,6 +19,7 @@ import {
   assertRegisteredCoverage,
   requiredBrowserTestNames,
   sha256,
+  suites,
   testCounts,
   unpackFiles,
   validateArchive,
@@ -318,24 +319,63 @@ test('complete browser coverage permits only exact zero-registration exceptions 
 })
 
 test('complete browser coverage rejects missing mandatory cases even when every file has other tests', () => {
+  const additional = ['0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.5']
+  const merged = ['0.2.2-rc.2', ...additional]
+  const transport = ['0.2.2-alpha.3', '0.2.2-rc.1', ...merged]
+  const hostRelease =
+    'native host-release prompt survives a real runtime switch and reload rechecks authentication and saved settings'
+  for (const version of additional) assert(testedDshVersions.includes(version))
   for (const version of testedDshVersions) {
     const names = requiredBrowserTestNames(version)
     for (const title of [
       'native account entry decoration preserves child ownership across client reloads',
       'native account notifications remain local across language and lifecycle changes',
-      'native Search and Fetch billing preserves settings and credential boundaries',
     ])
-      assert.equal(names.includes(title), version === '0.2.2-rc.2', `${version}: ${title}`)
+      assert.equal(names.includes(title), merged.includes(version), `${version}: ${title}`)
+    assert.equal(
+      names.includes(
+        'native Search and Fetch billing preserves settings and credential boundaries',
+      ),
+      merged.includes(version) && version !== '0.2.2-rc.5',
+    )
+    assert.equal(
+      names.includes(
+        'native Search provider automatic selection clears the override and survives restart',
+      ),
+      version === '0.2.2-rc.5',
+    )
     assert.equal(
       names.includes(
         'native connection business Origin follows admission and survives configuration reload',
       ),
-      ['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(version),
+      transport.includes(version),
     )
     assert.equal(
       names.some((title) => title.includes('real Owner PKCE login')),
       false,
     )
+    if (additional.includes(version)) {
+      assert(suites['host-release'].versions.includes(version))
+      for (const title of [
+        hostRelease,
+        `DSH ${version} exposes three native More menus, model controls and security behind a revocable remote session`,
+        'Node HTTPS and HTTP forwarding preserve public authority and guarded transport',
+        'native Settings updates the live Loader reference without replacing auth, lock or long connections and survives restart',
+        'native HMR preserves preflight failures and cleans allocated replacement resources before rollback',
+        'eight languages render login and native security tasks at desktop and narrow widths',
+        'eight language dictionaries render the real manual account dialog and errors',
+        'native resource caching retains asset and fallback ETags, immutable code and all session gates',
+        'liveshare: native viewer carrier and index retain non-owner transport and administrator client is inert',
+        'native settings security icon preserves host navigation and contribution lifecycle',
+        ...['native-https', 'https-http-proxy'].flatMap((ingress) =>
+          ['default', 'none'].map(
+            (compression) =>
+              `native mux ${ingress} ${compression} preserves native compression, expiry and revocation`,
+          ),
+        ),
+      ])
+        assert(names.includes(title), `${version}: ${title}`)
+    }
     assert.doesNotThrow(() =>
       assertRegisteredCoverage('browser', version, {
         actualTests: names.length,
@@ -343,15 +383,25 @@ test('complete browser coverage rejects missing mandatory cases even when every 
         testNames: names,
       }),
     )
-    for (const missing of names)
+    for (const missing of names) {
+      const remaining = names.filter((name) => name !== missing)
+      const cases = remaining
+        .map((name, i) => `# Subtest: ${name}\nok ${i + 1} - ${name}`)
+        .join('\n')
+      const tap = `TAP version 13\n${cases}\n# tests ${remaining.length}\n# pass ${remaining.length}\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n`
       assert.throws(
-        () =>
-          assertRegisteredCoverage('browser', version, {
-            actualTests: names.length,
-            placeholderFiles: [],
-            testNames: names.filter((title) => title !== missing),
-          }),
+        () => assertRegisteredCoverage('browser', version, testCounts(tap)),
         /Required browser test did not register/u,
       )
+    }
   }
+  assert.throws(
+    () =>
+      assertRegisteredCoverage('host-release', '0.2.2-rc.2', {
+        actualTests: 1,
+        placeholderFiles: [],
+        testNames: ['a different test'],
+      }),
+    /Required browser test did not register/u,
+  )
 })

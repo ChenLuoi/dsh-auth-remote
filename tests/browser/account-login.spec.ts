@@ -42,6 +42,18 @@ import { classifyDshSupport, dshSupportWarning } from '../../src/shared/dsh-supp
 import { accountPlatform } from '../helpers/account-platform.js'
 import { nativeHttp } from '../helpers/native-http.js'
 
+const hasExtendedLocalesAndHmr = [
+  '0.2.2-alpha.3',
+  '0.2.2-rc.1',
+  '0.2.2-rc.2',
+  '0.2.2-rc.3',
+  '0.2.2-rc.4',
+  '0.2.2-rc.5',
+].includes(dshVersion)
+const hasMergedAccount = ['0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.5'].includes(
+  dshVersion,
+)
+
 async function fixture({
   keepOnboarding = false,
   manualEnabled = true,
@@ -205,7 +217,7 @@ async function fixture({
         '- id: deepseek-account',
         '  config:',
         `    platformOrigin: ${platform.origin}`,
-        ...(dshVersion === '0.2.2-rc.2'
+        ...(hasMergedAccount
           ? [
               `    harnessOrigin: ${platform.origin}`,
               `    inferenceOrigin: ${new URL(model.baseURL).origin}`,
@@ -441,7 +453,7 @@ async function nativeSettingsRpc(page: Page, method: string, args: Record<string
   )
 }
 
-if (dshVersion === '0.2.2-rc.2') {
+if (hasMergedAccount) {
   test(
     'native account entry decoration preserves child ownership across client reloads',
     { timeout: 240_000 },
@@ -1033,7 +1045,7 @@ test(
       await expect(
         dialog.getByText(dictionaries.zh.accountLoginInvalidCallback, { exact: true }),
       ).toBeVisible()
-      const locales: Locale[] = ['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion)
+      const locales: Locale[] = hasExtendedLocalesAndHmr
         ? (Object.keys(dictionaries) as Locale[])
         : ['zh', 'en']
       assert.deepEqual(
@@ -1078,7 +1090,7 @@ test(
         }
       }
       assert.deepEqual([...visited].sort(), [...locales].sort())
-      if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion))
+      if (hasExtendedLocalesAndHmr)
         assert.deepEqual([...visited].sort(), ['de', 'en', 'es', 'fr', 'ja', 'pt', 'ru', 'zh'])
       console.log('actual manual account language coverage', JSON.stringify([...visited].sort()))
       assert.deepEqual(f.errors, [])
@@ -1216,7 +1228,7 @@ test(
   },
 )
 
-if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion))
+if (hasExtendedLocalesAndHmr)
   test(
     'native HMR preserves preflight failures and cleans allocated replacement resources before rollback',
     { timeout: 150000 },

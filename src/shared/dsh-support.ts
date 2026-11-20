@@ -27,6 +27,7 @@ export type DshSupport =
   | { state: 'retired'; version: string; record: RetiredDshRecord }
 
 export const LEGACY_DSH_RELEASES: readonly LegacyDshRecord[] = []
+export const RECOMMENDED_DSH_RELEASE = '0.2.2-rc.5'
 
 // Preparation date, not the registry publication time or an admission input.
 export const RETIRED_DSH_RELEASES: readonly RetiredDshRecord[] = [
@@ -37,7 +38,7 @@ export const RETIRED_DSH_RELEASES: readonly RetiredDshRecord[] = [
       retiredOn: '2026-10-28',
       effectivePlugin: '0.3.1',
       lastSupportedPlugin: '0.2.0',
-      migrationTarget: '0.2.2-rc.2',
+      migrationTarget: RECOMMENDED_DSH_RELEASE,
     }),
   ),
   {
@@ -46,7 +47,7 @@ export const RETIRED_DSH_RELEASES: readonly RetiredDshRecord[] = [
     retiredOn: '2026-11-05',
     effectivePlugin: '0.3.4',
     lastSupportedPlugin: '0.3.3',
-    migrationTarget: '0.2.2-rc.2',
+    migrationTarget: RECOMMENDED_DSH_RELEASE,
   },
   ...['0.2.1-alpha.3', '0.2.1-alpha.4', '0.2.1-alpha.5'].map((version): RetiredDshRecord => ({
     state: 'retired',
@@ -57,7 +58,7 @@ export const RETIRED_DSH_RELEASES: readonly RetiredDshRecord[] = [
     retiredOn: '2026-11-13',
     effectivePlugin: '0.3.6',
     lastSupportedPlugin: '0.3.5',
-    migrationTarget: '0.2.2-rc.2',
+    migrationTarget: RECOMMENDED_DSH_RELEASE,
   })),
 ]
 const lifecycle: readonly DshLifecycleRecord[] = [...LEGACY_DSH_RELEASES, ...RETIRED_DSH_RELEASES]

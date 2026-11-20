@@ -533,12 +533,15 @@ export async function writeAcceptanceIndex(path, digest, reportRoot, output, pla
           const definition = suites[suite.name]
           if (suite.name === 'browser') {
             const previous = testedDshVersions[testedDshVersions.indexOf(report.dsh) - 1]
+            for (const runtime of runtimes)
+              if (runtime.role === 'previous-host')
+                assert.equal(runtime.dsh, previous, 'Wrong previous-host runtime identity')
             if (previous)
               assert(
                 nested('previous-host', previous) >= 1,
                 'Missing previous-host runtime identity',
               )
-            if (report.dsh === '0.2.2-rc.2')
+            if (['0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.5'].includes(report.dsh))
               assert(
                 nested('private-account', report.dsh) >= 2,
                 'Missing private-account runtime identities',

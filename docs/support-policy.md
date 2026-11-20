@@ -2,7 +2,7 @@
 
 [简体中文](support-policy.zh-CN.md)
 
-Last updated: 2026-11-14. This policy separates maintenance commitments, exact-version verification and technical admission. Published **`0.3.6`** supports eight hosts, adds recommended RC prerelease `0.2.2-rc.2` and retires maintenance of three Alphas. Its tag archive passed full acceptance and public distribution checks; [support history](support-history.md#plugin-0.3.6) records the exact digest and actual publication time. Published `0.3.5` retains ten original declarations and remains obtainable. Declarations, real tests, Actions success and public distribution are recorded separately.
+Last updated 2026-11-20. This policy distinguishes exact support declarations, acceptance and technical admission. Published `0.3.6` supports eight hosts with tag and public distribution evidence in [support history](support-history.md#plugin-0.3.6). Candidate `0.3.7` declares eleven hosts, adding `0.2.2-rc.3`, `0.2.2-rc.4` and `0.2.2-rc.5`. Final acceptance and publication are pending.
 
 ## Support states and runtime admission
 
@@ -20,24 +20,27 @@ Diagnostics belong in startup logs, before protected service is offered: legacy 
 
 ## Current maintenance schedule
 
-Published `0.3.6` explicitly retires maintenance of `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5`. Their original legacySince=2026-10-28, windowDays=14 and eligibleRetirement=2026-11-11 (Asia/Shanghai) are not reset. effectivePlugin=`0.3.6`, lastSupportedPlugin=`0.3.5`, retiredOn=2026-11-13 (preparation date; record the actual registry timestamp separately). Publication makes the new release’s withdrawal effective; dates never change old installed behavior. All eight remaining hosts stay in complete release-blocking verification.
+Published `0.3.6` explicitly retires maintenance of `0.2.1-alpha.3`, `0.2.1-alpha.4` and `0.2.1-alpha.5`. Their original legacySince=2026-10-28, windowDays=14 and eligibleRetirement=2026-11-11 (Asia/Shanghai) are not reset. effectivePlugin=`0.3.6`, lastSupportedPlugin=`0.3.5`, retiredOn=2026-11-13 (preparation date; record the actual registry timestamp separately). Publication makes the new release’s withdrawal effective; dates never change old installed behavior. All eight remaining hosts stay in complete release-blocking verification. Candidate `0.3.7` retains the maintenance record with eleven release-blocking hosts.
 
-| Exact DSH release | Maintenance state                                                   | Legacy since | Window in calendar days | Earliest eligible retirement |
-| ----------------- | ------------------------------------------------------------------- | ------------ | ----------------------- | ---------------------------- |
-| `0.2.1-alpha.3`   | Maintenance retired in published `0.3.6`; last support `0.3.5`      | 2026-10-28   | 14                      | 2026-11-11                   |
-| `0.2.1-alpha.4`   | Maintenance retired in published `0.3.6`; last support `0.3.5`      | 2026-10-28   | 14                      | 2026-11-11                   |
-| `0.2.1-alpha.5`   | Maintenance retired in published `0.3.6`; last support `0.3.5`      | 2026-10-28   | 14                      | 2026-11-11                   |
-| `0.2.1-rc.1`      | Supported                                                           | —            | —                       | Not announced                |
-| `0.2.1-rc.2`      | Supported                                                           | —            | —                       | Not announced                |
-| `0.2.1-rc.3`      | Supported                                                           | —            | —                       | Not announced                |
-| `0.2.1-rc.4`      | Supported                                                           | —            | —                       | Not announced                |
-| `0.2.1-rc.5`      | Supported; added in `0.3.3`                                         | —            | —                       | Not announced                |
-| `0.2.2-alpha.2`   | Retired in `0.3.4`; upstream failure exception                      | 2026-11-05   | 0                       | 2026-11-05                   |
-| `0.2.2-alpha.3`   | Supported                                                           | —            | —                       | Not announced                |
-| `0.2.2-rc.1`      | Supported                                                           | —            | —                       | Not announced                |
-| `0.2.2-rc.2`      | Supported; development default and recommended host (RC prerelease) | —            | —                       | Not announced                |
+| Exact DSH release | Maintenance state                                                            | Legacy since | Window in calendar days | Earliest eligible retirement |
+| ----------------- | ---------------------------------------------------------------------------- | ------------ | ----------------------- | ---------------------------- |
+| `0.2.1-alpha.3`   | Maintenance retired in published `0.3.6`; last support `0.3.5`               | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-alpha.4`   | Maintenance retired in published `0.3.6`; last support `0.3.5`               | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-alpha.5`   | Maintenance retired in published `0.3.6`; last support `0.3.5`               | 2026-10-28   | 14                      | 2026-11-11                   |
+| `0.2.1-rc.1`      | Supported                                                                    | —            | —                       | Not announced                |
+| `0.2.1-rc.2`      | Supported                                                                    | —            | —                       | Not announced                |
+| `0.2.1-rc.3`      | Supported                                                                    | —            | —                       | Not announced                |
+| `0.2.1-rc.4`      | Supported                                                                    | —            | —                       | Not announced                |
+| `0.2.1-rc.5`      | Supported; added in `0.3.3`                                                  | —            | —                       | Not announced                |
+| `0.2.2-alpha.2`   | Retired in `0.3.4`; upstream failure exception                               | 2026-11-05   | 0                       | 2026-11-05                   |
+| `0.2.2-alpha.3`   | Supported                                                                    | —            | —                       | Not announced                |
+| `0.2.2-rc.1`      | Supported                                                                    | —            | —                       | Not announced                |
+| `0.2.2-rc.2`      | Supported and recommended for published `0.3.6` (RC prerelease)              | —            | —                       | Not announced                |
+| `0.2.2-rc.3`      | Supported by the candidate                                                   | —            | —                       | Not announced                |
+| `0.2.2-rc.4`      | Supported by the candidate                                                   | —            | —                       | Not announced                |
+| `0.2.2-rc.5`      | Candidate development default and recommended migration host (RC prerelease) | —            | —                       | Not announced                |
 
-Migrate to DSH `0.2.2-rc.2` with published plugin `0.3.6` from npm or its verified release archive. This adapts an upstream RC prerelease, not a stable host. Last-supporting plugin `0.3.5` is published and available, with original archive SHA-256 `9d5d1cab4017112251aa3864f5e27ff28739d27136eef7440080c5969d52be34`. Keep that archive and a complete data backup, and rehearse in an independent profile. Rollback must restore matching host, plugin, configuration and complete data backup; old hosts are not promised to read new data. See the [deployment guide](deployment.md#backup-recovery-and-changes).
+Migrate to DSH `0.2.2-rc.2` with published plugin `0.3.6` from npm or its verified release archive. This adapts an upstream RC prerelease, not a stable host. Last-supporting plugin `0.3.5` is published and available, with original archive SHA-256 `9d5d1cab4017112251aa3864f5e27ff28739d27136eef7440080c5969d52be34`. Keep that archive and a complete data backup, and rehearse in an independent profile. Rollback must restore matching host, plugin, configuration and complete data backup; old hosts are not promised to read new data. See the [deployment guide](deployment.md#backup-recovery-and-changes). Rehearse candidate migration on `0.2.2-rc.5` with the frozen `0.3.7` archive in an independent profile.
 
 <a id="upstream-failure-exception"></a>
 
