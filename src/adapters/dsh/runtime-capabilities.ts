@@ -2,6 +2,7 @@ import * as NativeWebServer from '@deepseek-ai/dsh-host-webserver'
 import semver from 'semver'
 import { SUPPORTED_DSH_RANGE } from './compatibility.js'
 import type { OriginProtocol } from '../../http/origin-policy.js'
+import { RECOMMENDED_DSH_RELEASE } from '../../shared/dsh-support.js'
 import { listenerPublicUrl } from './public-url.js'
 
 export interface NativeListenerConfig {
@@ -24,7 +25,7 @@ interface NativeApi {
 export function assertRuntimeVersion(version: string): void {
   if (!semver.satisfies(version, SUPPORTED_DSH_RANGE, { includePrerelease: true }))
     throw new Error(
-      `auth-remote: unsupported DSH version ${version}; minimum DSH 0.2.1-alpha.3. Upgrade to DSH 0.2.2-rc.2; last supported plugin for older DSH: 0.2.0. See README.md and docs/support-history.md.`,
+      `auth-remote: unsupported DSH version ${version}; minimum DSH 0.2.1-alpha.3. Upgrade to DSH ${RECOMMENDED_DSH_RELEASE}; last supported plugin for older DSH: 0.2.0. See README.md and docs/support-history.md.`,
     )
 }
 

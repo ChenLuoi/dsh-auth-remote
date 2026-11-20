@@ -78,8 +78,8 @@ test('unknown events, manual and weekly events, incomplete/empty input and renam
 
 test('ordinary matrices retain all CLI targets and complete browser coverage on every target', () => {
   const ordinary = ordinaryVerificationPlan()
-  assert.equal(ordinary.versions.length, 8)
-  assert.equal(ordinary.browser.include.length, 8)
+  assert.equal(ordinary.versions.length, 11)
+  assert.equal(ordinary.browser.include.length, 11)
   validateVerificationPlan(ordinary.kind, ordinary.versions, ordinary.browser)
   assert.deepEqual(
     ordinary.browser.include
@@ -94,6 +94,9 @@ test('ordinary matrices retain all CLI targets and complete browser coverage on 
       '0.2.2-alpha.3',
       '0.2.2-rc.1',
       '0.2.2-rc.2',
+      '0.2.2-rc.3',
+      '0.2.2-rc.4',
+      '0.2.2-rc.5',
     ],
   )
   const missing = structuredClone(ordinary.browser)

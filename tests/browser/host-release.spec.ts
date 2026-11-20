@@ -14,7 +14,7 @@ import { AUTH_COOKIE } from '../../src/shared/auth-contract.js'
 import { packedCommand, packedProfile } from '../helpers/packed-runtime.js'
 import { clickThroughDshPrompts, launchBrowser, openDshSettings } from '../helpers/runtime.js'
 
-// Exercise seven real supported runtime round trips without changing upstream identity.
+// Exercise adjacent supported runtime round trips without changing upstream identity.
 const previousVersions: Record<string, string> = {
   '0.2.1-rc.2': '0.2.1-rc.1',
   '0.2.1-rc.3': '0.2.1-rc.2',
@@ -23,6 +23,9 @@ const previousVersions: Record<string, string> = {
   '0.2.2-alpha.3': '0.2.1-rc.5',
   '0.2.2-rc.1': '0.2.2-alpha.3',
   '0.2.2-rc.2': '0.2.2-rc.1',
+  '0.2.2-rc.3': '0.2.2-rc.2',
+  '0.2.2-rc.4': '0.2.2-rc.3',
+  '0.2.2-rc.5': '0.2.2-rc.4',
 }
 const previousVersion = previousVersions[dshVersion]
 if (previousVersion)

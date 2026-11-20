@@ -64,7 +64,14 @@ test(
         .getByRole('dialog', { name: '设置', exact: true })
         .getByRole('button', { name: '安全与登录', exact: true })
       await expect(nav).toHaveCount(1)
-      const hasSlot = ['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion)
+      const hasSlot = [
+        '0.2.2-alpha.3',
+        '0.2.2-rc.1',
+        '0.2.2-rc.2',
+        '0.2.2-rc.3',
+        '0.2.2-rc.4',
+        '0.2.2-rc.5',
+      ].includes(dshVersion)
       const facts = () =>
         page.evaluate(() => {
           const s = (window as any).__settingsIcon

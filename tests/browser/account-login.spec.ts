@@ -42,6 +42,18 @@ import { classifyDshSupport, dshSupportWarning } from '../../src/shared/dsh-supp
 import { accountPlatform } from '../helpers/account-platform.js'
 import { nativeHttp } from '../helpers/native-http.js'
 
+const hasExtendedLocalesAndHmr = [
+  '0.2.2-alpha.3',
+  '0.2.2-rc.1',
+  '0.2.2-rc.2',
+  '0.2.2-rc.3',
+  '0.2.2-rc.4',
+  '0.2.2-rc.5',
+].includes(dshVersion)
+const hasMergedAccount = ['0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.5'].includes(
+  dshVersion,
+)
+
 async function fixture({
   keepOnboarding = false,
   manualEnabled = true,
@@ -205,7 +217,7 @@ async function fixture({
         '- id: deepseek-account',
         '  config:',
         `    platformOrigin: ${platform.origin}`,
-        ...(dshVersion === '0.2.2-rc.2'
+        ...(hasMergedAccount
           ? [
               `    harnessOrigin: ${platform.origin}`,
               `    inferenceOrigin: ${new URL(model.baseURL).origin}`,
@@ -441,7 +453,7 @@ async function nativeSettingsRpc(page: Page, method: string, args: Record<string
   )
 }
 
-if (dshVersion === '0.2.2-rc.2') {
+if (hasMergedAccount) {
   test(
     'native account entry decoration preserves child ownership across client reloads',
     { timeout: 240_000 },
@@ -632,30 +644,18 @@ if (dshVersion === '0.2.2-rc.2') {
           p.entry.component = p.native
           p.release()
         })
-        // A real local credential prevents fresh native onboarding from opening its own dialog.
+        // Seed a real local credential before reload so onboarding cannot cover the account menu.
+        const saved = await nativeSettingsRpc(f.page, 'credentials/set', {
+          ref: 'DEEPSEEK_API_KEY',
+          value: 'pending-entry-local-test-key',
+        })
+        assert.equal(saved.result.ok, true)
         await f.page.reload()
         await owned()
-        const setup = await f.open()
-        await setup.getByRole('button', { name: '使用 API Key', exact: true }).click()
-        const editor = f.page.getByRole('dialog', {
-          name: '添加一个 API Key 开始使用',
-          exact: true,
-        })
-        await expect(editor).toBeVisible()
-        await editor
-          .getByRole('textbox', { name: 'API 密钥', exact: true })
-          .fill('pending-entry-local-test-key')
-        const saved = f.page.waitForResponse(
-          (response) => new URL(response.url()).pathname === '/api/credentials/set',
-        )
-        await editor.getByRole('button', { name: '保存并继续', exact: true }).click()
-        assert.equal((await (await saved).json()).result.ok, true)
         const credential = await nativeSettingsRpc(f.page, 'credentials/describe', {
           refs: ['DEEPSEEK_API_KEY'],
         })
         assert.equal(credential.result.value.DEEPSEEK_API_KEY.configured, true)
-        await editor.getByRole('button', { name: '稍后配置', exact: true }).click()
-        await expect(editor).not.toBeVisible()
         // Hold the real settings read while the clicked wrapper awaits mirror.ensure().
         for (const value of [true, false]) {
           await f.page.reload()
@@ -1033,7 +1033,7 @@ test(
       await expect(
         dialog.getByText(dictionaries.zh.accountLoginInvalidCallback, { exact: true }),
       ).toBeVisible()
-      const locales: Locale[] = ['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion)
+      const locales: Locale[] = hasExtendedLocalesAndHmr
         ? (Object.keys(dictionaries) as Locale[])
         : ['zh', 'en']
       assert.deepEqual(
@@ -1078,7 +1078,7 @@ test(
         }
       }
       assert.deepEqual([...visited].sort(), [...locales].sort())
-      if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion))
+      if (hasExtendedLocalesAndHmr)
         assert.deepEqual([...visited].sort(), ['de', 'en', 'es', 'fr', 'ja', 'pt', 'ru', 'zh'])
       console.log('actual manual account language coverage', JSON.stringify([...visited].sort()))
       assert.deepEqual(f.errors, [])
@@ -1216,7 +1216,7 @@ test(
   },
 )
 
-if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion))
+if (hasExtendedLocalesAndHmr)
   test(
     'native HMR preserves preflight failures and cleans allocated replacement resources before rollback',
     { timeout: 150000 },

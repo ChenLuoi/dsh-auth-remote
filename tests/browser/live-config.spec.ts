@@ -72,12 +72,16 @@ test(
         return response.json()
       }
       const before = await observation()
+      const accountPackage = ['0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.5'].includes(
+        dshVersion,
+      )
+        ? 'dsh-deepseek-account'
+        : 'dsh-deepseek-account-platform'
       assert.deepEqual(before.packages, {
         'dsh-web-app': dshVersion,
         'dsh-host-webserver': dshVersion,
         'dsh-client-connection': dshVersion,
-        [dshVersion === '0.2.2-rc.2' ? 'dsh-deepseek-account' : 'dsh-deepseek-account-platform']:
-          dshVersion,
+        [accountPackage]: dshVersion,
       })
       assert.equal(before.enabled, true)
       // Real protected HTTP and upgrade carriers must remain open throughout each write.

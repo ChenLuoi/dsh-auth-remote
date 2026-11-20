@@ -51,7 +51,7 @@ test('three maintenance retirements preserve their announcement window and the s
         '2026-11-13',
         '0.3.6',
         '0.3.5',
-        '0.2.2-rc.2',
+        '0.2.2-rc.5',
       ],
       [
         '0.2.1-alpha.4',
@@ -61,7 +61,7 @@ test('three maintenance retirements preserve their announcement window and the s
         '2026-11-13',
         '0.3.6',
         '0.3.5',
-        '0.2.2-rc.2',
+        '0.2.2-rc.5',
       ],
       [
         '0.2.1-alpha.5',
@@ -71,7 +71,7 @@ test('three maintenance retirements preserve their announcement window and the s
         '2026-11-13',
         '0.3.6',
         '0.3.5',
-        '0.2.2-rc.2',
+        '0.2.2-rc.5',
       ],
     ],
   )
@@ -99,6 +99,7 @@ test('three maintenance retirements preserve their announcement window and the s
     assert.equal(record.retiredOn, '2026-10-28')
     assert.equal(record.effectivePlugin, '0.3.1')
     assert.equal(record.lastSupportedPlugin, '0.2.0')
+    assert.equal(record.migrationTarget, '0.2.2-rc.5')
   }
 })
 
@@ -161,6 +162,9 @@ test('normal declarations stay supported while absent exact versions remain unve
     '0.2.2-alpha.3',
     '0.2.2-rc.1',
     '0.2.2-rc.2',
+    '0.2.2-rc.3',
+    '0.2.2-rc.4',
+    '0.2.2-rc.5',
   ]) {
     const status = classifyDshSupport(version, declared)
     assert.equal(status.state, 'supported')
@@ -189,10 +193,10 @@ test('the upstream-broken Alpha is explicitly retired without changing calendar 
     retiredOn: '2026-11-05',
     effectivePlugin: '0.3.4',
     lastSupportedPlugin: '0.3.3',
-    migrationTarget: '0.2.2-rc.2',
+    migrationTarget: '0.2.2-rc.5',
   })
   const warning = dshSupportWarning(status)!
-  for (const fact of ['0.2.2-alpha.2', '2026-11-05', '0.3.4', '0.3.3', '0.2.2-rc.2'])
+  for (const fact of ['0.2.2-alpha.2', '2026-11-05', '0.3.4', '0.3.3', '0.2.2-rc.5'])
     assert(warning.includes(fact), fact)
   assert(warning.includes('technical checks still apply'))
   const messages: string[] = []

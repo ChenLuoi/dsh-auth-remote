@@ -19,7 +19,7 @@ import { AUTH_COOKIE } from '../../src/shared/auth-contract.js'
 import { AuthStateStore } from '../../src/storage/store.js'
 
 const require = createRequire(import.meta.url)
-assert.equal(require('@deepseek-ai/dsh-deepseek-account/package.json').version, '0.2.2-rc.2')
+assert.equal(require('@deepseek-ai/dsh-deepseek-account/package.json').version, '0.2.2-rc.5')
 const origin = 'https://manual.example'
 
 async function fixture() {
@@ -145,7 +145,7 @@ async function fixture() {
   }
 }
 
-test('manual callback completes the actual 0.2.2-rc.2 provider with the original PKCE and redirect URI', async () => {
+test('manual callback completes the actual 0.2.2-rc.5 provider with the original PKCE and redirect URI', async () => {
   const f = await fixture()
   try {
     assert.equal((await f.call('/auth-remote/account/state', undefined, '')).status, 401)
@@ -169,7 +169,7 @@ test('manual callback completes the actual 0.2.2-rc.2 provider with the original
     assert.equal(f.platform.exchanges.length, 1)
     assert.equal(f.platform.requests.includes('/dsh/authorized'), false)
     const provider = f.ctx.get('deepseekAccount') as DeepSeekAccount
-    const client = { version: '0.2.2-rc.2', locale: 'en', timezoneOffsetSeconds: 0 }
+    const client = { version: '0.2.2-rc.5', locale: 'en', timezoneOffsetSeconds: 0 }
     const notifications = await provider.getNotifications(client)
     assert.ok(notifications)
     assert.equal(notifications.nextPollAfterSeconds, 600)
@@ -541,7 +541,7 @@ test('without a manual owner the captured callback delegates to the native flow 
     f.setManual(false)
     const provider = f.ctx.get('deepseekAccount') as any
     await provider.startSignIn(
-      { version: '0.2.2-rc.2', locale: 'en', timezoneOffsetSeconds: 0 },
+      { version: '0.2.2-rc.5', locale: 'en', timezoneOffsetSeconds: 0 },
       'http://127.0.0.1:54321',
       'web',
     )
@@ -642,7 +642,7 @@ test('native cancellation followed by authorization regains its callback without
     const provider = f.ctx.get('deepseekAccount') as any
     await provider.cancelSignIn(manual.id)
     await provider.startSignIn(
-      { version: '0.2.2-rc.2', locale: 'en', timezoneOffsetSeconds: 0 },
+      { version: '0.2.2-rc.5', locale: 'en', timezoneOffsetSeconds: 0 },
       'http://127.0.0.1:54321',
       'web',
     )
@@ -692,7 +692,7 @@ test('failed native cancellation retains the manual callback boundary until nati
     provider.cancelSignIn = cancel
     await cancel(attempt.id)
     await provider.startSignIn(
-      { version: '0.2.2-rc.2', locale: 'en', timezoneOffsetSeconds: 0 },
+      { version: '0.2.2-rc.5', locale: 'en', timezoneOffsetSeconds: 0 },
       'http://127.0.0.1:54321',
       'web',
     )

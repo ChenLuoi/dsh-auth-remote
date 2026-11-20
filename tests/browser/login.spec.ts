@@ -32,6 +32,15 @@ import {
 import { dshVersion, project } from '../../scripts/runtime.mjs'
 import { nativeHttp } from '../helpers/native-http.js'
 
+const hasAllNativeLocales = [
+  '0.2.2-alpha.3',
+  '0.2.2-rc.1',
+  '0.2.2-rc.2',
+  '0.2.2-rc.3',
+  '0.2.2-rc.4',
+  '0.2.2-rc.5',
+].includes(dshVersion)
+
 const password = 'browser test password 123'
 const hostName = 'auth-remote.test'
 
@@ -468,11 +477,7 @@ test(
       await optionalSignIn(f.page, f.origin)
       await openSecurity(f.page)
       // Older hosts retain their own language catalog; dictionary registration does not extend it.
-      const nativeLocales: Locale[] = ['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(
-        dshVersion,
-      )
-        ? locales
-        : ['zh', 'en']
+      const nativeLocales: Locale[] = hasAllNativeLocales ? locales : ['zh', 'en']
       for (const theme of ['light', 'dark'] as const) {
         await setNativeLocale(f.page, 'zh')
         await f.page.getByRole('button', { name: '通用设置', exact: true }).click()
@@ -542,7 +547,7 @@ test(
         }
       }
       assert.deepEqual([...securityVisited].sort(), [...nativeLocales].sort())
-      if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion))
+      if (hasAllNativeLocales)
         assert.deepEqual([...securityVisited].sort(), [
           'de',
           'en',

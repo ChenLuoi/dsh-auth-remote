@@ -130,7 +130,7 @@ async function evidenceFixture(plan: string) {
     if (report.suites?.some((suite: any) => suite.name === 'browser')) {
       const previous = testedDshVersions[testedDshVersions.indexOf(version) - 1]
       if (previous) roles.push({ role: 'previous-host', dsh: previous })
-      if (version === '0.2.2-rc.2')
+      if (['0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.5'].includes(version))
         roles.push(...Array.from({ length: 2 }, () => ({ role: 'private-account', dsh: version })))
     }
     const runtimes = []
@@ -288,16 +288,28 @@ for (const plan of ['ordinary', 'full'])
       sidecar.report.sha256 = sha256(await readFile(path))
       await writeFile(sidecarPath, json(sidecar))
     }
-    const omitRuntime = async (role: string, version: string) => {
+    const changeRuntime = async (
+      role: string,
+      version: string,
+      mutate?: (receipt: any) => void,
+    ) => {
       const path = f.primary[testedDshVersions.indexOf(version)]!
       const sidecarPath = path.replace(/\.json$/u, '-evidence.json')
       const sidecar = JSON.parse(await readFile(sidecarPath, 'utf8'))
       const directory = path.replace(/\.json$/u, '-runtimes')
       for (const item of sidecar.runtimes) {
         const receiptPath = join(directory, item.file)
-        if (JSON.parse(await readFile(receiptPath, 'utf8')).role !== role) continue
-        await rm(receiptPath)
-        sidecar.runtimes = sidecar.runtimes.filter((runtime: any) => runtime.file !== item.file)
+        const receipt = JSON.parse(await readFile(receiptPath, 'utf8'))
+        if (receipt.role !== role) continue
+        if (mutate) {
+          mutate(receipt)
+          const contents = json(receipt)
+          await writeFile(receiptPath, contents)
+          item.sha256 = sha256(contents)
+        } else {
+          await rm(receiptPath)
+          sidecar.runtimes = sidecar.runtimes.filter((runtime: any) => runtime.file !== item.file)
+        }
         await writeFile(sidecarPath, json(sidecar))
         return
       }
@@ -315,10 +327,9 @@ for (const plan of ['ordinary', 'full'])
       assert.equal(cli.status, 0, cli.stderr)
       assert.doesNotMatch(cli.stderr, /unsettled top-level await/u)
       const mutations = [
-        async () => omitRuntime('primary', '0.2.1-rc.1'),
-        async () => omitRuntime('smoke', '0.2.1-rc.1'),
-        async () => omitRuntime('previous-host', '0.2.2-rc.1'),
-        async () => omitRuntime('private-account', '0.2.2-rc.2'),
+        async () => changeRuntime('primary', '0.2.1-rc.1'),
+        async () => changeRuntime('smoke', '0.2.1-rc.1'),
+        async () => changeRuntime('previous-host', '0.2.2-rc.1'),
         async () => rm(f.primary[0]!),
         async () =>
           rewriteReport((report) => {
@@ -375,6 +386,18 @@ for (const plan of ['ordinary', 'full'])
           'an old passed index survived failed validation',
         )
       }
+      for (const version of ['0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.5']) {
+        for (const [path, bytes] of originals) await writeFile(path, bytes)
+        await changeRuntime('previous-host', version, (receipt) => {
+          receipt.dsh = '0.2.1-rc.1'
+          for (const name of Object.keys(receipt.packages))
+            if (name.startsWith('@deepseek-ai/dsh')) receipt.packages[name].version = receipt.dsh
+        })
+        await assert.rejects(run(), /Wrong previous-host runtime identity/u)
+        for (const [path, bytes] of originals) await writeFile(path, bytes)
+        await changeRuntime('private-account', version)
+        await assert.rejects(run(), /Missing private-account runtime identities/u)
+      }
       for (const [path, bytes] of originals) await writeFile(path, bytes)
       if (plan === 'full')
         await assert.rejects(
@@ -397,7 +420,7 @@ async function appendBad(path: string) {
   await writeFile(path, (await readFile(path, 'utf8')) + '\n# changed raw evidence\n')
 }
 
-test('a validated plugin0.3.7 archive disables full-plan maintenance retirement without preparing a runtime', async () => {
+test('a validated plugin 0.3.7 archive disables full-plan maintenance retirement without preparing a runtime', async () => {
   const root = await mkdtemp(join(tmpdir(), 'packed-future-gate-'))
   try {
     const checkout = join(root, 'checkout')
@@ -446,7 +469,7 @@ test('a validated plugin0.3.7 archive disables full-plan maintenance retirement 
         '--sha256',
         digest,
         '--dsh-version',
-        '0.2.2-rc.2',
+        '0.2.2-rc.5',
         '--suite',
         'cli',
       ],

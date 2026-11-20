@@ -25,6 +25,15 @@ import { packedAdmin, packedCommand, packedProfile } from '../helpers/packed-run
 import { clickThroughDshPrompts, dsh, launchBrowser, openDshSettings } from '../helpers/runtime.js'
 import { startForwarder, type Forwarder } from '../helpers/proxy.js'
 
+const hasNativeResourceAndMux = [
+  '0.2.2-alpha.3',
+  '0.2.2-rc.1',
+  '0.2.2-rc.2',
+  '0.2.2-rc.3',
+  '0.2.2-rc.4',
+  '0.2.2-rc.5',
+].includes(dshVersion)
+
 const password = 'native packed browser password 123'
 const pin = createHash('sha256')
   .update(new X509Certificate(nativeCertificate).publicKey.export({ type: 'spki', format: 'der' }))
@@ -72,7 +81,7 @@ function firstTextCompression(socket: any): Promise<boolean> {
   })
 }
 
-if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion))
+if (hasNativeResourceAndMux)
   test(
     'native connection business Origin follows admission and survives configuration reload',
     { timeout: 120_000 },
@@ -289,7 +298,7 @@ if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion))
     },
   )
 
-if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion))
+if (hasNativeResourceAndMux)
   for (const ingress of ['native-https', 'https-http-proxy'] as const)
     for (const compression of ['default', 'none'] as const)
       test(
@@ -464,7 +473,7 @@ if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion))
         },
       )
 
-if (['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2'].includes(dshVersion))
+if (hasNativeResourceAndMux)
   test(
     'native resource caching retains asset and fallback ETags, immutable code and all session gates',
     { timeout: 90000 },
