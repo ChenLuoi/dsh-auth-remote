@@ -644,30 +644,18 @@ if (hasMergedAccount) {
           p.entry.component = p.native
           p.release()
         })
-        // A real local credential prevents fresh native onboarding from opening its own dialog.
+        // Seed a real local credential before reload so onboarding cannot cover the account menu.
+        const saved = await nativeSettingsRpc(f.page, 'credentials/set', {
+          ref: 'DEEPSEEK_API_KEY',
+          value: 'pending-entry-local-test-key',
+        })
+        assert.equal(saved.result.ok, true)
         await f.page.reload()
         await owned()
-        const setup = await f.open()
-        await setup.getByRole('button', { name: '使用 API Key', exact: true }).click()
-        const editor = f.page.getByRole('dialog', {
-          name: '添加一个 API Key 开始使用',
-          exact: true,
-        })
-        await expect(editor).toBeVisible()
-        await editor
-          .getByRole('textbox', { name: 'API 密钥', exact: true })
-          .fill('pending-entry-local-test-key')
-        const saved = f.page.waitForResponse(
-          (response) => new URL(response.url()).pathname === '/api/credentials/set',
-        )
-        await editor.getByRole('button', { name: '保存并继续', exact: true }).click()
-        assert.equal((await (await saved).json()).result.ok, true)
         const credential = await nativeSettingsRpc(f.page, 'credentials/describe', {
           refs: ['DEEPSEEK_API_KEY'],
         })
         assert.equal(credential.result.value.DEEPSEEK_API_KEY.configured, true)
-        await editor.getByRole('button', { name: '稍后配置', exact: true }).click()
-        await expect(editor).not.toBeVisible()
         // Hold the real settings read while the clicked wrapper awaits mirror.ensure().
         for (const value of [true, false]) {
           await f.page.reload()
