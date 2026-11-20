@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md)
 
-The `0.3.7` candidate declares eleven hosts: `0.2.1-rc.1`, `0.2.1-rc.2`, `0.2.1-rc.3`, `0.2.1-rc.4`, `0.2.1-rc.5`, `0.2.2-alpha.3`, `0.2.2-rc.1`, `0.2.2-rc.2`, `0.2.2-rc.3`, `0.2.2-rc.4`, `0.2.2-rc.5`. Its default and recommended `0.2.2-rc.5` is an upstream RC prerelease requiring Node.js `>=24.9.0`. The [support history](../docs/support-history.md#plugin-0.3.6) records tag acceptance and public distribution for published `0.3.6`. Each candidate producer has its own acceptance.
+Published `0.3.7` declares eleven hosts: `0.2.1-rc.1`, `0.2.1-rc.2`, `0.2.1-rc.3`, `0.2.1-rc.4`, `0.2.1-rc.5`, `0.2.2-alpha.3`, `0.2.2-rc.1`, `0.2.2-rc.2`, `0.2.2-rc.3`, `0.2.2-rc.4`, `0.2.2-rc.5`. Its default and recommended `0.2.2-rc.5` is an upstream RC prerelease requiring Node.js `>=24.9.0`. The [support history](../docs/support-history.md#plugin-0.3.7) records tag acceptance and public distribution. Each producer has its own acceptance.
 
 Use Linux with `/proc`, Node.js 24, pnpm 12.5.1 and Playwright Chromium:
 

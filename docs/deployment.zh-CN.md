@@ -2,7 +2,7 @@
 
 [English](deployment.md)
 
-公开安装采用已发布的 `0.3.6` 和其推荐的上游 RC 预发布 DSH `0.2.2-rc.2`。本源码的 `0.3.7` 候选声明十一版，开发默认及候选迁移目标为 DSH `0.2.2-rc.5`。在独立 profile 用固定归档演练候选。版本见 [README](../README.zh-CN.md#dsh-兼容性)，维护见[支持规范](support-policy.zh-CN.md)，源码构建见[开发指南](development.zh-CN.md)。
+在受支持的宿主安装已发布的 `0.3.7`。开发默认和推荐迁移宿主是上游 RC 预发布 DSH `0.2.2-rc.5`。升级前用已验证归档在独立 profile 演练。版本见 [README](../README.zh-CN.md#dsh-兼容性)，维护见[支持规范](support-policy.zh-CN.md)，源码构建见[开发指南](development.zh-CN.md)。
 
 生产验收边界为带 `/proc` 的 Linux、Node.js 24 和 Playwright Chromium。DSH `0.2.2-rc.2` 与 `0.2.2-rc.5` 均要求 Node `>=24.9.0`；插件引擎仍为 `>=24`。RC 预发布宿主不是上游稳定版。规定的本地测试覆盖原生 IPv4/IPv6 HTTP/HTTPS 与既有 Node 转发拓扑；真实非回环 IPv6 网卡、其他平台/浏览器、真实 Nginx/Traefik、官方账号授权及生产 Relay/OAuth 未验证，本地协议替身不证明真实服务行为。
 
@@ -14,7 +14,7 @@
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.3.6
+dsh plugin --profile web add dsh-auth-remote@0.3.7
 dsh plugin --profile web list
 dsh web --no-open --port 13090
 ```
@@ -141,11 +141,11 @@ dsh web --no-open --tls-cert ./tls/dsh.crt --tls-key ./tls/dsh.key
 
 演练通过后再修改已停服的生产安装。在 readiness、匿名拒绝、登录与会话撤销检查通过前，保持公开入口私有，并保留独立 `webserver disabled: true`。不得覆盖运行中的状态；本版本不修改插件存储格式。
 
-从 `0.2.1-alpha.3`、`0.2.1-alpha.4` 或 `0.2.1-alpha.5` 迁移前，保留可获取的最后支持插件 `0.3.5` 归档及摘要。`0.3.6` 在原2026-10-28起算/14日/2026-11-11资格窗口后撤回维护；`retiredOn: 2026-11-13` 是准备日期，不是 registry 时间。技术下限仍为 `>=0.2.1-alpha.3`，告警运行不等于旧宿主兼容保证。生产迁移采用上文的已发布组合。用候选固定归档和完整备份在独立 profile 演练候选组合。
+从 `0.2.1-alpha.3`、`0.2.1-alpha.4` 或 `0.2.1-alpha.5` 迁移前，保留可获取的最后支持插件 `0.3.5` 归档及摘要。`0.3.6` 在原2026-10-28起算/14日/2026-11-11资格窗口后撤回维护；`retiredOn: 2026-11-13` 是准备日期，不是 registry 时间。技术下限仍为 `>=0.2.1-alpha.3`，告警运行不等于旧宿主兼容保证。生产迁移采用上文的已发布组合。用已验证归档和完整备份在独立 profile 演练该发布组合。
 
 回滚时先停止新进程，再恢复匹配的原精确宿主、插件归档、配置及对应完整数据备份。宿主切换测试只证明所覆盖的配置/会话契约，不承诺旧宿主可直接读取任意新生产数据；生产数据回滚必须使用对应备份。
 
-从早于 `0.3.2` 的插件升级时，须考虑 `0.3.2` 已引入、`0.3.7` 候选保留的行为：CLI 固定英语，删除脚本中的 `--lang` 参数；JSON 字段不变。独立登录页不提供语言选择器，按 `dsh-auth-remote-lang` 缓存、`navigator.language`、英文选择语言。旧 `dsh-auth-remote.locale` 不读取、不清理、不迁移；进入 DSH 后仅同步原生已接纳的偏好，退出保留。插件八语不会扩充 DSH 的原生语言目录。
+从早于 `0.3.2` 的插件升级时，须考虑 `0.3.2` 已引入、`0.3.7` 保留的行为：CLI 固定英语，删除脚本中的 `--lang` 参数；JSON 字段不变。独立登录页不提供语言选择器，按 `dsh-auth-remote-lang` 缓存、`navigator.language`、英文选择语言。旧 `dsh-auth-remote.locale` 不读取、不清理、不迁移；进入 DSH 后仅同步原生已接纳的偏好，退出保留。插件八语不会扩充 DSH 的原生语言目录。
 
 停止 DSH 并确认释放 profile 锁，再复制 `~/.dsh/profiles/web/auth-remote/auth-state.json`。副本目录权限 0700、文件权限 0600；它含密码哈希、TOTP 密钥、备用码哈希和会话。不要复制写入中的临时文件、覆盖运行中持锁状态或提交 Git；同时备份对应 profile patch 和包/锁文件。
 

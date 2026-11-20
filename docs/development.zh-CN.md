@@ -2,7 +2,7 @@
 
 [English](development.md)
 
-本指南适用于 `0.3.7` 候选的十一版目标。开发默认及推荐宿主为上游 RC 预发布 `0.2.2-rc.5`。发布验证使用各自的固定归档和 producer。已发布 `0.3.6` 的完整标签验收和公开核验见[支持历史](support-history.zh-CN.md#plugin-0.3.6)。
+本指南适用于已发布 `0.3.7` 的十一版目标。开发默认及推荐宿主为上游 RC 预发布 `0.2.2-rc.5`。发布验证使用各自的固定归档和 producer。标签验收和公开核验见[支持历史](support-history.zh-CN.md#plugin-0.3.7)。
 
 开发和完整测试需要 Linux（profile 锁依赖 `/proc`）、Node.js 24、pnpm 12.5.1，以及 DSH `0.2.2-rc.5`。DSH `0.2.2-rc.5` 自身要求 Node.js `>=24.9.0`；插件引擎仍为 `>=24`。浏览器测试使用 Playwright 管理的 Chromium 和 Node HTTP/HTTPS 转发器。
 
@@ -169,7 +169,7 @@ node scripts/verify-maintenance-retired.mjs --archive artifacts/dsh-auth-remote-
 
 `liveshare.spec.ts` 只保留精确 `0.2.2-alpha.3`、`0.2.2-rc.1`、`0.2.2-rc.2`、`0.2.2-rc.3`、`0.2.2-rc.4`、`0.2.2-rc.5` 的真实native viewer/index、carrier及管理员能力隔离。Owner/Relay产品流程及专用替身已删除。共享业务Origin链由 `business-origin-observer.mjs` 接真实Connection.fetch两个精确Owner POST路径，在HTTP/HTTPS/代理、真实配置HMR及匿名/撤销/错误Origin拒绝下观测原生Request与单次恢复；不加载Host/Relay、不手动构造waterfall结果。生产适配保留，产品流程未验证，历史报告仅认证原归档。
 
-已发布 `0.3.6` 已完成最终标签归档验收及公开分发核验；已发布 `0.3.5` 保留原十版声明，新增 `0.2.2-rc.2` 支持不追溯旧包。验收使用同一最终归档与Linux/Node.js 24（默认宿主至少24.9.0）/Chromium，其他Node大版本不能替代；真实代理产品、外部授权、非回环IPv6网卡和其他平台/浏览器仍未验证。
+已发布 `0.3.7` 通过最终标签归档验收及公开分发核验。八版 `0.3.6` 声明保留其历史证据。已发布 `0.3.5` 保留原十版声明，新增 `0.2.2-rc.2` 支持不追溯旧包。验收使用同一最终归档与Linux/Node.js 24（默认宿主至少24.9.0）/Chromium，其他Node大版本不能替代；真实代理产品、外部授权、非回环IPv6网卡和其他平台/浏览器仍未验证。
 
 直接开发依赖为 DSH `0.2.2-rc.5`、Cordis `4.1.0`、Schemastery `3.19.0`；实际新宿主链使用 Loader `1.1.0` 和 Include `1.1.0`。这些是分发包版本。保留 `autoInstallPeers: false`，发布时间例外只列经核验且安装器要求的精确版本。配置观测读取 canonical `entry.fiber.ctx.fiber` 的 `effectiveConfig`，只有不存在访问器的旧宿主才回退 `config`；未激活、缺值或非 `.get()` 引用报错。生产构造参数继续保留原生 Volatile。
 

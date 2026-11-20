@@ -26,4 +26,4 @@ pnpm check
 
 `CI Verify` 会在 Pull Request 和合入 `master` 后运行。维护者在创建发布标签前更新版本号和带日期的更新日志；具体流程见[发布指南](docs/releasing.zh-CN.md)。
 
-候选 `0.3.7` 以 RC 预发布 `0.2.2-rc.5` 为开发默认，ordinary/full 均在同一最终归档跑十一版完整 CLI/browser/smoke。full 继续独立验证 `0.2.1-alpha.2` 技术拒绝，三个 Alpha 的维护退役专项仅适用于已校验的 `0.3.6` full。已发布 `0.3.6` 的八版记录与 `0.3.5` 的十版历史声明见[支持历史](docs/support-history.zh-CN.md)。每个本地、PR、master、tag producer 的源码、归档、实际 runtime/SDK 与原始报告由包外索引关联。依次通过 PR CI、master CI、附注标签及可信发布。最终消费者使用固定归档。LiveShare 验证原生 viewer、Origin 和认证边界，Owner/Relay 产品流程仍待验证。
+已发布 `0.3.7` 以 RC 预发布 `0.2.2-rc.5` 为开发默认，ordinary/full 均在同一最终归档跑十一版完整 CLI/browser/smoke。full 继续独立验证 `0.2.1-alpha.2` 技术拒绝，三个 Alpha 的维护退役专项仅适用于已校验的 `0.3.6` full。已发布 `0.3.6` 的八版记录与 `0.3.5` 的十版历史声明见[支持历史](docs/support-history.zh-CN.md)。每个本地、PR、master、tag producer 的源码、归档、实际 runtime/SDK 与原始报告由包外索引关联。依次通过 PR CI、master CI、附注标签及可信发布。最终消费者使用固定归档。LiveShare 验证原生 viewer、Origin 和认证边界，Owner/Relay 产品流程仍待验证。
