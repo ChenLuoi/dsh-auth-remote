@@ -207,10 +207,10 @@ export async function checkBrowserDelegation(
     setPhase('a second browser performs the native QR exchange and enters the workspace')
     const scanner = await open({ viewport: { width: 390, height: 844 }, colorScheme: 'dark' })
     assert(await scanner.page.goto(qr.url, { waitUntil: 'commit' }).catch(() => null))
-    await scanner.page.waitForURL((url) => url.pathname === '/' && !url.search && !url.hash)
-    await expect.poll(async () => (await checkAccess(scanner.page)).status).toBe(200)
-    await withinBounds(scanner.page, 7)
+    // The QR entry cleans the URL before exchanging the invitation and opening the workspace.
     await nativeRemote(scanner.page)
+    await expect(scanner.page).toHaveURL(base + '/')
+    await withinBounds(scanner.page, 7)
     await expect(
       scanner.page.getByText(
         /Device authorization is available to password sessions|设备授权仅对密码登录的会话开放/iu,
