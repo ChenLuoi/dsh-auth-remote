@@ -11,6 +11,26 @@ import WebServer, {
 import type { NativeListenerConfig } from './runtime-capabilities.js'
 import { evaluateRequestOrigin, type OriginPolicy } from '../../http/origin-policy.js'
 import type { AccountCallbackBridge } from './account-callback.js'
+import { CONNECTION_PROVIDER_DSH } from './compatibility.js'
+import { routePermission } from '../../http/routes.js'
+import { ACCOUNT_CALLBACK_PATH } from '../../shared/account-login.js'
+
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    'webserver/request'(
+      req: IncomingMessage,
+      res: ServerResponse,
+      next: () => Promise<void>,
+    ): Promise<void>
+    'webserver/upgrade'(
+      req: IncomingMessage,
+      socket: Duplex,
+      head: Buffer,
+      peer: unknown,
+      next: () => Promise<void>,
+    ): Promise<void>
+  }
+}
 
 export const READY_PATH = '/auth-remote/ready'
 export const READY_PROTOCOL_VERSION = 1
@@ -80,22 +100,48 @@ type ServeResource = (
 export class GuardedWebServer extends WebServer {
   private originPolicy: OriginPolicy | undefined
   private accountCallbackBridge: AccountCallbackBridge | undefined
+  private readonly manualCallbacks = new WeakSet<IncomingMessage>()
   private readonly resourceBoundaryInstalled: boolean
+  private readonly hasProvider: boolean
 
   constructor(
     ctx: Context,
-    config: NativeListenerConfig & { originPolicy?: OriginPolicy },
+    config: NativeListenerConfig & { originPolicy?: OriginPolicy; version?: string },
     private readonly gate: WebGate = new DenyGate(),
   ) {
     // Production verifies the host version and explicitly validates the native
     // schema before calling this constructor, including on old IPv4 runtimes.
     super(ctx, config as WebServerConfig)
-    this.resourceBoundaryInstalled = this.installResourceBoundary()
+    this.hasProvider = config.version === CONNECTION_PROVIDER_DSH
+    this.resourceBoundaryInstalled = this.hasProvider || this.installResourceBoundary()
+    if (this.hasProvider) {
+      ctx.on(
+        'webserver/request',
+        (req, res, next) => {
+          const path = req.url?.split('?', 1)[0]
+          if (path === READY_PATH || this.manualCallbacks.has(req)) return next()
+          return this.gate.http(req, res, async () => {
+            if (path === ACCOUNT_CALLBACK_PATH && (await this.accountCallbackBridge?.reserved())) {
+              res.writeHead(403, { 'cache-control': 'no-store' }).end()
+              return
+            }
+            await next()
+          })
+        },
+        true,
+      )
+      ctx.on(
+        'webserver/upgrade',
+        (req, socket, head, _peer, next) => this.gate.upgrade(req, socket, head, next),
+        true,
+      )
+    }
     this.originPolicy = config.originPolicy
-    super.register({
-      kind: 'exact',
+    const readyRoute = {
+      kind: 'exact' as const,
       path: READY_PATH,
-      handler: (req, res) => {
+      auth: 'anonymous' as const,
+      handler: (req: IncomingMessage, res: ServerResponse) => {
         if (!this.originPolicy) {
           res.writeHead(503, { 'cache-control': 'no-store' })
           res.end()
@@ -130,7 +176,8 @@ export class GuardedWebServer extends WebServer {
           }),
         )
       },
-    })
+    }
+    super.register(readyRoute)
   }
 
   /** DSH-RESOURCE-001: private native boundary; never replace its routing or stream bridge. */
@@ -169,9 +216,31 @@ export class GuardedWebServer extends WebServer {
 
   installAccountCallbackBridge(bridge: AccountCallbackBridge): void {
     this.accountCallbackBridge = bridge
+    if (this.hasProvider)
+      bridge.useRequestEvent(async (req, res) => {
+        this.manualCallbacks.add(req)
+        try {
+          await this.ctx.waterfall(this, 'webserver/request', req, res, async () => {
+            res.writeHead(410, { 'cache-control': 'no-store' }).end()
+          })
+        } finally {
+          this.manualCallbacks.delete(req)
+        }
+      })
   }
 
   override register(route: WebRoute | WebResourceRoute): () => void {
+    if (this.hasProvider) {
+      // The outer gate limits methods and source before the native match.
+      if ('handler' in route && route.kind === 'exact') {
+        const permission = routePermission('GET', route.path) ?? routePermission('POST', route.path)
+        if (permission === 'public' || permission === 'logout') {
+          const anonymous = { ...route, auth: 'anonymous' as const }
+          return super.register(anonymous)
+        }
+      }
+      return super.register(route)
+    }
     if ('resource' in route) {
       this.requireResourceBoundary()
       return super.register(route)
@@ -196,6 +265,7 @@ export class GuardedWebServer extends WebServer {
   override registerFallback(
     fallback: WebRoute['handler'] | Pick<WebResourceRoute, 'resource'>,
   ): () => void {
+    if (this.hasProvider) return super.registerFallback(fallback)
     if (typeof fallback !== 'function') {
       this.requireResourceBoundary()
       return super.registerFallback(fallback)
@@ -206,6 +276,7 @@ export class GuardedWebServer extends WebServer {
   }
 
   override registerUpgrade(route: WebUpgradeRoute): () => void {
+    if (this.hasProvider) return super.registerUpgrade(route)
     return super.registerUpgrade({
       ...route,
       handler: (req, socket, head) =>

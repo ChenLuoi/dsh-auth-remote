@@ -4,10 +4,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { AuthService, type AuthPolicy } from '../../src/auth/service.js'
+import { issueDelegatedSession } from '../../src/auth/sessions.js'
 import { hashPassword, validatePassword, verifyPassword } from '../../src/auth/password.js'
 import { backupCodeHash, matchedTotpStep, totpCode } from '../../src/auth/totp.js'
 import { resolveStartupConfig } from '../../src/config.js'
 import { AuthStateStore } from '../../src/storage/store.js'
+import { DAY_MS } from '../../src/shared/delegation.js'
 
 const username = 'alice'
 const password = 'secure password 123'
@@ -266,6 +268,103 @@ test('startup session-hour reduction is durable across a later config increase',
     assert.equal(later.session(issued.token)?.expiresAt, f.now() + 3_600_000)
     later.dispose()
     await laterStore.close()
+  } finally {
+    await f.cleanup()
+  }
+})
+
+test('delegated deadlines start at collection and survive policy HMR, reopening and expiry boundaries', async () => {
+  const hour = 3_600_000
+  const f = await fixture({ requireTotp: false, sessionHours: 12 })
+  try {
+    await f.auth.initialize(username, password)
+    const owner = await f.auth.login(username, password)
+    if (owner.kind !== 'session') throw new Error('session required')
+    f.advance(12 * hour - 10 * 60_000)
+    assert.equal(f.auth.session(owner.token)?.expiresAt, f.now() + 10 * 60_000)
+    const claimed = f.now()
+    const grants = await f.store.transact((draft) => [
+      issueDelegatedSession(draft, claimed, 1),
+      issueDelegatedSession(draft, claimed),
+      issueDelegatedSession(draft, claimed, 7),
+    ])
+    assert.deepEqual(
+      grants.map((grant) => grant.expiresAt),
+      [1, 3, 7].map((days) => claimed + days * DAY_MS),
+    )
+    for (const sessionHours of [1, 12]) {
+      await f.auth.applyPolicy({ requireTotp: false, sessionHours })
+      assert.equal(f.auth.session(owner.token), null)
+      for (const grant of grants)
+        assert.equal(f.auth.session(grant.token)?.expiresAt, grant.expiresAt)
+    }
+    const legacy = new AuthService(
+      f.store,
+      { requireTotp: false, sessionHours: 12 },
+      {
+        now: f.now,
+        allowDelegated: false,
+      },
+    )
+    try {
+      assert.equal(legacy.session(grants[2]!.token), null)
+      await legacy.logout(grants[2]!.token)
+      assert.equal(f.auth.session(grants[2]!.token)?.source, 'delegated')
+      const passwordSession = await legacy.login(username, password)
+      if (passwordSession.kind !== 'session') throw new Error('session required')
+      assert.equal(legacy.session(passwordSession.token)?.source, 'password')
+    } finally {
+      legacy.dispose()
+    }
+    f.auth.dispose()
+    await f.store.close()
+
+    const reopened = await AuthStateStore.open(f.profile)
+    const resumed = new AuthService(
+      reopened,
+      { requireTotp: false, sessionHours: 1 },
+      { now: f.now },
+    )
+    try {
+      await resumed.enforceCurrentPolicy()
+      for (const grant of grants) {
+        assert.equal(resumed.session(grant.token)?.expiresAt, grant.expiresAt)
+        f.setNow(grant.expiresAt - 1)
+        assert(resumed.session(grant.token))
+        f.setNow(grant.expiresAt)
+        assert.equal(resumed.session(grant.token), null)
+      }
+    } finally {
+      resumed.dispose()
+      await reopened.close()
+    }
+  } finally {
+    await f.cleanup()
+  }
+})
+
+test('individual logout preserves the other session source and a global security change revokes both', async () => {
+  const f = await fixture({ requireTotp: false, sessionHours: 12 })
+  try {
+    await f.auth.initialize(username, password)
+    const owner = await f.auth.login(username, password)
+    if (owner.kind !== 'session') throw new Error('session required')
+    const [one, two] = await f.store.transact(
+      (draft) =>
+        [issueDelegatedSession(draft, f.now()), issueDelegatedSession(draft, f.now(), 7)] as const,
+    )
+    await f.auth.logout(one.token)
+    assert.equal(f.auth.session(one.token), null)
+    assert(f.auth.session(owner.token))
+    await f.auth.logout(owner.token)
+    assert.equal(f.auth.session(owner.token), null)
+    assert(f.auth.session(two.token))
+    const renewed = await f.auth.login(username, password)
+    if (renewed.kind !== 'session') throw new Error('session required')
+    await f.auth.revokeAll()
+    assert.equal(f.auth.session(two.token), null)
+    assert.equal(f.auth.session(renewed.token), null)
+    assert.equal(f.auth.status().activeSessions, 0)
   } finally {
     await f.cleanup()
   }

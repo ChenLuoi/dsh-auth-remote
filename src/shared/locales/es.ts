@@ -18,6 +18,14 @@ export const es = {
     'No se pudo guardar esta preferencia. Comprueba el valor actual y vuelve a intentarlo.',
   settingsSaving: 'Guardando…',
   settingsRetry: 'Reintentar',
+  delegationCreate: 'Crear código QR',
+  delegationApprove: 'Aprobar dispositivo',
+  delegationDuration: 'Duración del acceso',
+  delegationOneDay: '1 día',
+  delegationDays: '{days} días',
+  delegationReadOnly:
+    'La autorización de dispositivos está disponible en las sesiones con contraseña.',
+
   accountLoginTitle: 'Iniciar sesión en DeepSeek',
   accountLoginStepOpen: 'Inicia sesión en DeepSeek en una pestaña nueva.',
   accountLoginStepCopy: 'Copia la dirección completa tras la autorización y pégala aquí.',
@@ -59,6 +67,8 @@ export const es = {
   loginSetupNotFound:
     'No se encontró ninguna cuenta. Comprueba que el comando usó este perfil y vuelve a intentarlo.',
   loginTitle: 'Iniciar sesión',
+  loginUsePairingCode: 'Usar un código de vinculación',
+  loginUsePassword: 'Usar una contraseña',
   loginUsername: 'Nombre de usuario',
   loginPassword: 'Contraseña',
   loginContinue: 'Continuar',

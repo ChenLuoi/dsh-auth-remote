@@ -37,6 +37,7 @@ function checkPrivateEnvironment(file, content) {
 async function sourceFiles(directory) {
   const files = []
   for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (!packaged && entry.isDirectory() && entry.name === 'node_modules') continue
     const path = join(directory, entry.name)
     if (entry.isDirectory()) files.push(...(await sourceFiles(path)))
     else if (entry.isFile()) files.push(path)

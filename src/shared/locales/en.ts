@@ -18,6 +18,13 @@ export const en = {
   settingsSaving: 'Saving…',
   settingsRetry: 'Retry',
 
+  delegationCreate: 'Create QR code',
+  delegationApprove: 'Approve device',
+  delegationDuration: 'Access duration',
+  delegationOneDay: '1 day',
+  delegationDays: '{days} days',
+  delegationReadOnly: 'Device authorization is available to password sessions.',
+
   accountLoginTitle: 'Sign in to DeepSeek',
   accountLoginStepOpen: 'Sign in to DeepSeek in a new tab.',
   accountLoginStepCopy: 'Copy the full address after authorization and paste it here.',
@@ -60,6 +67,8 @@ export const en = {
   loginSetupNotFound:
     'No account was found. Check that the command used this profile, then try again.',
   loginTitle: 'Sign in',
+  loginUsePairingCode: 'Use a pairing code',
+  loginUsePassword: 'Use a password',
   loginUsername: 'Username',
   loginPassword: 'Password',
   loginContinue: 'Continue',

@@ -2,9 +2,11 @@
 
 [English](deployment.md)
 
-在受支持的宿主安装已发布的 `0.3.7`。开发默认和推荐迁移宿主是上游 RC 预发布 DSH `0.2.2-rc.5`。升级前用已验证归档在独立 profile 演练。版本见 [README](../README.zh-CN.md#dsh-兼容性)，维护见[支持规范](support-policy.zh-CN.md)，源码构建见[开发指南](development.zh-CN.md)。
+在受支持的宿主安装 `0.4.0`。开发默认和推荐迁移宿主是上游 RC 预发布 DSH `0.2.2-rc.5`。升级前用已验证归档在独立 profile 演练。版本见 [README](../README.zh-CN.md#dsh-兼容性)，维护见[支持规范](support-policy.zh-CN.md)，源码构建见[开发指南](development.zh-CN.md)。
 
 生产验收边界为带 `/proc` 的 Linux、Node.js 24 和 Playwright Chromium。DSH `0.2.2-rc.2` 与 `0.2.2-rc.5` 均要求 Node `>=24.9.0`；插件引擎仍为 `>=24`。RC 预发布宿主不是上游稳定版。规定的本地测试覆盖原生 IPv4/IPv6 HTTP/HTTPS 与既有 Node 转发拓扑；真实非回环 IPv6 网卡、其他平台/浏览器、真实 Nginx/Traefik、官方账号授权及生产 Relay/OAuth 未验证，本地协议替身不证明真实服务行为。
+
+演练升级时，使用已校验的归档和所选精确宿主，在独立 profile 操作。DSH `0.2.3-alpha.2` 要求 `^24.22.3 || >=26.13.1`。发布验证矩阵使用 Node `24.22.3`。见[本地验收步骤](releasing.zh-CN.md#local-candidate-verification)。
 
 上游 DSH `0.2.2-rc.5` 默认将网页搜索设为「自动选择」。DeepSeek 官方或账号模型路由优先使用 DeepSeek 服务端搜索，其他路由优先使用 DeepSeek Search API。Fetch 默认 `http`（本机直接获取）。若网关代理 Messages 搜索，请将含 API 前缀的地址配置在 `web-search-deepseek.baseURL`。省略该设置时读取 `DEEPSEEK_SEARCH_BASE_URL`。服务会追加 `/messages`。网关的模型端点独立配置。此行为见上游 `dsh-v0.2.2-rc.5` 的精确发布包和搜索迁移指南 `docs/upgrade-guide/v0.2.2-rc.4/web-search-deepseek-model-default/guide.zh.md`。插件验收覆盖设置、持久化和凭据隔离，外部搜索、模型与计费请求为零。
 
@@ -14,7 +16,7 @@
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-auth-remote@0.3.7
+dsh plugin --profile web add dsh-auth-remote@0.4.0
 dsh plugin --profile web list
 dsh web --no-open --port 13090
 ```
@@ -36,6 +38,9 @@ HTTPS 代理入口可把以下条目合并到 `~/.dsh/profiles/web/cordis.patch.
 - id: webserver
   disabled: true
 
+- id: authentication-token
+  disabled: true
+
 - id: auth-remote
   config:
     publicUrl: https://dsh.example.com/
@@ -47,7 +52,9 @@ HTTPS 代理入口可把以下条目合并到 `~/.dsh/profiles/web/cordis.patch.
     preserveOriginPaths: []
 ```
 
-在 profile 和代理中一致地替换公网主机名。示例在外部 TLS 后使用私有 HTTP 监听。`publicUrl` 选择浏览器入口，不会配置代理、证书或监听协议。远程入口依赖本插件保护时，必须在 profile 中独立禁用 `webserver`。Loader 可以跳过不兼容的认证 bundle 并继续组合 profile，此时 bundle 自带的禁用补丁也会消失。保留 profile 级独立条目才能阻止这条路径回退至原生监听。未加载的插件无法自行实施此前置条件。卸载插件并恢复原生监听时，移除独立禁用条目。
+在 profile 和代理中一致地替换公网主机名。示例在外部 TLS 后使用私有 HTTP 监听。`publicUrl` 选择浏览器入口，不会配置代理、证书或监听协议。远程入口依赖本插件保护时，必须在 profile 中独立禁用 `webserver`。Loader 可以跳过不兼容的认证 bundle 并继续组合 profile，此时 bundle 自带的禁用补丁也会消失。保留 profile 级独立条目才能阻止这条路径回退至原生监听。未加载的插件无法自行实施此前置条件。卸载插件并恢复原生启动和登录时，移除独立的 `webserver` 禁用条目，以及可能存在的 `authentication-token` 禁用条目。
+
+在 DSH `0.2.3-alpha.2` 上，插件通过独立 `authentication-token` 条目停用单独的原生 provider。受保护 profile 允许有效插件会话访问 HTTP 和 WebSocket，并保留本地 Unix socket 管理。原生 Token 链接、原生会话 Cookie 和仅持 Token 的 `/connect` 均被拒绝。此前的精确宿主继续使用认证桥接。
 
 后应用的 DSH patch 条目会整段替换插件 `config`，因此该条目必须保留全部预期认证配置。home 级 patch 若也定义 `auth-remote`，开放入口前用 `dsh --profile web --dump-config` 核对最终组合。
 
@@ -55,16 +62,16 @@ HTTPS 代理入口可把以下条目合并到 `~/.dsh/profiles/web/cordis.patch.
 
 以下字段均直接位于 `auth-remote.config`，没有别名或嵌套 TLS 对象。
 
-| 字段                  | 生效值                                                                                                                                  |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `publicUrl`           | CLI `--public-url` 整项覆盖文件，其次旧单项迁移、实际监听根。只接纳 HTTP(S) 根 URL，可带末尾斜杠，无凭据/子路径/查询/片段。             |
-| `host`                | CLI、文件、默认 `127.0.0.1`。具体 IPv4/IPv6（含 mapped），拒绝 DNS 与通配绑定。                                                         |
-| `port`                | CLI `--port`、文件、默认 `3080`，与 host 分别覆盖。`0` 在真实非零端口绑定后才生成入口。                                                 |
-| `tlsCert`、`tlsKey`   | 文件字段或 CLI `--tls-cert`/`--tls-key` 必须成对，CLI 整组覆盖，不混来源，不读未采用文件。省略即 HTTP。                                 |
-| `requireTotp`         | 默认 `false`，未绑定账号可跳过，已绑定账号仍需第二因素；设为 `true` 可强制先完成绑定再访问。升级保留显式 true/false、已有绑定及备用码。 |
-| `manualAccountLogin`  | 默认 true，原生 Settings 写当前 profile override；保存立即影响新授权且重启保留，不重启认证。false 保留已接纳授权和官方凭据。            |
-| `sessionHours`        | 默认固定 168 小时。缩短会收紧已有会话，放宽不会复活过期会话。                                                                           |
-| `preserveOriginPaths` | 可选的规范路径段前缀，默认 `[]`。匹配路径在认证后保留已验证公网 Host 和已有 Origin；最终公开来源自动配置原生 Connection 信任。          |
+| 字段                  | 生效值                                                                                                                                    |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `publicUrl`           | CLI `--public-url` 整项覆盖文件，其次旧单项迁移、实际监听根。只接纳 HTTP(S) 根 URL，可带末尾斜杠，无凭据/子路径/查询/片段。               |
+| `host`                | CLI、文件、默认 `127.0.0.1`。具体 IPv4/IPv6（含 mapped），拒绝 DNS 与通配绑定。                                                           |
+| `port`                | CLI `--port`、文件、默认 `3080`，与 host 分别覆盖。`0` 在真实非零端口绑定后才生成入口。                                                   |
+| `tlsCert`、`tlsKey`   | 文件字段或 CLI `--tls-cert`/`--tls-key` 必须成对，CLI 整组覆盖，不混来源，不读未采用文件。省略即 HTTP。                                   |
+| `requireTotp`         | 默认 `false`，未绑定账号可跳过，已绑定账号仍需第二因素；设为 `true` 可强制先完成绑定再访问。升级保留显式 true/false、已有绑定及备用码。   |
+| `manualAccountLogin`  | 默认 true，原生 Settings 写当前 profile override；保存立即影响新授权且重启保留，不重启认证。false 保留已接纳授权和官方凭据。              |
+| `sessionHours`        | 密码会话默认有效 168 小时。缩短会收紧已签发的密码会话。已签发的委托会话保留原有 1、3 或 7 天期限。                                        |
+| `preserveOriginPaths` | 可选的规范路径段前缀，默认 `[]`。桥接宿主的匹配路径保留已验证的公网 Host 和已有 Origin。精确新版的 Connection provider 直接保留这两个头。 |
 
 **特别注意 TLS 路径：**文件中的相对值以所选 profile 目录为基准，即其 `cordis.patch.yml` 所在目录；CLI 的相对路径以进程启动 cwd 为基准。两者均不以 bundle 或其他 overlay 目录为基准。绝对路径保持绝对。
 
@@ -118,13 +125,15 @@ dsh web --no-open --tls-cert ./tls/dsh.crt --tls-key ./tls/dsh.key
 
 ## 来源与桥接契约
 
-准入为唯一生效公开来源加字面回环 authority；URL 根路径不支持部署前缀。请求须有唯一合法 Host，修改请求和 WebSocket 升级须有匹配 Origin；跨站或不匹配 Fetch Metadata 被拒绝。替换后旧公开来源不再登记。`Forwarded`、`X-Forwarded-*` 不决定准入或 Cookie Secure；CLI `--trusted-host` 只配置原生 Connection，不扩大外层策略。
+准入为唯一生效公开来源加字面回环 authority；URL 根路径不支持部署前缀。请求须有唯一合法 Host，修改请求和 WebSocket 升级须有匹配 Origin；跨站或 Fetch Metadata 不匹配的业务请求被拒绝。替换后旧公开来源不再登记。`Forwarded`、`X-Forwarded-*` 不决定准入或 Cookie Secure；CLI `--trusted-host` 只配置原生 Connection，不扩大外层策略。
 
 匿名 GET/HEAD 请求仅在精确匹配 `/manifest.webmanifest`、`/favicon.svg`、`/favicon-dark.svg` 时，无需会话即可交给 DSH 静态服务处理。这些 PWA 元数据与图标仍受 Host、Origin、Fetch Metadata 和就绪检查约束；这些路径的 HEAD 与 GET 一样允许缺少 Origin。登录页引用 manifest 并在 CSP 中允许加载，浏览器可在登录前读取应用信息。业务页面、API、其他资源、其他方法和 WebSocket 升级仍受鉴权保护；实际安装还取决于上游 manifest 与浏览器自身条件。
 
 插件 Cookie 跟随已验证外部来源，限主机、HttpOnly、SameSite，HTTPS 设置 Secure。原生桥接凭据仅保留服务端，跟随原生监听协议；公开 HTTP 代理接入原生 HTTPS 时，其原生 Cookie audience/Secure 仍按 HTTPS。浏览器 Cookie 不通过端口隔离。
 
-标准 `/api` 路由在 `preserveOriginPaths: []` 下即可工作，无需列 `/api`。插件始终将定稿的原生桥接 authority 登记到 Connection 的 `trustedHosts`，使用实际绑定端口（包含 `--port 0`），读取该列表的下游插件无需额外 trusted-host 参数即可识别桥接地址。显式 CLI trusted hosts 合并去重，不扩大外层公开来源策略。仅在下游需要原始公网 Host 时加入前缀；Origin 仅在请求已有时透传，保留路径预检并登记所选公开 authority。无需单独 Connection 条目。普通路径使用归一化原生 bind authority，经过完整会话认证。撤销、Connection 丢失或存储故障会关闭活跃上传、流和升级连接，撤回业务准入。ready 不表示账号已初始化。
+标准 `/api` 路由在 `preserveOriginPaths: []` 下即可工作。在较早的桥接宿主上，插件将定稿的原生桥接 authority 登记到 Connection 的 `trustedHosts`，使用实际绑定端口（包含 `--port 0`），读取该列表的下游插件无需额外 trusted-host 参数即可识别桥接地址。显式 CLI trusted hosts 合并去重，不扩大外层公开来源策略。仅在下游需要原始公网 Host 时加入前缀；Origin 仅在请求已有时透传，保留路径预检并登记所选公开 authority。无需单独 Connection 条目。普通路径使用归一化原生 bind authority，经过完整会话认证。撤销、Connection 丢失或存储故障会关闭活跃上传、流和升级连接，撤回业务准入。ready 不表示账号已初始化。
+
+桥接及服务端凭据适用于此前的宿主。在 `0.2.3-alpha.2` 上，插件使用与插件会话绑定的原生 Connection Peer，并向原生路由传递已验证的公开 Host 和请求提供的 Origin。会话到期会关闭其连接。扫码使用可达的非回环入口，配对可复制普通应用地址。详见[设备授权](../README.zh-CN.md#授权另一台设备)。
 
 ## 启动并验证公开入口
 
@@ -139,13 +148,13 @@ dsh web --no-open --tls-cert ./tls/dsh.crt --tls-key ./tls/dsh.key
 
 升级前记录原精确 DSH 版本、插件归档及摘要、profile 配置和 package/lock 文件。停止旧进程并确认 profile 锁释放，以私有权限备份完整目标 profile、认证状态、DSH 数据和配置，保留原始备份。先将备份复制到独立私有 `DSH_HOME`，演练所选精确宿主与匹配且已验证的插件归档；验证不得复用生产 profile。
 
-演练通过后再修改已停服的生产安装。在 readiness、匿名拒绝、登录与会话撤销检查通过前，保持公开入口私有，并保留独立 `webserver disabled: true`。不得覆盖运行中的状态；本版本不修改插件存储格式。
+演练通过后再修改已停服的生产安装。在 readiness、匿名拒绝、登录与会话撤销检查通过前，保持公开入口私有，并保留独立禁用条目。`0.4.0` 在激活时将 schema v1 迁至 v2，先以私有权限保留 `auth-state.v1.json`。账号、密码哈希、TOTP 密钥与防重放状态、备用码状态及配置均保留。可验证的现有密码会话保留原始到期和安全版本。到期、已撤销或无法验证的会话需重新登录。回退须恢复升级前的完整备份。
 
 从 `0.2.1-alpha.3`、`0.2.1-alpha.4` 或 `0.2.1-alpha.5` 迁移前，保留可获取的最后支持插件 `0.3.5` 归档及摘要。`0.3.6` 在原2026-10-28起算/14日/2026-11-11资格窗口后撤回维护；`retiredOn: 2026-11-13` 是准备日期，不是 registry 时间。技术下限仍为 `>=0.2.1-alpha.3`，告警运行不等于旧宿主兼容保证。生产迁移采用上文的已发布组合。用已验证归档和完整备份在独立 profile 演练该发布组合。
 
 回滚时先停止新进程，再恢复匹配的原精确宿主、插件归档、配置及对应完整数据备份。宿主切换测试只证明所覆盖的配置/会话契约，不承诺旧宿主可直接读取任意新生产数据；生产数据回滚必须使用对应备份。
 
-从早于 `0.3.2` 的插件升级时，须考虑 `0.3.2` 已引入、`0.3.7` 保留的行为：CLI 固定英语，删除脚本中的 `--lang` 参数；JSON 字段不变。独立登录页不提供语言选择器，按 `dsh-auth-remote-lang` 缓存、`navigator.language`、英文选择语言。旧 `dsh-auth-remote.locale` 不读取、不清理、不迁移；进入 DSH 后仅同步原生已接纳的偏好，退出保留。插件八语不会扩充 DSH 的原生语言目录。
+从早于 `0.3.2` 的插件升级时，须考虑 `0.3.2` 已引入、`0.4.0` 保留的行为：CLI 固定英语，删除脚本中的 `--lang` 参数；JSON 字段不变。独立登录页不提供语言选择器，按 `dsh-auth-remote-lang` 缓存、`navigator.language`、英文选择语言。旧 `dsh-auth-remote.locale` 不读取、不清理、不迁移；进入 DSH 后仅同步原生已接纳的偏好，退出保留。插件八语不会扩充 DSH 的原生语言目录。
 
 停止 DSH 并确认释放 profile 锁，再复制 `~/.dsh/profiles/web/auth-remote/auth-state.json`。副本目录权限 0700、文件权限 0600；它含密码哈希、TOTP 密钥、备用码哈希和会话。不要复制写入中的临时文件、覆盖运行中持锁状态或提交 Git；同时备份对应 profile patch 和包/锁文件。
 
@@ -154,3 +163,5 @@ dsh web --no-open --tls-cert ./tls/dsh.crt --tls-key ./tls/dsh.key
 外部入口变更时，替换唯一 `publicUrl`、更新代理并重启 DSH。检查新入口与旧非回环入口的拒绝，包含 Cookie、重定向、上传和长连接。不要在插件中临时配置两个来源。
 
 官方 DeepSeek 账号授权使用 [README 的手动回填弹窗](../README.zh-CN.md#登录-deepseek-官方账号)。浏览器电脑无需监听器或开放回环端口。`/auth-remote/account/*` 保持相同会话/来源门禁，只接纳同源 JSON POST；直接 HTTP 访问原生 `/oauth/callback` 不能完成此手动对接。无需代理例外、扩大路径或放宽跨站规则。
+
+在 `0.2.3-alpha.2` 上，插件将粘贴的回调交给原生宿主提供者，沿用原生 PKCE 和 state。普通原生回调要求有插件会话。原生登录允许从上游账号网站返回顶层回环回调，由原生提供者核对 Host 和 state。

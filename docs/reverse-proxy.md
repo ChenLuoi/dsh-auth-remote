@@ -2,7 +2,7 @@
 
 [简体中文](reverse-proxy.zh-CN.md)
 
-DSH Auth Remote validates the browser authority before rewriting authenticated traffic for DSH. Select one HTTP(S) root and set it as `publicUrl`, for example `https://dsh.example.com/`. It configures admission and advertised entry, without changing proxy routing or TLS. The bridge needs no extra Connection row or `--trusted-host`. TLS may terminate at a proxy while DSH listens on private HTTP.
+DSH Auth Remote validates the browser authority before handing authenticated traffic to DSH. Select one HTTP(S) root and set it as `publicUrl`, for example `https://dsh.example.com/`. It configures admission and advertised entry, without changing proxy routing or TLS. Neither the bridge nor the native Connection provider needs an extra Connection row or `--trusted-host`. TLS may terminate at a proxy while DSH listens on private HTTP.
 
 ## Direct loopback
 
@@ -16,7 +16,7 @@ Copy [the Nginx example](../examples/nginx.conf) into an `http {}` context. Repl
 
 Use `$http_host` for the original Host including a nondefault port and `$http_origin` for the actual Origin. Nginx must explicitly forward `Upgrade` and a mapped `Connection` header for WebSockets. HTTP/1.1 upstream, disabled response buffering/cache, disabled request buffering, and long read/send timeouts keep event streams, uploads and long connections working. Do not replace Origin with the upstream URL or omit it on browser mutations. The proxy should not cache login, status or authenticated responses.
 
-Set `publicUrl: https://dsh.example.com/` for the example. For a public `:8443` listener, use `https://dsh.example.com:8443/` and preserve that port in Host. Plugin Secure cookies follow the validated external HTTPS origin, not the private HTTP socket or a forwarded-protocol hint. Add a path to `preserveOriginPaths` only when it needs the original public Host; native Connection trust then follows the final origin automatically.
+Set `publicUrl: https://dsh.example.com/` for the example. For a public `:8443` listener, use `https://dsh.example.com:8443/` and preserve that port in Host. Plugin Secure cookies follow the validated external HTTPS origin, not the private HTTP socket or a forwarded-protocol hint. On the earlier bridge hosts, set `preserveOriginPaths` for routes that need the original public Host. On `0.2.3-alpha.2`, the provider preserves validated public Host and any supplied Origin directly. Connection trust follows the configured public origin.
 
 ## Traefik with external TLS
 
@@ -24,8 +24,8 @@ Set `publicUrl: https://dsh.example.com/` for the example. For a public `:8443` 
 
 Use one canonical public entry; route alternate hostnames to it before requests reach the protected upstream. Replace `publicUrl` and restart after an entry change, then verify the new root and rejection of the former non-loopback origin. Check anonymous redirect/API denial, password plus TOTP login, cookies, Settings, WebSocket, SSE, uploads, previews and revocation. Keep access private until `/auth-remote/ready` reports the expected plugin/protocol and `ready: true`.
 
-A supported DSH native HTTPS upstream also works behind a public HTTP or HTTPS proxy. Use an HTTPS upstream URL and configure the proxy's upstream certificate verification and hostname/SNI for that certificate. Plugin cookies follow the external entry's protocol; server-side native cookies use the listener's HTTPS audience/Secure. Preserve Host/Origin even when the two transport protocols differ. Relative file/CLI certificate paths have different bases; see the [path rules](deployment.md#configuration-priority-and-path-bases).
+A supported DSH native HTTPS upstream also works behind a public HTTP or HTTPS proxy. Use an HTTPS upstream URL and configure the proxy's upstream certificate verification and hostname/SNI for that certificate. Plugin cookies follow the external entry's protocol; on bridge hosts, server-side native cookies use the listener's HTTPS audience and Secure setting. Preserve Host/Origin even when the two transport protocols differ. Relative file/CLI certificate paths have different bases; see the [path rules](deployment.md#configuration-priority-and-path-bases).
 
 The authentication gate ignores `Forwarded` and `X-Forwarded-*` for trust decisions. This avoids treating a client-supplied hint as proof of TLS or hostname. The source checkout's browser suite tests these rules with its own Node HTTP/HTTPS forwarder; it does not execute Nginx or Traefik binaries.
 
-Published `0.3.7` uses Linux, Node.js 24, Chromium and the existing Node forwarding tests for proxy verification. These examples remain deployment templates: real Nginx/Traefik products, a real non-loopback IPv6 interface, other platforms/browsers and real external services are not verified. Follow the deployment guide for independent-profile rehearsal, full backups and matching-data rollback.
+Proxy verification uses Linux, Node.js 24, Chromium and Node forwarding tests. The `0.4.0` suite on `0.2.3-alpha.2` covers native HTTPS and HTTPS-to-HTTP forwarding, including delegated-session expiry and closure of its SSE and WebSocket connections. These examples remain deployment templates: real Nginx/Traefik products, a real non-loopback IPv6 interface, other platforms/browsers and real external services are not verified. Follow the deployment guide for independent-profile rehearsal, full backups and matching-data rollback.

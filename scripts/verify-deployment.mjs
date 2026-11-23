@@ -21,10 +21,11 @@ const rows = await yamlFile('web-profile-auth-remote.patch.yml')
 assert.ok(Array.isArray(rows))
 assert.deepEqual(
   rows.map((item) => item.id),
-  ['webserver', 'auth-remote'],
+  ['webserver', 'authentication-token', 'auth-remote'],
 )
 const row = (id) => rows.find((item) => item.id === id)
 assert.equal(row('webserver').disabled, true)
+assert.equal(row('authentication-token').disabled, true)
 assert.deepEqual(row('auth-remote').config, {
   publicUrl: 'https://dsh.example.com/',
   host: '127.0.0.1',

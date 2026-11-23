@@ -5,6 +5,9 @@
 - id: webserver
   disabled: true
 
+- id: authentication-token
+  disabled: true
+
 # Keep the native Web surface and trust settings, but replace its token URL
 # announcement and browser handoff with auth-remote startup URLs.
 - id: web-runtime

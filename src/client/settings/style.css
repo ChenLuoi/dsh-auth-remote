@@ -51,7 +51,8 @@
   line-height: 20px;
 }
 
-.auth-remote-field input {
+.auth-remote-field input,
+.auth-remote-field select {
   box-sizing: border-box;
   width: 100%;
   max-width: 420px;
@@ -67,7 +68,8 @@
   line-height: 22px;
 }
 
-.auth-remote-field input:focus {
+.auth-remote-field input:focus,
+.auth-remote-field select:focus {
   outline: none;
   border-color: var(--dsw-alias-state-business-primary);
 }

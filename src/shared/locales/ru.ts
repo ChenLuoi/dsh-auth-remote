@@ -18,6 +18,13 @@ export const ru = {
     'Не удалось сохранить параметр. Проверьте текущее значение и повторите попытку.',
   settingsSaving: 'Сохранение…',
   settingsRetry: 'Повторить',
+  delegationCreate: 'Создать QR-код',
+  delegationApprove: 'Подтвердить устройство',
+  delegationDuration: 'Срок доступа',
+  delegationOneDay: '1 день',
+  delegationDays: '{days} дня',
+  delegationReadOnly: 'Авторизация устройств доступна в сеансах со входом по паролю.',
+
   accountLoginTitle: 'Вход в DeepSeek',
   accountLoginStepOpen: 'Войдите в DeepSeek в новой вкладке.',
   accountLoginStepCopy: 'После авторизации скопируйте полный адрес и вставьте его здесь.',
@@ -59,6 +66,8 @@ export const ru = {
   loginSetupNotFound:
     'Аккаунт не найден. Убедитесь, что команда использовала этот профиль, и повторите попытку.',
   loginTitle: 'Вход',
+  loginUsePairingCode: 'Войти по коду сопряжения',
+  loginUsePassword: 'Войти с паролем',
   loginUsername: 'Имя пользователя',
   loginPassword: 'Пароль',
   loginContinue: 'Продолжить',

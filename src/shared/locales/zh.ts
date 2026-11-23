@@ -17,6 +17,13 @@ export const zh = {
   settingsSaving: '正在保存…',
   settingsRetry: '重试',
 
+  delegationCreate: '生成二维码',
+  delegationApprove: '批准设备',
+  delegationDuration: '访问期限',
+  delegationOneDay: '1 天',
+  delegationDays: '{days} 天',
+  delegationReadOnly: '设备授权仅对密码登录的会话开放。',
+
   accountLoginTitle: '登录 DeepSeek 账号',
   accountLoginStepOpen: '在新标签页完成 DeepSeek 登录。',
   accountLoginStepCopy: '复制授权后地址栏的完整地址，返回此处粘贴。',
@@ -53,6 +60,8 @@ export const zh = {
   loginSetupCopyFallback: '请手动选择并复制命令。',
   loginSetupNotFound: '尚未检测到账号。请确认命令使用了当前 profile，再重新检查。',
   loginTitle: '登录',
+  loginUsePairingCode: '配对码登录',
+  loginUsePassword: '密码登录',
   loginUsername: '用户名',
   loginPassword: '密码',
   loginContinue: '继续',

@@ -71,6 +71,7 @@ test(
         '0.2.2-rc.3',
         '0.2.2-rc.4',
         '0.2.2-rc.5',
+        '0.2.3-alpha.2',
       ].includes(dshVersion)
       const facts = () =>
         page.evaluate(() => {

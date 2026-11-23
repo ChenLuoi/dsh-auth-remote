@@ -9,7 +9,13 @@ export function apply(ctx) {
   const runtime = createRequire(ctx.profileContext.installAnchor)
   const webApp = createRequire(runtime.resolve('@deepseek-ai/dsh-web-app/package.json'))
   const version = webApp('@deepseek-ai/dsh-web-app/package.json').version
-  const accountPackage = ['0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.5'].includes(version)
+  const accountPackage = [
+    '0.2.2-rc.2',
+    '0.2.2-rc.3',
+    '0.2.2-rc.4',
+    '0.2.2-rc.5',
+    '0.2.3-alpha.2',
+  ].includes(version)
     ? 'dsh-deepseek-account'
     : 'dsh-deepseek-account-platform'
   const packages = Object.fromEntries(

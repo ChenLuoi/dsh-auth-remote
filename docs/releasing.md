@@ -4,11 +4,11 @@
 
 Each release starts from a tested commit on `master`. A `vX.Y.Z` tag must match the stable version in `package.json` and the dated entries in both changelogs. The tag workflow checks the tag and master ancestry, builds one npm archive, verifies that exact archive on every declared DSH release, then verifies or publishes the npm version and creates a GitHub Release containing the same archive and `SHA256SUMS`.
 
-Published `0.3.6` declares eight exact targets, adds recommended RC prerelease `0.2.2-rc.2` and retires maintenance of `0.2.1-alpha.3`, `0.2.1-alpha.4`, `0.2.1-alpha.5`. Published `0.3.5` retains its original ten declarations and immutable archive as the last supporting plugin for those Alphas; its checked registry publication time is 2026-11-06T13:56:24.506Z. `0.3.6` completed PR/master CI and tag Release run `43460497597`; its registry publication time is 2026-11-13T16:31:13.920Z. The [support history](support-history.md#plugin-0.3.6) records the immutable released digest and full verification. Subsequent repository publication-fact corrections do not rebuild or republish that archive. Record preparation date 2026-11-13 separately from actual registry time; final same-archive reports/index stay outside npm. Candidate Published `0.3.7` added three hosts and passed all 34 coverage entries in Release run `44749231531`. The [support history](support-history.md#plugin-0.3.7) records its producer, digest and both publication times.
+Published `0.3.6` declares eight exact targets, adds recommended RC prerelease `0.2.2-rc.2` and retires maintenance of `0.2.1-alpha.3`, `0.2.1-alpha.4`, `0.2.1-alpha.5`. Published `0.3.5` retains its original ten declarations and immutable archive as the last supporting plugin for those Alphas; its checked registry publication time is 2026-11-06T13:56:24.506Z. `0.3.6` completed PR/master CI and tag Release run `43460497597`; its registry publication time is 2026-11-13T16:31:13.920Z. The [support history](support-history.md#plugin-0.3.6) records the immutable released digest and full verification. Subsequent repository publication-fact corrections do not rebuild or republish that archive. Record preparation date 2026-11-13 separately from actual registry time; final same-archive reports/index stay outside npm. Published `0.3.7` added three hosts and passed all 34 coverage entries in Release run `44749231531`. The [support history](support-history.md#plugin-0.3.7) records its producer, digest and both publication times.
 
 Before changing version support for a release, review the [legacy compatibility inventory](legacy-compatibility.md). Check peers, compatibility declarations, runtime admission, test targets, CI and guides together. Remove runtime adaptations whose applicable versions no longer intersect support in that same change, while keeping shared security checks. Old plugin configuration has independent retirement conditions; update both inventory languages and both matrix views with complete version numbers before packing.
 
-Before packing, update README, the support policy, the [DSH → plugin](support-history.md#by-dsh) and [plugin → DSH](support-history.md#by-plugin) history, and inventory in both languages. Keep historical rows/anchors, distinguish published `0.2.0`/`0.3.1`/`0.3.2`/`0.3.3`/`0.3.4`/`0.3.5`/`0.3.6`/`0.3.7` from future candidate declarations, and never cite a nonexistent tag as verified evidence.
+Before packing, update README, the support policy, the [DSH → plugin](support-history.md#by-dsh) and [plugin → DSH](support-history.md#by-plugin) history, and inventory in both languages. Keep historical rows and anchors. A new release manifest supplies declaration evidence. Record tag acceptance and public distribution against their own archive identity.
 
 ## Prepare the version
 
@@ -26,7 +26,7 @@ node scripts/pack.mjs
 node scripts/packed-artifact.mjs record
 ```
 
-Use Node.js 24 for production and every consumer, satisfying the selected Host's own requirement (`0.2.2-rc.5` requires `>=24.9.0`); the plugin engine remains `>=24`. The direct integration command reuses the static build; `pack.mjs` creates the archive once, then `packed-artifact.mjs record` writes its checksum, unique producer/source identity and exact full matrices. Consume that frozen archive serially across all declared targets:
+Use Node.js `24.22.3` for the `0.4.0` verification matrix. The plugin engine remains `>=24`. DSH `0.2.3-alpha.2` requires Node `^24.22.3 || >=26.13.1`. The direct integration command reuses the static build; `pack.mjs` creates the archive once, then `packed-artifact.mjs record` writes its checksum, unique producer/source identity and exact full matrices. Consume that frozen archive serially across all declared targets:
 
 ```sh
 node --input-type=module - <<'JS'
@@ -52,19 +52,21 @@ await checkProducerIdentity(archive, digest)
 JS
 ```
 
-Full/releases retain independent `0.2.1-alpha.2` technical refusal. The three maintenance-retirement checks above apply only to validated plugin `0.3.6` full/releases, start no Chromium and do not restore full Alpha support; plugin `0.3.7` and other versions do not require that job. The six-host one-time technical negative run remains `0.3.1` history, not a current positive matrix.
+Full/releases retain independent `0.2.1-alpha.2` technical refusal. The three maintenance-retirement checks above apply only to validated plugin `0.3.6` full/releases, start no Chromium and do not restore full Alpha support; other plugin versions skip that job. The six-host one-time technical negative run remains `0.3.1` history, not a current positive matrix.
 
 Keep each printed raw report JSON, adjacent `-evidence.json`, `-runtimes/` directory and sidecar-listed raw logs (smoke has three actual suffixes). Copy only this producer’s files, retaining basenames, into a new ignored `.cache/acceptance-local` directory; do not mix historical/partial/other-producer files. After all consumption, run:
 
 ```sh
-DSH_VERIFY_PLAN=full node scripts/packed-artifact.mjs index artifacts/dsh-auth-remote-0.3.7.tgz <recorded-sha256> .cache/acceptance-local artifacts/acceptance-index.json
+archive="$PWD/artifacts/dsh-auth-remote-0.4.0.tgz"
+digest="$(cut -d ' ' -f 1 artifacts/SHA256SUMS)"
+DSH_VERIFY_PLAN=full node scripts/packed-artifact.mjs index "$archive" "$digest" .cache/acceptance-local artifacts/acceptance-index.json
 ```
 
-The index checks complete coverage, source/producer/archive, actual CLI/lock/eight-package SDK chains, complete-tree copies, required smoke/previous-host/two private-account runtimes and all raw report/log hashes. Missing/mismatched/mixed/partial/unknown reports fail and write failed status. Each local/PR/master/tag producer needs its own index; old success cannot certify a new producer. Plugin `0.3.7` ordinary has 33 coverage keys. Full adds independent technical refusal for a total of 34.
+The index checks complete coverage, source/producer/archive, actual CLI/lock/eight-package SDK chains, complete-tree copies, required smoke/previous-host/two private-account runtimes and all raw report/log hashes. Missing/mismatched/mixed/partial/unknown reports fail and write failed status. Each local/PR/master/tag producer needs its own index; old success cannot certify a new producer. Plugin `0.4.0` ordinary has 36 coverage keys. Full adds independent technical refusal for a total of 37.
 
 Do not build or pack inside the consumer loop. An archive content change requires a new candidate and full verification. JSON reports record the hash, exact release, suite scope, commands and actual test counts. See the [fixed-archive guide](development.md#consume-a-fixed-archive).
 
-The workflow runs `tag` → `package` → reusable `verify-packed.yml` → `publish`. One `release-package` contains the tgz, SHA256SUMS and producer.json. Eleven CLI/smoke and eleven complete browser jobs consume this artifact after checking its source, producer, package identity and SHA. Full requires independent `0.2.1-alpha.2` technical refusal. The `0.3.7` maintenance-retirement job is expected to skip. Aggregation validates the five job results and explicit required output. Reports and acceptance indexes are uploaded outside npm. Failures, cancellations, missing or unknown results and unexpected skips block publication.
+The workflow runs `tag` → `package` → reusable `verify-packed.yml` → `publish`. One `release-package` contains the tgz, SHA256SUMS and producer.json. Each declared host receives a CLI/smoke job and a complete browser job. The `0.4.0` workflow covers twelve hosts. Consumers check source, producer, package identity and SHA. Full requires independent `0.2.1-alpha.2` technical refusal. The `0.4.0` maintenance-retirement job is expected to skip. Aggregation validates the five job results and explicit required output. Reports and acceptance indexes are uploaded outside npm. Failures, cancellations, missing or unknown results and unexpected skips block publication.
 
 `publish` downloads the same artifact and checks it against the producer's expected digest again. It never builds or packs. Existing npm-version byte comparison, trusted publishing and GitHub Release retry behavior remain in place. The workflow publishes the verified tgz with `npm publish ./artifacts/dsh-auth-remote-X.Y.Z.tgz --access public`; no local npm publication is needed.
 
@@ -92,6 +94,14 @@ npm view dsh-auth-remote@X.Y.Z version dist.integrity
 
 The GitHub Release includes the `.tgz` and `SHA256SUMS`. Download them into the same directory and run `sha256sum -c SHA256SUMS` there to check the release asset. A failed workflow should be inspected in **Actions → Release** before retrying; npm versions are immutable, so the workflow only skips an existing version when its archive bytes match.
 
-For an uncommitted local candidate, also freeze source identity: HEAD, status, complete binary diff, nonignored new-file digests, a path/type/mode/SHA-256 manifest of tracked and new source/tests/scripts/configuration/docs/locks, and the original index baseline. Exclude task, runtime data, reports and generated output. Compare source manifest, index and tgz digest before and after consumption. Any source, test, script, lock or packaged-document edit requires core checks, a new freeze and all eleven CLI/browser/smoke targets, full technical refusal and, for `0.3.6`, all three maintenance targets again; HEAD alone and old-archive success are insufficient.
+For an uncommitted local candidate, also freeze source identity: HEAD, status, complete binary diff, nonignored new-file digests, a path/type/mode/SHA-256 manifest of tracked and new source/tests/scripts/configuration/docs/locks, and the original index baseline. Exclude task, runtime data, reports and generated output. Compare source manifest, index and tgz digest before and after consumption. Any source, test, script, lock or packaged-document edit requires core checks, a new freeze and all declared CLI/browser/smoke targets, full technical refusal and, for `0.3.6`, all three maintenance targets again; HEAD alone and old-archive success are insufficient.
 
 After publication, compare the npm tgz and integrity and the GitHub tgz and SHA256SUMS to the tag producer. Smoke the public package in a fresh `0.2.2-rc.5` profile for readiness, anonymous refusal and online CLI status. Recheck availability of `0.3.6`. Record actual npm and GitHub publication times through a separate documentation PR and master CI. A same-version retry requires identical bytes.
+
+<a id="local-candidate-verification"></a>
+
+## Local candidate verification
+
+Use a separate checkout for `pnpm pack:local` and the consumers. The consumer workspace stages the candidate at the usual archive path, so give it its own `artifacts/` directory. Include the working source changes and original Git baseline, and exclude credentials, task files and runtime data. Use Linux, Node `24.22.3`, pnpm `12.5.1` and Playwright Chromium.
+
+In the new checkout, run `pnpm install --frozen-lockfile` and `pnpm exec playwright install chromium`. Run `pnpm typecheck`, `pnpm test:unit` and `pnpm test:integration`. Then run `pnpm pack:local` once and `node scripts/packed-artifact.mjs record` in that work directory. Read the archive path and SHA-256 from the producer. Apply the serial consumer loop above to the candidate source targets and index the original reports with `DSH_VERIFY_PLAN=full`. Twelve exact hosts require 36 positive keys and full adds the independent refusal key, for 37 total. Record the local archive path, digest and index outside npm.

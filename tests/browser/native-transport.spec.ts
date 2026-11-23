@@ -32,7 +32,9 @@ const hasNativeResourceAndMux = [
   '0.2.2-rc.3',
   '0.2.2-rc.4',
   '0.2.2-rc.5',
+  '0.2.3-alpha.2',
 ].includes(dshVersion)
+const usesConnectionProvider = dshVersion === '0.2.3-alpha.2'
 
 const password = 'native packed browser password 123'
 const pin = createHash('sha256')
@@ -172,15 +174,24 @@ if (hasNativeResourceAndMux)
                 .toBe(path)
               const last = (await observation()).observations.at(-1)
               assert.equal(last.status, 200)
-              assert.equal(last.writes.length, 3, 'bridge plus one public-Origin restoration pair')
-              assert.equal(last.writes[1], publicOrigin)
-              assert.equal(last.writes[0], last.writes[2])
-              assert.equal(last.finalOrigin, last.writes[0])
-              assert.notEqual(
-                last.finalOrigin,
-                publicOrigin,
-                'native admission must receive the internal authority',
-              )
+              if (usesConnectionProvider) {
+                assert.deepEqual(last.writes, [publicOrigin, publicOrigin])
+                assert.equal(last.finalOrigin, publicOrigin)
+              } else {
+                assert.equal(
+                  last.writes.length,
+                  3,
+                  'bridge plus one public-Origin restoration pair',
+                )
+                assert.equal(last.writes[1], publicOrigin)
+                assert.equal(last.writes[0], last.writes[2])
+                assert.equal(last.finalOrigin, last.writes[0])
+                assert.notEqual(
+                  last.finalOrigin,
+                  publicOrigin,
+                  'native admission must receive the internal authority',
+                )
+              }
             }
             return (await observation()).generation
           }
@@ -751,10 +762,17 @@ for (const bindKind of ['loopback', 'interface'] as const)
         const seen = JSON.parse(admitted.body)
         const port = new URL(target).port
         const nativeAuthority = `${bindHost}:${port}`
-        assert.equal(seen.host, nativeAuthority)
-        assert.equal(seen.origin, `http://${nativeAuthority}`)
-        assert.deepEqual(seen.trustedHosts, [extraAuthority, nativeAuthority])
-        assert.equal(seen.trustedHosts.includes(new URL(publicOrigin).host), false)
+        const publicAuthority = new URL(publicOrigin).host
+        assert.equal(seen.host, usesConnectionProvider ? publicAuthority : nativeAuthority)
+        assert.equal(
+          seen.origin,
+          usesConnectionProvider ? publicOrigin : `http://${nativeAuthority}`,
+        )
+        assert.deepEqual(seen.trustedHosts, [
+          extraAuthority,
+          nativeAuthority,
+          ...(usesConnectionProvider ? [publicAuthority] : []),
+        ])
         assert.equal(
           seen.trustedHosts.some((value: string) => value.endsWith(':0')),
           false,
@@ -946,8 +964,13 @@ for (const [host, secure, cli] of [
         assert.equal(upload.status, 200, upload.body)
         const result = JSON.parse(upload.body)
         const authority = `${host === '::ffff:127.0.0.1' ? '127.0.0.1' : host.includes(':') ? `[${host}]` : host}:${new URL(target).port}`
-        assert.equal(result.host, authority)
-        assert.equal(result.origin, `${secure ? 'https:' : 'http:'}//${authority}`)
+        assert.equal(result.host, usesConnectionProvider ? new URL(target).host : authority)
+        assert.equal(
+          result.origin,
+          usesConnectionProvider
+            ? new URL(target).origin
+            : `${secure ? 'https:' : 'http:'}//${authority}`,
+        )
         assert.equal(result.bytes, bytes.length)
         assert.equal(result.sha256, createHash('sha256').update(bytes).digest('hex'))
         const trusted = await nativeHttp(target, '/plugins/strict/trusted-host', {
@@ -959,8 +982,8 @@ for (const [host, secure, cli] of [
         assert.equal(declared.includes(authority), true)
         assert.equal(declared.includes(new URL(publicOrigin).host), true)
         assert.equal(new Set(declared).size, declared.length)
-        assert.equal(result.hasNative, true)
-        assert.equal(result.hasPlugin, false)
+        assert.equal(result.hasNative, !usesConnectionProvider)
+        assert.equal(result.hasPlugin, usesConnectionProvider)
         const preserved = await nativeHttp(target, '/plugins/public/echo', { cookie })
         assert.equal(preserved.status, 200, preserved.body)
         assert.equal(JSON.parse(preserved.body).origin, publicOrigin)

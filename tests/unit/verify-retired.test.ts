@@ -109,7 +109,8 @@ test('retired consumer reuses digest, checksum and complete declaration checks b
     for (const [version, expected] of [
       ['0.2.1-rc.1', /declarations and verification targets differ/u],
       ['0.2.2-rc.4', /declarations and verification targets differ/u],
-      ['0.2.2-rc.5', /Archive does not declare the selected DSH release/u],
+      ['0.2.2-rc.5', /declarations and verification targets differ/u],
+      ['0.2.3-alpha.2', /Archive does not declare the selected DSH release/u],
     ] as const) {
       const narrowed = structuredClone(packageManifest)
       delete narrowed.dsh.compatibility.dshReleases[version]

@@ -49,6 +49,7 @@ const hasExtendedLocalesAndHmr = [
   '0.2.2-rc.3',
   '0.2.2-rc.4',
   '0.2.2-rc.5',
+  '0.2.3-alpha.2',
 ].includes(dshVersion)
 const hasMergedAccount = ['0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.5'].includes(
   dshVersion,
@@ -217,7 +218,7 @@ async function fixture({
         '- id: deepseek-account',
         '  config:',
         `    platformOrigin: ${platform.origin}`,
-        ...(hasMergedAccount
+        ...(hasMergedAccount || dshVersion === '0.2.3-alpha.2'
           ? [
               `    harnessOrigin: ${platform.origin}`,
               `    inferenceOrigin: ${new URL(model.baseURL).origin}`,

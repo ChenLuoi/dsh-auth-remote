@@ -2,12 +2,16 @@
 # model and plugin rows. Install this package into the same profile first.
 # Replace dsh.example.com in the unique public root URL. This example uses
 # HTTP behind a TLS proxy. CLI --host/--port override the file individually.
-# All eight DSH targets of plugin 0.3.2 support native TLS; see README.
+# Supported target releases provide native TLS. See the deployment guide.
 # Supply both tlsCert and tlsKey; relative file paths
 # resolve from this profile directory, while CLI TLS paths resolve from cwd.
 # This independent disable is required for a protected remote deployment:
 # it remains effective if Loader skips the authentication bundle.
 - id: webserver
+  disabled: true
+
+# The Connection-provider host ships a separate Token plugin row.
+- id: authentication-token
   disabled: true
 
 - id: auth-remote

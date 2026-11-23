@@ -17,6 +17,13 @@ export const ja = {
     '設定を保存できませんでした。現在の値を確認して、もう一度お試しください。',
   settingsSaving: '保存中…',
   settingsRetry: '再試行',
+  delegationCreate: 'QRコードを作成',
+  delegationApprove: 'デバイスを承認',
+  delegationDuration: 'アクセス期間',
+  delegationOneDay: '1日',
+  delegationDays: '{days}日',
+  delegationReadOnly: 'デバイスの承認はパスワードでログインしたセッションで利用できます。',
+
   accountLoginTitle: 'DeepSeek にログイン',
   accountLoginStepOpen: '新しいタブで DeepSeek にログインしてください。',
   accountLoginStepCopy: '認証後のアドレス全体をコピーし、ここに貼り付けてください。',
@@ -57,6 +64,8 @@ export const ja = {
   loginSetupNotFound:
     'アカウントが見つかりません。このプロファイルでコマンドを実行したか確認し、もう一度お試しください。',
   loginTitle: 'ログイン',
+  loginUsePairingCode: 'ペアリングコードでログイン',
+  loginUsePassword: 'パスワードでログイン',
   loginUsername: 'ユーザー名',
   loginPassword: 'パスワード',
   loginContinue: '続ける',

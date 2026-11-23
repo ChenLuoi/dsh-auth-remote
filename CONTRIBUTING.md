@@ -6,7 +6,7 @@ Thanks for helping improve dsh-auth-remote. Changes to authentication or deploym
 
 ## Prepare a checkout
 
-Use Linux with `/proc`, Node.js 24 (at least `24.9.0` for the default host), and pnpm 12.5.1. Install dependencies and the managed browser from the repository root:
+Use Linux with `/proc`, Node.js 24 (use `24.22.3` for the twelve-host release matrix), and pnpm 12.5.1. Install dependencies and the managed browser from the repository root:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -26,4 +26,4 @@ Create a focused branch from `master`. Include the reason for the change, its us
 
 The `CI Verify` check runs on pull requests and again after a merge to `master`. A maintainer updates the version and dated changelog entry before creating a release tag. The [release guide](docs/releasing.md) describes that process.
 
-Published `0.3.7` uses RC prerelease `0.2.2-rc.5` for development. Ordinary and full run complete CLI/browser/smoke on all eleven exact hosts using the same final archive. Full also checks independent technical refusal on `0.2.1-alpha.2`. The three Alpha maintenance-retirement checks belong to validated `0.3.6` full runs. The [support history](docs/support-history.md) preserves eight published `0.3.6` declarations and ten historical `0.3.5` declarations. Each local, PR, master and tag producer has an unpackaged index linking source, archive, actual runtime/SDK and raw reports. Follow PR CI, master CI, annotated tagging and trusted publication. Final consumers use the frozen archive. LiveShare tests cover native viewer, Origin and authentication. Owner/Relay product flows remain unverified.
+The checkout uses RC prerelease `0.2.2-rc.5` as the development default. Ordinary and full run complete CLI/browser/smoke on the twelve exact hosts supported by `0.4.0` using the same archive. For an uncommitted candidate, run [local verification](docs/releasing.md#local-candidate-verification) in a separate checkout. Full also checks independent technical refusal on `0.2.1-alpha.2`. The three Alpha maintenance-retirement checks belong to validated `0.3.6` full runs. The [support history](docs/support-history.md) preserves eight published `0.3.6` declarations and ten historical `0.3.5` declarations. Each local, PR, master and tag producer has an unpackaged index linking source, archive, actual runtime/SDK and raw reports. Follow PR CI, master CI, annotated tagging and trusted publication. Final consumers use the frozen archive. LiveShare tests cover native viewer, Origin and authentication. Owner/Relay product flows remain unverified.

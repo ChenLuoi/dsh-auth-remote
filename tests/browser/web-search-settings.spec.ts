@@ -15,8 +15,8 @@ import { packedCommand, packedProfile } from '../helpers/packed-runtime.js'
 import { clickThroughDshPrompts, launchBrowser } from '../helpers/runtime.js'
 import { accountPlatform } from '../helpers/account-platform.js'
 
-const automaticSearch = dshVersion === '0.2.2-rc.5'
-const billing = ['0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.5'].includes(dshVersion)
+const automaticSearch = ['0.2.2-rc.5', '0.2.3-alpha.2'].includes(dshVersion)
+const billing = automaticSearch || ['0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4'].includes(dshVersion)
 
 // Verify the three-namespace native form on each exact RC target.
 if (
@@ -31,6 +31,7 @@ if (
     '0.2.2-rc.3',
     '0.2.2-rc.4',
     '0.2.2-rc.5',
+    '0.2.3-alpha.2',
   ].includes(dshVersion)
 )
   test(

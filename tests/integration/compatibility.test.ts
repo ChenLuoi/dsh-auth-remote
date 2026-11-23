@@ -33,7 +33,12 @@ test('DSH loader peer range and runtime gate admit upgrades, including prereleas
   assert.ok(peers.length > 0)
   assert.equal(manifest.engines.dsh, SUPPORTED_DSH_RANGE)
   assert.equal(manifest.engines.node, '>=24')
-  for (const [, range] of peers) assert.equal(range, SUPPORTED_DSH_RANGE)
+  const loaderSemver = { includePrerelease: true }
+  for (const [, range] of peers) {
+    assert(typeof range === 'string')
+    assert(semver.subset(range, SUPPORTED_DSH_RANGE, loaderSemver))
+    assert(semver.subset(SUPPORTED_DSH_RANGE, range, loaderSemver))
+  }
   // DSH preflight explicitly includes prereleases. These future examples test
   // version admission only, not the compatibility of unreleased host APIs.
   for (const version of [
@@ -52,6 +57,7 @@ test('DSH loader peer range and runtime gate admit upgrades, including prereleas
     '0.2.2-rc.3',
     '0.2.2-rc.4',
     '0.2.2-rc.5',
+    '0.2.3-alpha.2',
     '0.3.0-rc.1',
     '1.0.0',
   ]) {

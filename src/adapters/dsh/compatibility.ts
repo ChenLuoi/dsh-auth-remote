@@ -5,9 +5,12 @@ import WebServer from '@deepseek-ai/dsh-host-webserver'
 import type { HostConnectionHandle } from '@deepseek-ai/dsh-client-connection'
 import semver from 'semver'
 import { RECOMMENDED_DSH_RELEASE } from '../../shared/dsh-support.js'
+import { connectionAuthentication } from './connection-provider.js'
+import { assertLegacyConnection } from './browser-auth.js'
 
 const WEB_SERVER_PACKAGE = '@deepseek-ai/dsh-host-webserver'
 const CONNECTION_PACKAGE = '@deepseek-ai/dsh-client-connection'
+export const CONNECTION_PROVIDER_DSH = '0.2.3-alpha.2'
 // DSH's loader includes prereleases when evaluating this same peer range.
 // Future versions are admitted by version; the API and identity checks below
 // still fail closed if the host can no longer enforce the authentication gate.
@@ -57,6 +60,12 @@ export function assertWebServerCompatibility(ctx: Context): string {
       throw new Error(`auth-remote: WebServer lacks ${method}`)
     }
   }
+  if (
+    own.manifest.version === CONNECTION_PROVIDER_DSH &&
+    typeof Reflect.get(WebServer.prototype, 'readResource') !== 'function'
+  ) {
+    throw new Error('auth-remote: WebServer lacks the resource admission contract')
+  }
   return own.manifest.version
 }
 
@@ -74,10 +83,7 @@ export function assertConnectionCompatibility(
       )
     }
   }
-  for (const method of ['authenticatedUrl', 'authorizeIndex', 'requestRejection'] as const) {
-    if (typeof connection[method] !== 'function') {
-      throw new Error(`auth-remote: Connection lacks ${method}`)
-    }
-  }
+  if (own.manifest.version === CONNECTION_PROVIDER_DSH) connectionAuthentication(connection)
+  else assertLegacyConnection(connection)
   return own.manifest.version
 }

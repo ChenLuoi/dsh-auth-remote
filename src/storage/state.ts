@@ -1,5 +1,7 @@
+import { DAY_MS, isDelegatedSessionDays } from '../shared/delegation.js'
+
 /** The only persisted representation of account and full-session state. */
-export const STATE_SCHEMA_VERSION = 1
+export const STATE_SCHEMA_VERSION = 2
 
 export interface PasswordRecord {
   salt: string
@@ -23,6 +25,7 @@ export interface AccountRecord {
 export interface SessionRecord {
   accountId: string
   securityVersion: number
+  source: 'password' | 'delegated'
   createdAt: number
   expiresAt: number
 }
@@ -74,7 +77,8 @@ function digest(value: unknown, label: string): string {
 
 export function validateState(value: unknown): AuthState {
   const state = record(value, ['schemaVersion', 'revision', 'account', 'sessions'], 'state')
-  if (state.schemaVersion !== STATE_SCHEMA_VERSION)
+  const legacy = state.schemaVersion === 1
+  if (!legacy && state.schemaVersion !== STATE_SCHEMA_VERSION)
     throw new Error(`auth-remote: unsupported state schema version ${String(state.schemaVersion)}`)
   const revision = integer(state.revision, 'revision')
   let account: AccountRecord | null = null
@@ -123,20 +127,25 @@ export function validateState(value: unknown): AuthState {
   if (typeof sessions !== 'object' || sessions === null || Array.isArray(sessions))
     throw new Error('auth-remote: invalid sessions')
   const validatedSessions: Record<string, SessionRecord> = Object.create(null)
+  const fields = ['accountId', 'securityVersion', 'createdAt', 'expiresAt']
+  if (!legacy) fields.push('source')
   for (const [hash, value] of Object.entries(sessions)) {
     digest(hash, 'session token hash')
-    const session = record(
-      value,
-      ['accountId', 'securityVersion', 'createdAt', 'expiresAt'],
-      'session',
-    )
+    const session = record(value, fields, 'session')
+    // Version 1 only issued sessions after password login.
+    const source = legacy ? 'password' : session.source
+    if (source !== 'password' && source !== 'delegated')
+      throw new Error('auth-remote: invalid session source')
     const createdAt = integer(session.createdAt, 'session creation')
     const expiresAt = integer(session.expiresAt, 'session expiry')
     if (!account || session.accountId !== account.id || expiresAt <= createdAt)
       throw new Error('auth-remote: invalid session account or lifetime')
+    if (source === 'delegated' && !isDelegatedSessionDays((expiresAt - createdAt) / DAY_MS))
+      throw new Error('auth-remote: invalid delegated session lifetime')
     validatedSessions[hash] = {
       accountId: account.id,
       securityVersion: integer(session.securityVersion, 'session security version', 1),
+      source,
       createdAt,
       expiresAt,
     }

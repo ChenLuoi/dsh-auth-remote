@@ -1,13 +1,18 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { chromium } from '@playwright/test'
+import { chromium, expect } from '@playwright/test'
+import { dshVersion } from '../../scripts/runtime.mjs'
+import { nativeHttp, nativeMux } from '../helpers/native-http.js'
+import { packedCommand } from '../helpers/packed-runtime.js'
 import {
+  archive,
   completeApiKeyPrompt,
   dsh as dshBin,
   launchBrowser,
@@ -17,6 +22,7 @@ import {
 } from '../helpers/runtime.js'
 
 const publicHost = 'auth-remote.test:13090'
+const provider = dshVersion === '0.2.3-alpha.2'
 
 test('target DSH boots at a non-loopback browser origin with Host settings access', async () => {
   const home = await mkdtemp(join(tmpdir(), 'dsh-auth-remote-browser-'))
@@ -41,6 +47,7 @@ test('target DSH boots at a non-loopback browser origin with Host settings acces
     '13090',
     '--trusted-host',
     publicHost,
+    ...(provider ? ['--public-url', `http://${publicHost}`] : []),
   ]
   const child = spawn(dshBin, args, {
     cwd: home,
@@ -76,7 +83,10 @@ test('target DSH boots at a non-loopback browser origin with Host settings acces
     page.on('pageerror', (error) => {
       pageErrors.push(error.message)
     })
-    await page.goto(nativeUrl.href, { waitUntil: 'load', timeout: 30_000 })
+    assert(
+      await page.goto(nativeUrl.href, { waitUntil: 'load', timeout: 30_000 }).catch(() => null),
+      'native startup link could not open',
+    )
     try {
       await page.waitForSelector('[class*="frame"]', { timeout: 10_000 })
     } catch {
@@ -98,7 +108,11 @@ test('target DSH boots at a non-loopback browser origin with Host settings acces
     await openDocument.waitFor()
     assert.equal(await openDocument.isEnabled(), true)
     await dialog.getByRole('button', { name: '模型', exact: true }).click()
-    await dialog.getByText('DeepSeek', { exact: true }).waitFor()
+    if (provider)
+      await expect(
+        dialog.getByRole('button', { name: '添加模型提供商', exact: true }),
+      ).toBeEnabled()
+    else await dialog.getByText('DeepSeek', { exact: true }).waitFor()
     await dialog.getByRole('button', { name: '通用设置' }).click()
     await dialog.getByRole('button', { name: '中文', exact: true }).click()
     const mutate = page.waitForResponse(
@@ -118,6 +132,77 @@ test('target DSH boots at a non-loopback browser origin with Host settings acces
         .count(),
       1,
     )
+    if (provider) {
+      const native = await page.evaluate(async (rpcId) => {
+        const method = 'remoteConnection/create'
+        const response = await fetch('/api/' + method, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ type: 'client-request', rpcId, method, payload: { args: {} } }),
+        })
+        return (await response.json()).result
+      }, randomUUID())
+      assert(native.ok, 'native installation could not issue a device invitation')
+      const origin = `http://${publicHost}`
+      const address = 'http://127.0.0.1:13090'
+      const headers = { origin, host: publicHost }
+      const exchanged = await nativeHttp(address, '/?login=qr', {
+        ...headers,
+        method: 'POST',
+        headers: { 'content-type': 'text/plain' },
+        body: new URL(native.value.url).hash.slice(1),
+      })
+      assert.equal(exchanged.status, 204)
+      const nativeCookie = exchanged.headers['set-cookie']?.[0]?.split(';', 1)[0]
+      assert(nativeCookie?.startsWith('dsh-remote-'))
+      assert.equal(
+        (await nativeHttp(address, '/index.html', { ...headers, cookie: nativeCookie })).status,
+        200,
+      )
+      assert(nativeUrl.searchParams.has('token'), 'expected the stock startup credential')
+
+      const exited = once(child, 'exit')
+      child.kill('SIGTERM')
+      await exited
+      const installed = await packedCommand(home, ['plugin', '--profile', 'web', 'add', archive])
+        .done
+      assert.equal(installed.code, 0, 'protected plugin install failed')
+      await writeFile(
+        join(home, 'profiles/web/cordis.patch.yml'),
+        [...model.patch, '- id: auth-remote', '  config:', `    publicUrl: ${origin}`, ''].join(
+          '\n',
+        ),
+      )
+      const protectedHost = packedCommand(home, ['web', '--no-open', '--port', '13090'])
+      try {
+        await expect
+          .poll(
+            () =>
+              nativeHttp(address, '/auth-remote/ready', headers).then(
+                (r) => r.status,
+                () => 0,
+              ),
+            { timeout: 25000 },
+          )
+          .toBe(200)
+        assert.equal(
+          (await nativeHttp(address, '/index.html', { ...headers, cookie: nativeCookie })).status,
+          401,
+        )
+        assert.equal((await nativeMux(address, { ...headers, cookie: nativeCookie })).status, 401)
+        const startup = await nativeHttp(address, '/' + nativeUrl.search, headers)
+        assert.equal(startup.status, 401)
+        assert.equal(startup.headers['set-cookie'], undefined)
+        assert.equal(
+          (await nativeHttp(address, '/connect', { ...headers, method: 'POST', body: '{}' }))
+            .status,
+          403,
+        )
+        assert(!/[?&]token=/u.test(protectedHost.output().combined))
+      } finally {
+        await protectedHost.stop()
+      }
+    }
   } finally {
     await browser?.close()
     if (child.exitCode === null && child.signalCode === null) {

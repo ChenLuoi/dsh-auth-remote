@@ -128,8 +128,7 @@ export function sendJson(
   res.end(JSON.stringify(body))
 }
 
-function cookieToken(req: IncomingMessage): string | null {
-  const header = req.headers.cookie
+export function sessionTokenFromCookie(header: unknown): string | null {
   if (typeof header !== 'string') return null
   const values = header
     .split(';')
@@ -140,10 +139,10 @@ function cookieToken(req: IncomingMessage): string | null {
 }
 
 export function currentSessionToken(req: IncomingMessage): string | null {
-  return cookieToken(req)
+  return sessionTokenFromCookie(req.headers.cookie)
 }
 
-function cookieHeader(token: string, expiresAt: number, secure: boolean): string {
+export function cookieHeader(token: string, expiresAt: number, secure: boolean): string {
   const maxAge = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000))
   return `${AUTH_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure ? '; Secure' : ''}`
 }
@@ -219,6 +218,7 @@ export class AuthRoutes {
   constructor(
     private readonly auth: AuthService,
     private readonly profileName: string,
+    private readonly nativePairing = false,
   ) {}
 
   install(server: GuardedWebServer): void {
@@ -252,16 +252,25 @@ export class AuthRoutes {
           return
         }
         case `GET ${AUTH_BASE}/login`: {
+          // The exact alpha.2 pairing script uses the document base and adds
+          // its own static stylesheet to the custom element.
+          const pairingStyle = this.nativePairing
+            ? " 'sha256-PrUzr64MYTcghmDC6k0aA63yTxNcq3hn5d+e5yR1PKo='"
+            : ''
+          const base = this.nativePairing ? '<base href="/">' : ''
+          const pairingScript = this.nativePairing
+            ? '<script defer src="/pairing/client.js"></script>'
+            : ''
+          const pairingMarker = this.nativePairing ? ' data-native-pairing="true"' : ''
           res.writeHead(200, {
             'cache-control': 'no-store',
             'content-type': 'text/html; charset=utf-8',
-            'content-security-policy':
-              "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; frame-ancestors 'none'",
+            'content-security-policy': `default-src 'none'; script-src 'self'; style-src 'self'${pairingStyle}; connect-src 'self'; img-src 'self' data:; manifest-src 'self'; base-uri '${this.nativePairing ? 'self' : 'none'}'; frame-ancestors 'none'`,
             'x-content-type-options': 'nosniff',
             'referrer-policy': 'no-referrer',
           })
           res.end(
-            '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in</title><link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/auth-remote/login.css"><script defer src="/auth-remote/login.js"></script></head><body><main id="login-root" aria-live="polite">Checking sign-in status…</main></body></html>',
+            `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${base}<title>Sign in</title><link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/auth-remote/login.css"><script defer src="/auth-remote/login.js"></script>${pairingScript}</head><body${pairingMarker}><main id="login-root" aria-live="polite">Checking sign-in status…</main></body></html>`,
           )
           return
         }
@@ -326,7 +335,7 @@ export class AuthRoutes {
           if (typeof body.challenge === 'string') {
             sendJson(res, 200, this.auth.bindingDetails(body.challenge))
           } else {
-            const token = cookieToken(req)
+            const token = currentSessionToken(req)
             if (!token) throw new AuthError('unauthorized')
             const result = await this.auth.startBinding(
               token,
@@ -351,7 +360,7 @@ export class AuthRoutes {
           return
         }
         case `GET ${AUTH_BASE}/me`: {
-          const token = cookieToken(req)
+          const token = currentSessionToken(req)
           if (!token) throw new AuthError('unauthorized')
           const me = this.auth.me(token)
           const body: MeResponse = { ...me, requireTotp: this.auth.policySnapshot().requireTotp }
@@ -360,7 +369,7 @@ export class AuthRoutes {
         }
         case `POST ${AUTH_BASE}/password`: {
           const body = await readJsonBody(req)
-          const token = cookieToken(req)
+          const token = currentSessionToken(req)
           if (!token) throw new AuthError('unauthorized')
           await this.auth.changePassword(
             token,
@@ -378,7 +387,7 @@ export class AuthRoutes {
         }
         case `POST ${AUTH_BASE}/totp/disable`: {
           const body = await readJsonBody(req)
-          const token = cookieToken(req)
+          const token = currentSessionToken(req)
           if (!token) throw new AuthError('unauthorized')
           await this.auth.disableTotp(
             token,
@@ -395,7 +404,7 @@ export class AuthRoutes {
         }
         case `POST ${AUTH_BASE}/revoke-sessions`: {
           const body = await readJsonBody(req)
-          const token = cookieToken(req)
+          const token = currentSessionToken(req)
           if (!token) throw new AuthError('unauthorized')
           await this.auth.revokeWithCredentials(
             token,
@@ -413,7 +422,7 @@ export class AuthRoutes {
         case `POST ${AUTH_BASE}/logout`:
           if (req.headers['transfer-encoding'] || Number(req.headers['content-length'] ?? 0) > 0)
             await readJsonBody(req)
-          await this.auth.logout(cookieToken(req) ?? '')
+          await this.auth.logout(currentSessionToken(req) ?? '')
           sendJson(
             res,
             200,

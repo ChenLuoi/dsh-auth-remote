@@ -1,8 +1,10 @@
 import type { ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
+import type { HostConnectionHandle } from '@deepseek-ai/dsh-client-connection'
 import type { AuthState, SessionRecord } from '../storage/state.js'
 import { AuthStateStore } from '../storage/store.js'
 import { AuthService } from '../auth/service.js'
+import { isActiveSession } from '../auth/sessions.js'
 
 interface Tracked {
   hash: string
@@ -11,9 +13,13 @@ interface Tracked {
   close(): Promise<void>
 }
 
+export type SessionPeer = ReturnType<HostConnectionHandle['createPeer']>
+
 /** Long responses and upgraded sockets close before revocation commits report success. */
 export class AuthConnections {
   private readonly active = new Set<Tracked>()
+  private readonly peers = new Map<string, SessionPeer>()
+  private readonly peerSessions = new WeakMap<SessionPeer, string>()
   private readonly unsubscribe: () => void
 
   constructor(
@@ -21,6 +27,34 @@ export class AuthConnections {
     private readonly auth: AuthService,
   ) {
     this.unsubscribe = store.subscribe((_previous, current) => this.reconcile(current))
+  }
+
+  peer(hash: string, session: SessionRecord, create: () => SessionPeer): SessionPeer {
+    const existing = this.peers.get(hash)
+    if (existing && !existing.signal.aborted) return existing
+
+    const peer = create()
+    this.peers.set(hash, peer)
+    this.peerSessions.set(peer, hash)
+    const entry = this.makeEntry(hash, session.expiresAt, () => peer.dispose())
+    peer.signal.addEventListener(
+      'abort',
+      () => {
+        if (this.peers.get(hash) === peer) this.peers.delete(hash)
+        this.peerSessions.delete(peer)
+        this.remove(entry)
+      },
+      { once: true },
+    )
+    return peer
+  }
+
+  ownsPeer(peer: SessionPeer): boolean {
+    return this.sessionHashForPeer(peer) !== undefined
+  }
+
+  sessionHashForPeer(peer: SessionPeer): string | undefined {
+    return peer.signal.aborted ? undefined : this.peerSessions.get(peer)
   }
 
   trackResponse(hash: string, session: SessionRecord, response: ServerResponse): void {
@@ -85,17 +119,11 @@ export class AuthConnections {
 
   async reconcile(state: AuthState): Promise<void> {
     const closing: Promise<void>[] = []
+    const requireTotp = this.auth.policySnapshot().requireTotp
+    const now = Date.now()
     for (const entry of this.active) {
       const session = state.sessions[entry.hash]
-      const account = state.account
-      if (
-        !session ||
-        !account ||
-        session.accountId !== account.id ||
-        session.securityVersion !== account.securityVersion ||
-        session.expiresAt <= Date.now() ||
-        (this.auth.policySnapshot().requireTotp && !account.totp)
-      ) {
+      if (!session || !isActiveSession(state, session, now, requireTotp)) {
         closing.push(entry.close())
       } else if (entry.expiresAt !== session.expiresAt) {
         entry.expiresAt = session.expiresAt
