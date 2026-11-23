@@ -72,9 +72,13 @@ test(
         return response.json()
       }
       const before = await observation()
-      const accountPackage = ['0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.5'].includes(
-        dshVersion,
-      )
+      const accountPackage = [
+        '0.2.2-rc.2',
+        '0.2.2-rc.3',
+        '0.2.2-rc.4',
+        '0.2.2-rc.5',
+        '0.2.3-alpha.2',
+      ].includes(dshVersion)
         ? 'dsh-deepseek-account'
         : 'dsh-deepseek-account-platform'
       assert.deepEqual(before.packages, {

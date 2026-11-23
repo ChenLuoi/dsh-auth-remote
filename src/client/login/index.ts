@@ -160,10 +160,10 @@ async function perform(action: () => Promise<void>): Promise<void> {
   }
 }
 
-function shell(nextTitleKey: MessageKey, content: string): void {
+function shell(nextTitleKey: MessageKey, content: string, action = ''): void {
   titleKey = nextTitleKey
   currentMessage = null
-  root!.innerHTML = `<div class="login-page"><section class="login-card"><h1 data-i18n="${nextTitleKey}"></h1>${content}<p id="message" class="message" role="alert" aria-live="assertive"></p></section></div>`
+  root!.innerHTML = `<div class="login-page"><section class="login-card"><header class="login-header"><h1 data-i18n="${nextTitleKey}"></h1>${action}</header>${content}<p id="message" class="message" role="alert" aria-live="assertive"></p></section></div>`
   localize()
 }
 
@@ -213,14 +213,90 @@ function renderSetup(): void {
   })
 }
 
+function enablePairingSwitch(form: HTMLFormElement): void {
+  const toggle = element<HTMLButtonElement>('login-method')
+  const panel = element('login-pairing')
+
+  function show(pairing: boolean): void {
+    form.hidden = pairing
+    panel.hidden = !pairing
+    const label = pairing ? 'loginUsePassword' : 'loginUsePairingCode'
+    toggle.dataset.i18n = label
+    toggle.textContent = t(label)
+    currentMessage = null
+    paintMessage()
+  }
+
+  function releaseHiddenPairing(): void {
+    if (panel.hidden) panel.replaceChildren()
+  }
+
+  toggle.addEventListener('click', () => {
+    if (panel.hidden) {
+      show(true)
+      const mounted = panel.querySelector('dsh-device-pairing')
+      const pairing = mounted ?? panel.appendChild(document.createElement('dsh-device-pairing'))
+      const request = () => {
+        if (!pairing.isConnected) return
+        const start = pairing.querySelector<HTMLButtonElement>('#auth-pair-request')
+        if (start) start.click()
+        else showMessage({ key: 'errorServiceUnavailable' })
+      }
+      if (customElements.get(pairing.localName) || document.readyState === 'complete') request()
+      else window.addEventListener('load', request, { once: true })
+      return
+    }
+
+    const start = panel.querySelector<HTMLButtonElement>('#auth-pair-request')
+    const cancel = panel.querySelector<HTMLButtonElement>('#auth-pair-cancel')
+    const nativePanel = panel.querySelector<HTMLElement>('#auth-pair-panel')
+    if (nativePanel?.dataset.state === 'error') {
+      // Retain recovery within the page, but never resume hidden polling after navigation.
+      show(false)
+      window.addEventListener('pagehide', releaseHiddenPairing, { once: true })
+      return
+    }
+    const observer = new MutationObserver(returnToPassword)
+    function returnToPassword(): void {
+      if (cancel && !cancel.hidden) {
+        if (!cancel.disabled) cancel.click()
+        return
+      }
+      if (start?.disabled) return
+      observer.disconnect()
+      if (nativePanel?.dataset.state !== 'error') {
+        panel.replaceChildren()
+        show(false)
+      }
+      toggle.disabled = false
+      toggle.focus()
+    }
+
+    // The native component aborts on removal, so leave it mounted until cancellation settles.
+    toggle.disabled = true
+    observer.observe(panel, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['hidden', 'disabled', 'data-state'],
+    })
+    returnToPassword()
+  })
+}
+
 function renderLogin(message?: Message): void {
+  const pairing = document.body.dataset.nativePairing === 'true'
   shell(
     'loginTitle',
-    '<form id="login-form"><label for="username" data-i18n="loginUsername"></label><input id="username" name="username" autocomplete="username" required><label for="password" data-i18n="loginPassword"></label><input id="password" name="password" type="password" autocomplete="current-password" required><button type="submit" data-i18n="loginContinue"></button></form>',
+    `<form id="login-form"><label for="username" data-i18n="loginUsername"></label><input id="username" name="username" autocomplete="username" required><label for="password" data-i18n="loginPassword"></label><input id="password" name="password" type="password" autocomplete="current-password" required><button type="submit" data-i18n="loginContinue"></button></form>${pairing ? '<div id="login-pairing" hidden></div>' : ''}`,
+    pairing
+      ? '<button id="login-method" type="button" class="link-button" aria-controls="login-form login-pairing" data-i18n="loginUsePairingCode"></button>'
+      : '',
   )
   element<HTMLInputElement>('username').value = lastUsername
   if (message) showMessage(message)
-  element<HTMLFormElement>('login-form').addEventListener('submit', (event) => {
+  const form = element<HTMLFormElement>('login-form')
+  if (pairing) enablePairingSwitch(form)
+  form.addEventListener('submit', (event) => {
     event.preventDefault()
     void perform(async () => {
       const username = element<HTMLInputElement>('username').value

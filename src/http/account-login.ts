@@ -282,7 +282,7 @@ export class ManualAccountLogin {
       // Recheck after asynchronous state reads and immediately before handing off.
       this.owned(token, active.id!)
       if (!this.bridge.available) throw new HttpFailure(503, 'account_unavailable')
-      const status = await this.bridge.submit(query)
+      const status = await this.bridge.submit(query, active.callbackOrigin)
       if (status === 400) throw new HttpFailure(400, 'account_invalid_callback')
       const state = await this.state(token)
       if (state.status !== 'credential-stored' || state.attempt?.phase !== 'succeeded')

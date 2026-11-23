@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { once } from 'node:events'
-import { chmod, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { chmod, cp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { request as httpRequest } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -50,8 +50,16 @@ test('state schema rejects corruption, unknown versions and malformed session re
     account: { id: accountId, username: 'alice', password, totp: null, securityVersion: 1 },
     sessions: { ['a'.repeat(64)]: { accountId, securityVersion: 1, createdAt: 1, expiresAt: 2 } },
   }
-  assert.deepEqual(validateState(valid).revision, 1)
-  assert.throws(() => validateState({ ...valid, schemaVersion: 2 }), /unsupported state schema/u)
+  assert.equal(validateState(valid).revision, 1)
+  assert.equal(validateState(valid).sessions['a'.repeat(64)]?.source, 'password')
+  assert.throws(() => validateState({ ...valid, schemaVersion: 99 }), /unsupported state schema/u)
+  assert.throws(() => validateState({ ...valid, schemaVersion: 2 }), /invalid session fields/u)
+  const sources = {
+    ...valid,
+    sessions: { ['a'.repeat(64)]: { ...valid.sessions['a'.repeat(64)], source: 'unspecified' } },
+  }
+  assert.throws(() => validateState(sources), /invalid session fields/u)
+  assert.throws(() => validateState({ ...sources, schemaVersion: 2 }), /invalid session source/u)
   assert.throws(() => validateState({ ...valid, surprise: true }), /invalid state fields/u)
   assert.throws(
     () => validateState({ ...valid, sessions: { token: { accountId } } }),
@@ -67,6 +75,73 @@ test('state schema rejects corruption, unknown versions and malformed session re
       }),
     /lifetime/u,
   )
+})
+
+test('v1 normalization and retry preserve account, security epochs and the exact rollback backup', async () => {
+  const f = await fixture()
+  const restored = await fixture()
+  const stateDir = join(f.profile, STATE_DIR)
+  const path = join(stateDir, STATE_FILE)
+  const backup = join(stateDir, 'auth-state.v1.json')
+  const key = 'a'.repeat(64)
+  const expiredKey = 'b'.repeat(64)
+  const account = {
+    id: accountId,
+    username: 'alice',
+    password,
+    totp: {
+      secret: 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ',
+      lastUsedStep: 12,
+      backupCodeHashes: ['d'.repeat(64)],
+    },
+    securityVersion: 2,
+  }
+  const active = { accountId, securityVersion: 2, createdAt: 1000, expiresAt: 7_201_000 }
+  const original = JSON.stringify({
+    schemaVersion: 1,
+    revision: 14,
+    account,
+    sessions: {
+      [key]: active,
+      [expiredKey]: { ...active, securityVersion: 1, expiresAt: 2000 },
+    },
+  })
+  const config = '- id: auth-remote\n  config:\n    sessionHours: 12\n'
+  try {
+    await mkdir(stateDir, { mode: 0o700 })
+    await writeFile(path, original, { mode: 0o600 })
+    await writeFile(join(f.profile, 'cordis.patch.yml'), config)
+    await cp(f.profile, restored.profile, { recursive: true })
+    await assert.rejects(
+      AuthStateStore.open(f.profile, {
+        onStage(stage) {
+          if (stage === 'beforeRename') throw new Error('migration interrupted')
+        },
+      }),
+      /migration interrupted/u,
+    )
+    assert((await readFile(path, 'utf8')) === original)
+    assert((await readFile(backup, 'utf8')) === original)
+    const store = await AuthStateStore.open(f.profile)
+    assert.equal(store.current().schemaVersion, 2)
+    assert.equal(store.current().revision, 14)
+    assert(JSON.stringify(store.current().account) === JSON.stringify(account))
+    assert.deepEqual(store.current().sessions[key], { ...active, source: 'password' })
+    assert.equal(store.current().sessions[expiredKey]?.securityVersion, 1)
+    assert.equal((await stat(backup)).mode & 0o777, 0o600)
+    await store.close()
+
+    const migrated = await readFile(path, 'utf8')
+    const reopened = await AuthStateStore.open(f.profile)
+    await reopened.close()
+    assert((await readFile(path, 'utf8')) === migrated)
+    assert((await readFile(backup, 'utf8')) === original)
+    assert((await readFile(join(restored.profile, STATE_DIR, STATE_FILE), 'utf8')) === original)
+    assert.equal(await readFile(join(restored.profile, 'cordis.patch.yml'), 'utf8'), config)
+  } finally {
+    await f.cleanup()
+    await restored.cleanup()
+  }
 })
 
 test('real files use private modes and serialized transactions do not lose updates', async () => {

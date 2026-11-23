@@ -8,9 +8,15 @@ import { packedAdmin, packedCommand, packedProfile } from '../helpers/packed-run
 import { launchBrowser } from '../helpers/runtime.js'
 
 if (
-  ['0.2.2-alpha.3', '0.2.2-rc.1', '0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.5'].includes(
-    dshVersion,
-  )
+  [
+    '0.2.2-alpha.3',
+    '0.2.2-rc.1',
+    '0.2.2-rc.2',
+    '0.2.2-rc.3',
+    '0.2.2-rc.4',
+    '0.2.2-rc.5',
+    '0.2.3-alpha.2',
+  ].includes(dshVersion)
 )
   test(
     'liveshare: native viewer carrier and index retain non-owner transport and administrator client is inert',

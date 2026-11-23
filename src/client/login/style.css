@@ -68,6 +68,29 @@ body {
   background: var(--dsw-alias-bg-layer-2);
 }
 
+.login-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.login-header .link-button {
+  max-width: 55%;
+  margin: 0 0 0 auto;
+  padding-inline: 0;
+  color: var(--dsw-alias-state-business-primary);
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+#login-form[hidden] {
+  display: none;
+}
+
+#login-pairing {
+  margin-top: 24px;
+}
+
 h1 {
   margin: 0;
   font-size: 24px;

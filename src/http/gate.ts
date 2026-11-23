@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
 import type { DshReadiness } from '../adapters/dsh/readiness.js'
 import type { WebGate } from '../adapters/dsh/webserver.js'
+import { isPairingPost, isQrExchange } from '../adapters/dsh/remote-delegation.js'
 import { AuthService } from '../auth/service.js'
 import { sessionHash } from '../auth/sessions.js'
 import type { ResolvedAuthConfig } from '../config.js'
@@ -10,6 +11,7 @@ import { AuthStateStore } from '../storage/store.js'
 import { AuthConnections } from './connections.js'
 import { preservePublicOrigin, stripRootToken } from './origin.js'
 import { evaluateRequestOrigin, type RequestOriginContext } from './origin-policy.js'
+import { ACCOUNT_CALLBACK_PATH } from '../shared/account-login.js'
 import { isPublicPwaAsset } from './public-assets.js'
 import { setRequestContext } from './request-context.js'
 import { currentSessionToken, routePermission } from './routes.js'
@@ -55,20 +57,45 @@ export class AuthGate implements WebGate {
   }
 
   async http(req: IncomingMessage, res: ServerResponse, next: () => Promise<void>): Promise<void> {
+    const provider = this.readiness.usesProvider()
+    const nativePairingProbe = provider && req.method === 'HEAD' && req.url === '/'
+    const nativeAccountCallback = provider && req.url?.split('?', 1)[0] === ACCOUNT_CALLBACK_PATH
     const raw = evaluateRequestOrigin(this.config.originPolicy, {
       rawHeaders: req.rawHeaders,
       method: req.method,
       target: req.url,
+      nativePairingProbe,
+      nativeAccountCallback,
     })
     if (!raw) return rejectHttp(res, 403, 'invalid_origin')
     if (!this.ready()) return rejectHttp(res, 503, 'service_unavailable')
     setRequestContext(req, raw)
+    if (provider) {
+      if (raw.pathname === '/connect') return rejectHttp(res, 403, 'forbidden')
+      if (isPairingPost(raw.pathname) && req.method === 'POST') return next()
+      if (
+        raw.pathname === '/' &&
+        isQrExchange(new URL(req.url!, raw.origin)) &&
+        (req.method === 'GET' || req.method === 'HEAD' || req.method === 'POST')
+      )
+        return next()
+      if (raw.pathname === '/pairing/client.js' && (req.method === 'GET' || req.method === 'HEAD'))
+        return next()
+    }
     if (isPublicPwaAsset(req.method, raw.pathname)) return next()
     const permission = routePermission(req.method, raw.pathname)
     if (permission === 'public' || permission === 'logout') return next()
     const token = currentSessionToken(req)
     const session = token ? this.auth.session(token) : null
+    // The native pairing browser checks delivery with fetch(HEAD /), which
+    // omits Origin. Report plugin admission without dispatching a business route.
+    if (nativePairingProbe) {
+      res.writeHead(session ? 200 : 401, { 'cache-control': 'no-store' })
+      res.end()
+      return
+    }
     if (!session) {
+      if (nativeAccountCallback) return rejectHttp(res, 401, 'unauthorized')
       const accept = String(req.headers.accept ?? '')
       const navigation =
         req.method === 'GET' &&
@@ -138,6 +165,7 @@ export class AuthGate implements WebGate {
   }
 
   private bridge(req: IncomingMessage, context: RequestOriginContext): void {
+    if (this.readiness.usesProvider()) return
     const preserve = preservePublicOrigin(context.pathname, this.config.preserveOriginPaths)
     const authority = preserve ? context.downstreamAuthority : this.config.nativeAuthority
     const origin = preserve ? context.origin : this.config.nativeOrigin

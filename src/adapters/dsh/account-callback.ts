@@ -5,14 +5,23 @@ import { finished } from 'node:stream/promises'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { ACCOUNT_CALLBACK_PATH } from '../../shared/account-login.js'
 
-/** Retain the native temporary handler without exposing a second callback entry. */
+/** Deliver a validated manual callback into the native request lifecycle. */
 export class AccountCallbackBridge {
   private handler: WebRoute['handler'] | undefined
+  private eventHandler: WebRoute['handler'] | undefined
 
   constructor(private readonly ownsCallback: () => boolean | Promise<boolean> = () => true) {}
 
   get available(): boolean {
-    return this.handler !== undefined
+    return this.eventHandler !== undefined || this.handler !== undefined
+  }
+
+  useRequestEvent(handler: WebRoute['handler']): void {
+    this.eventHandler = handler
+  }
+
+  reserved(): boolean | Promise<boolean> {
+    return this.ownsCallback()
   }
 
   capture(route: WebRoute): { handler: WebRoute['handler']; dispose(): void } | undefined {
@@ -31,8 +40,8 @@ export class AccountCallbackBridge {
   }
 
   /** Use Node's actual response lifecycle: DSH awaits its completion during cleanup. */
-  async submit(query: URLSearchParams): Promise<number> {
-    const handler = this.handler
+  async submit(query: URLSearchParams, origin: string): Promise<number> {
+    const handler = this.eventHandler ?? this.handler
     if (!handler) return 410
     // An in-memory socket discards the native completion redirect/HTML. No URL
     // from the clipboard is ever used as a request destination or followed.
@@ -45,6 +54,11 @@ export class AccountCallbackBridge {
     const request = new IncomingMessage(socket as Socket)
     request.method = 'GET'
     request.url = `${ACCOUNT_CALLBACK_PATH}?${query}`
+    if (this.eventHandler) {
+      const host = new URL(origin).host
+      request.headers.host = host
+      request.rawHeaders = ['Host', host]
+    }
     const response = new ServerResponse(request)
     response.assignSocket(socket as Socket)
     // A real HTTP server closes/detaches the connection after a response.

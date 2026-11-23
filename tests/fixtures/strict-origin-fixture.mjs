@@ -1,5 +1,6 @@
 /** Installed only in a temporary DSH profile. Exercises a generic downstream route. */
 import { createHash } from 'node:crypto'
+import { createRequire } from 'node:module'
 
 export const inject = ['webServer']
 
@@ -14,13 +15,22 @@ function cookies(req) {
   }
 }
 
-function handler(expectPublic, server) {
+function sourceOrigin(req, server, provider) {
+  const host = String(req.headers.host ?? '')
+  if (provider) {
+    const configured = process.env.STRICT_PUBLIC_ORIGIN ?? server.publicUrl
+    if (configured && new URL(configured).host === host) return new URL(configured).origin
+  }
+  return `${server.protocol ?? 'http:'}//${host}`
+}
+
+function handler(expectPublic, server, provider) {
   return async (req, res) => {
     const origin = String(req.headers.origin ?? '')
     const host = String(req.headers.host ?? '')
     const expected = expectPublic
       ? (process.env.STRICT_PUBLIC_ORIGIN ?? new URL(server.publicUrl).origin)
-      : `${server.protocol ?? 'http:'}//${host}`
+      : sourceOrigin(req, server, provider)
     if (origin !== expected) {
       res.writeHead(403, { 'content-type': 'application/json' })
       res.end(JSON.stringify({ error: 'downstream_origin_mismatch' }))
@@ -46,28 +56,36 @@ function handler(expectPublic, server) {
 }
 
 export function apply(ctx) {
+  const { version } = createRequire(import.meta.url)('@deepseek-ai/dsh-host-webserver/package.json')
+  const provider = version === '0.2.3-alpha.2'
   ctx.effect(() => {
     const remove = [
       ctx.webServer.register({
         kind: 'exact',
         path: '/plugins/strict/echo',
-        handler: handler(false, ctx.webServer),
+        handler: handler(false, ctx.webServer, provider),
       }),
       ctx.webServer.register({
         kind: 'exact',
         path: '/plugins/public/echo',
-        handler: handler(true, ctx.webServer),
+        handler: handler(true, ctx.webServer, provider),
       }),
       ctx.webServer.register({
         kind: 'exact',
         path: '/plugins/strict/trusted-host',
-        handler(req, res) {
+        handler(req, res, peer) {
           // Third-party routes can use Connection's declared authorities
           // without inheriting its implicit loopback or bind-address rules.
           const connection = ctx.get('connection')
           const host = String(req.headers.host ?? '')
           const trustedHosts = connection?.trustedHosts ?? []
-          const rejection = trustedHosts.includes(host) ? connection.requestRejection(req) : 403
+          const rejection = !trustedHosts.includes(host)
+            ? 403
+            : provider
+              ? peer?.principal.kind === 'owner'
+                ? undefined
+                : 401
+              : connection.requestRejection(req)
           res.writeHead(rejection ?? 200, {
             'content-type': 'application/json',
             'cache-control': 'no-store',
@@ -79,8 +97,7 @@ export function apply(ctx) {
         kind: 'exact',
         path: '/plugins/strict/stream',
         handler(req, res) {
-          const host = String(req.headers.host ?? '')
-          if (req.headers.origin !== `${ctx.webServer.protocol ?? 'http:'}//${host}`) {
+          if (req.headers.origin !== sourceOrigin(req, ctx.webServer, provider)) {
             res.writeHead(403)
             res.end()
             return
@@ -96,12 +113,9 @@ export function apply(ctx) {
       }),
       ctx.webServer.registerUpgrade({
         path: '/plugins/strict/socket',
-        handler(req, socket) {
-          const host = String(req.headers.host ?? '')
-          if (
-            req.headers.origin !== `${ctx.webServer.protocol ?? 'http:'}//${host}` ||
-            !cookies(req).hasNative
-          ) {
+        handler(req, socket, _head, peer) {
+          const admitted = provider ? peer?.principal.kind === 'owner' : cookies(req).hasNative
+          if (req.headers.origin !== sourceOrigin(req, ctx.webServer, provider) || !admitted) {
             socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n')
             return
           }

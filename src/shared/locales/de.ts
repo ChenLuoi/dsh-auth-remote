@@ -20,6 +20,13 @@ export const de = {
     'Diese Einstellung konnte nicht gespeichert werden. Prüfen Sie den aktuellen Wert und versuchen Sie es erneut.',
   settingsSaving: 'Wird gespeichert…',
   settingsRetry: 'Erneut versuchen',
+  delegationCreate: 'QR-Code erstellen',
+  delegationApprove: 'Gerät genehmigen',
+  delegationDuration: 'Zugriffsdauer',
+  delegationOneDay: '1 Tag',
+  delegationDays: '{days} Tage',
+  delegationReadOnly: 'Geräte lassen sich in Sitzungen mit Passwortanmeldung autorisieren.',
+
   accountLoginTitle: 'Bei DeepSeek anmelden',
   accountLoginStepOpen: 'Melden Sie sich in einem neuen Tab bei DeepSeek an.',
   accountLoginStepCopy:
@@ -62,6 +69,8 @@ export const de = {
   loginSetupNotFound:
     'Kein Konto gefunden. Prüfen Sie, ob der Befehl dieses Profil verwendet hat, und versuchen Sie es erneut.',
   loginTitle: 'Anmelden',
+  loginUsePairingCode: 'Mit Kopplungscode anmelden',
+  loginUsePassword: 'Mit Passwort anmelden',
   loginUsername: 'Benutzername',
   loginPassword: 'Passwort',
   loginContinue: 'Weiter',

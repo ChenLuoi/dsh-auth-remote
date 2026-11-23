@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { test } from 'node:test'
+import { satisfies } from 'semver'
 import {
   classifyDshSupport,
   dshSupportWarning,
@@ -13,6 +14,14 @@ import {
 
 const manifest = createRequire(import.meta.url)('../../package.json')
 const declared = new Set<string>(Object.keys(manifest.dsh.compatibility.dshReleases))
+
+test('the declared WebServer versions and exact alpha SDK peers match ordinary SemVer', () => {
+  const peer = manifest.peerDependencies
+  for (const version of declared)
+    assert(satisfies(version, peer['@deepseek-ai/dsh-host-webserver']), version)
+  assert(satisfies('4.2.0-alpha.1', peer['@deepseek-ai/cordis']))
+  assert(satisfies('3.20.0-alpha.1', peer['@deepseek-ai/schemastery']))
+})
 
 const maintenanceRetired = RETIRED_DSH_RELEASES.filter(
   ({ effectivePlugin }) => effectivePlugin === '0.3.6',
@@ -165,6 +174,7 @@ test('normal declarations stay supported while absent exact versions remain unve
     '0.2.2-rc.3',
     '0.2.2-rc.4',
     '0.2.2-rc.5',
+    '0.2.3-alpha.2',
   ]) {
     const status = classifyDshSupport(version, declared)
     assert.equal(status.state, 'supported')
@@ -175,6 +185,7 @@ test('normal declarations stay supported while absent exact versions remain unve
     '0.2.1-rc.2+unassessed',
     '0.2.1-rc.6',
     '0.2.2-alpha.4',
+    '0.2.3-alpha.1',
     '9.0.0-test.1',
     'invalid',
   ])

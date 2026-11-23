@@ -1,4 +1,5 @@
 import { isPublicPwaAsset } from './public-assets.js'
+import { ACCOUNT_CALLBACK_PATH } from '../shared/account-login.js'
 
 export type OriginProtocol = 'http:' | 'https:'
 
@@ -21,6 +22,8 @@ export interface RawRequestHead {
   readonly method: string | undefined
   readonly target: string | undefined
   readonly upgrade?: boolean
+  readonly nativePairingProbe?: boolean
+  readonly nativeAccountCallback?: boolean
 }
 
 export interface RequestOriginContext {
@@ -214,11 +217,24 @@ export function evaluateRequestOrigin(
   const method = request.method
   if (!authority || !target || !method || !/^[A-Z!#$%&'*+.^_`|~-]+$/u.test(method)) return null
   const needsOrigin =
-    request.upgrade === true || (method !== 'GET' && !isPublicPwaAsset(method, target.pathname))
+    request.upgrade === true ||
+    (method !== 'GET' &&
+      !isPublicPwaAsset(method, target.pathname) &&
+      !(request.nativePairingProbe && method === 'HEAD' && request.target === '/'))
   if (needsOrigin && origins.length !== 1) return null
   const site = fetchSites[0]?.toLowerCase()
+  const nativeCallbackNavigation =
+    request.nativeAccountCallback &&
+    !request.upgrade &&
+    method === 'GET' &&
+    target.pathname === ACCOUNT_CALLBACK_PATH &&
+    isImplicitLoopback(authority) &&
+    (site === 'cross-site' || site === 'same-site') &&
+    headerValues(request.rawHeaders, 'sec-fetch-mode')?.join(',') === 'navigate' &&
+    headerValues(request.rawHeaders, 'sec-fetch-dest')?.join(',') === 'document'
   if (
     site !== undefined &&
+    !nativeCallbackNavigation &&
     (needsOrigin ? site !== 'same-origin' : !['same-origin', 'none'].includes(site))
   )
     return null

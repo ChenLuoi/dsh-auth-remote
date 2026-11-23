@@ -57,6 +57,32 @@ test('registered origins normalize case and default ports without ambiguous auth
   assert.equal(policy.matchAuthority('example.com:000443'), undefined)
 })
 
+test('the native account exception only admits a loopback callback document navigation', () => {
+  const policy = createOriginPolicy(['https://example.com'])
+  const callback = {
+    target: '/oauth/callback',
+    fetchSite: 'cross-site',
+    extra: ['Sec-Fetch-Mode', 'navigate', 'Sec-Fetch-Dest', 'document'],
+  }
+  const loopback = request('127.0.0.1:13090', callback)
+  const evaluate = (head: RawRequestHead) =>
+    evaluateRequestOrigin(policy, { ...head, nativeAccountCallback: true })
+  assert.equal(evaluate(loopback)?.origin, 'http://127.0.0.1:13090')
+  assert.equal(evaluateRequestOrigin(policy, loopback), null)
+  for (const invalid of [
+    request('example.com', callback),
+    request('127.0.0.1:13090', { ...callback, target: '/oauth/callback/extra' }),
+    request('127.0.0.1:13090', { ...callback, method: 'POST' }),
+    request('127.0.0.1:13090', { ...callback, extra: ['Sec-Fetch-Mode', 'cors'] }),
+    request('127.0.0.1:13090', {
+      ...callback,
+      extra: [...callback.extra, 'Sec-Fetch-Dest', 'document'],
+    }),
+    request('127.0.0.1:13090', { ...callback, origin: 'https://example.com' }),
+  ])
+    assert.equal(evaluate(invalid), null)
+})
+
 test('malformed, duplicate and protocol ambiguous entries fail before use', () => {
   for (const value of [
     'ftp://example.com',

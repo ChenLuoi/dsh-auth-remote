@@ -23,6 +23,7 @@ if (
     '0.2.2-rc.3',
     '0.2.2-rc.4',
     '0.2.2-rc.5',
+    '0.2.3-alpha.2',
   ].includes(dshVersion)
 )
   test(
@@ -107,7 +108,11 @@ if (
 
         await expect(settings.getByRole('switch', { name: '远程 DeepSeek 账号登录' })).toBeEnabled()
         await settings.getByRole('button', { name: '模型', exact: true }).click()
-        await expect(settings.getByText('DeepSeek', { exact: true })).toBeVisible()
+        if (dshVersion === '0.2.3-alpha.2')
+          await expect(
+            settings.getByRole('button', { name: '添加模型提供商', exact: true }),
+          ).toBeEnabled()
+        else await expect(settings.getByText('DeepSeek', { exact: true })).toBeVisible()
         await settings.getByRole('button', { name: '关闭', exact: true }).click()
 
         // Real native workspace selection creates a blank session without inference.

@@ -1,4 +1,4 @@
-import type { HostConnectionHandle } from '@deepseek-ai/dsh-client-connection'
+import type { ConnectionTrustRequest } from '@deepseek-ai/dsh-client-connection'
 import type { OriginProtocol } from '../../http/origin-policy.js'
 
 interface NativeCookie {
@@ -6,18 +6,34 @@ interface NativeCookie {
   readonly expiresAt: number
 }
 
+interface LegacyConnection {
+  authenticatedUrl(baseUrl: string): string
+  authorizeIndex(
+    request: ConnectionTrustRequest & { method?: string; url?: string },
+    response: {
+      writeHead(status: number, headers?: Readonly<Record<string, string>>): unknown
+      end(body?: string): unknown
+    },
+  ): boolean
+  requestRejection(request: ConnectionTrustRequest): number | undefined
+}
+
+export function assertLegacyConnection(connection: object): asserts connection is LegacyConnection {
+  for (const method of ['authenticatedUrl', 'authorizeIndex', 'requestRejection'] as const) {
+    if (typeof Reflect.get(connection, method) !== 'function') {
+      throw new Error(`auth-remote: Connection lacks ${method}`)
+    }
+  }
+}
+
 /** Host-only bridge to the public Connection token exchange. */
 export class NativeBrowserAuth {
-  private readonly cookies = new WeakMap<HostConnectionHandle, Map<string, NativeCookie>>()
+  private readonly cookies = new WeakMap<object, Map<string, NativeCookie>>()
 
   constructor(private readonly protocol: OriginProtocol = 'http:') {}
 
-  cookieFor(
-    connection: HostConnectionHandle,
-    authority: string,
-    origin: string,
-    now = Date.now(),
-  ): string {
+  cookieFor(connection: object, authority: string, origin: string, now = Date.now()): string {
+    assertLegacyConnection(connection)
     let byAuthority = this.cookies.get(connection)
     if (byAuthority === undefined) {
       byAuthority = new Map()
@@ -40,13 +56,13 @@ export class NativeBrowserAuth {
     return cookie.pair
   }
 
-  clear(connection: HostConnectionHandle): void {
+  clear(connection: object): void {
     this.cookies.delete(connection)
   }
 }
 
 function exchange(
-  connection: HostConnectionHandle,
+  connection: LegacyConnection,
   authority: string,
   protocol: OriginProtocol,
   now: number,

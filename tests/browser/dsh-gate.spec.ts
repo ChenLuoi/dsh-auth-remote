@@ -8,6 +8,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { chromium } from '@playwright/test'
+import { dshVersion } from '../../scripts/runtime.mjs'
+import { AuthService } from '../../src/auth/service.js'
+import { AUTH_COOKIE } from '../../src/shared/auth-contract.js'
+import { AuthStateStore } from '../../src/storage/store.js'
 import {
   archive,
   dsh as dshBin,
@@ -59,33 +63,54 @@ test('installed package and test gate boot full DSH without exposing native cred
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined
   try {
     await run(dshBin, ['plugin', '--profile', 'web', 'add', archive], home)
+    const provider = dshVersion === '0.2.3-alpha.2'
     const fixturePath = join(profile, 'node_modules', packageName, 'auth-gate.mjs')
-    await copyFile(new URL('../fixtures/auth-gate-fixture.mjs', import.meta.url), fixturePath)
+    if (!provider)
+      await copyFile(new URL('../fixtures/auth-gate-fixture.mjs', import.meta.url), fixturePath)
     await writeFile(
       join(profile, 'cordis.patch.yml'),
       [
         ...model.patch,
         '- id: webserver',
         '  disabled: true',
-        '- id: auth-remote',
-        '  disabled: true',
-        '- id: connection',
-        '  inject: [webStartup, webServer]',
-        '  config:',
-        `    trustedHosts: !!js "['${host}', ...ctx.webStartup.trustedHosts]"`,
-        '- insert:',
-        '    - id: auth-gate',
-        `      name: ${fixturePath}`,
-        '      inject: [webStartup]',
-        '      config:',
-        `        allowedOrigins: [${origin}]`,
-        '        requireTotp: true',
-        '        sessionHours: 168',
-        '        preserveOriginPaths: []',
+        ...(provider
+          ? ['- id: auth-remote', '  config:', `    publicUrl: ${origin}`, '    requireTotp: false']
+          : [
+              '- id: auth-remote',
+              '  disabled: true',
+              '- id: connection',
+              '  inject: [webStartup, webServer]',
+              '  config:',
+              `    trustedHosts: !!js "['${host}', ...ctx.webStartup.trustedHosts]"`,
+              '- insert:',
+              '    - id: auth-gate',
+              `      name: ${fixturePath}`,
+              '      inject: [webStartup]',
+              '      config:',
+              `        allowedOrigins: [${origin}]`,
+              '        requireTotp: true',
+              '        sessionHours: 168',
+              '        preserveOriginPaths: []',
+            ]),
         '',
       ].join('\n'),
     )
-    const testCookie = randomBytes(32).toString('base64url')
+    let testCookie = randomBytes(32).toString('base64url')
+    const cookieName = provider ? AUTH_COOKIE : 'auth-gate-test'
+    if (provider) {
+      const store = await AuthStateStore.open(profile)
+      const auth = new AuthService(store, { sessionHours: 168, requireTotp: false })
+      const password = randomBytes(24).toString('base64url')
+      try {
+        await auth.initialize('owner', password)
+        const login = await auth.login('owner', password)
+        assert(login.kind === 'session')
+        testCookie = login.token
+      } finally {
+        auth.dispose()
+        await store.close()
+      }
+    }
     server = spawn(dshBin, ['web', '--no-open', '--port', '13090'], {
       cwd: home,
       env: {
@@ -133,7 +158,7 @@ test('installed package and test gate boot full DSH without exposing native cred
     const context = await browser.newContext({ locale: 'zh-CN' })
     await context.addCookies([
       {
-        name: 'auth-gate-test',
+        name: cookieName,
         value: testCookie,
         domain: 'auth-remote.test',
         path: '/',
@@ -155,7 +180,7 @@ test('installed package and test gate boot full DSH without exposing native cred
     )
     assert.deepEqual(
       (await context.cookies()).map((cookie) => cookie.name),
-      ['auth-gate-test'],
+      [cookieName],
     )
     await openDshSettings(page)
     const dialog = page.getByRole('dialog', { name: '设置' })
@@ -180,7 +205,7 @@ test('installed package and test gate boot full DSH without exposing native cred
     )
     assert.deepEqual(
       (await context.cookies()).map((cookie) => cookie.name),
-      ['auth-gate-test'],
+      [cookieName],
     )
   } finally {
     await browser?.close()

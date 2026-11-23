@@ -420,16 +420,15 @@ async function appendBad(path: string) {
   await writeFile(path, (await readFile(path, 'utf8')) + '\n# changed raw evidence\n')
 }
 
-test('a validated plugin 0.3.7 archive disables full-plan maintenance retirement without preparing a runtime', async () => {
+test('a validated archive of the current release skips full-plan maintenance retirement without preparing a runtime', async () => {
   const root = await mkdtemp(join(tmpdir(), 'packed-future-gate-'))
   try {
     const checkout = join(root, 'checkout')
     const packageRoot = join(root, 'package')
     await mkdir(join(checkout, 'scripts'), { recursive: true })
     await mkdir(join(packageRoot, 'dist/types'), { recursive: true })
-    const manifest = { ...packageManifest, version: '0.3.7' }
-    await writeFile(join(checkout, 'package.json'), json(manifest))
-    await writeFile(join(packageRoot, 'package.json'), json(manifest))
+    await writeFile(join(checkout, 'package.json'), json(packageManifest))
+    await writeFile(join(packageRoot, 'package.json'), json(packageManifest))
     for (const file of [
       'index.js',
       'cli.js',
@@ -441,11 +440,12 @@ test('a validated plugin 0.3.7 archive disables full-plan maintenance retirement
       await writeFile(join(packageRoot, 'dist', file), 'fixture')
     for (const file of ['runtime.mjs', 'packed-artifact.mjs', 'verify-packed.mjs'])
       await copyFile(join('scripts', file), join(checkout, 'scripts', file))
-    const archive = join(root, 'dsh-auth-remote-0.3.7.tgz')
+    const archiveName = `${packageManifest.name}-${packageManifest.version}.tgz`
+    const archive = join(root, archiveName)
     const packed = spawnSync('tar', ['-czf', archive, '-C', root, 'package'], { encoding: 'utf8' })
     assert.equal(packed.status, 0, packed.stderr)
     const digest = sha256(await readFile(archive))
-    await writeFile(join(root, 'SHA256SUMS'), `${digest}  dsh-auth-remote-0.3.7.tgz\n`)
+    await writeFile(join(root, 'SHA256SUMS'), `${digest}  ${archiveName}\n`)
     const outputs = join(root, 'outputs')
     const gate = spawnSync(
       process.execPath,

@@ -2,6 +2,8 @@ import { request as httpRequest, type IncomingMessage } from 'node:http'
 import { request as httpsRequest } from 'node:https'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { randomBytes } from 'node:crypto'
+import type { Duplex } from 'node:stream'
 
 export const nativeCertPath = fileURLToPath(
   new URL('../fixtures/tls/native.test.cert.pem', import.meta.url),
@@ -82,5 +84,30 @@ export function nativeStream(target: string, path: string, options: NativeReques
     })
     req.on('error', reject)
     req.end(options.body)
+  })
+}
+
+export function nativeMux(target: string, options: NativeRequestOptions = {}) {
+  return new Promise<{ status: number; socket?: Duplex }>((resolve, reject) => {
+    const request = nativeRequest(target, '/api/remote.mux', {
+      ...options,
+      headers: {
+        ...options.headers,
+        connection: 'Upgrade',
+        upgrade: 'websocket',
+        'sec-websocket-key': randomBytes(16).toString('base64'),
+        'sec-websocket-version': '13',
+      },
+    })
+    request.on('upgrade', (response, socket) =>
+      resolve({ status: response.statusCode ?? 0, socket }),
+    )
+    request.on('response', (response) => {
+      response.resume()
+      resolve({ status: response.statusCode ?? 0 })
+    })
+    request.on('error', reject)
+    request.setTimeout(8000, () => request.destroy(new Error('native mux upgrade timed out')))
+    request.end()
   })
 }

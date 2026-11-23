@@ -14,6 +14,7 @@ import { manualAccountBinding } from './account/config.js'
 import { ManualAccountSetting } from './settings/manual-account-setting.js'
 import { createElement } from 'react'
 import { installManualAccountLogin, hasManualAccountClient } from './account/index.js'
+import { installNativeDelegation } from './settings/delegation.js'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -39,6 +40,7 @@ export function apply(ctx: Context): void {
   ctx.effect(() => ctx.locale.register('auth-remote', dictionaries), 'auth-remote: dictionaries')
   const t = ctx.locale.bind('auth-remote')
   installManualAccountLogin(ctx)
+  installNativeDelegation(ctx)
   const slots = ctx.get('slots') as SlotCore & {
     inject(name: string, register: () => () => void): void
   }

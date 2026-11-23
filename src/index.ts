@@ -3,7 +3,12 @@ import { Service, type Context } from '@deepseek-ai/cordis'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { basename } from 'node:path'
-import { assertWebServerCompatibility } from './adapters/dsh/compatibility.js'
+import {
+  assertWebServerCompatibility,
+  CONNECTION_PROVIDER_DSH,
+} from './adapters/dsh/compatibility.js'
+import { installConnectionProvider } from './adapters/dsh/connection-provider.js'
+import { RemoteDelegation } from './adapters/dsh/remote-delegation.js'
 import { installAuthenticatedHostCapability } from './adapters/dsh/browser-capability.js'
 import { installLiveShareOrigin } from './adapters/dsh/liveshare.js'
 import { DshReadiness, watchConnection } from './adapters/dsh/readiness.js'
@@ -112,10 +117,11 @@ export class AuthRemoteWebServer extends GuardedWebServer {
       },
     })
     try {
-      const auth = new AuthService(store, {
-        requireTotp: this.pending.requireTotp,
-        sessionHours: this.pending.sessionHours,
-      })
+      const auth = new AuthService(
+        store,
+        { requireTotp: this.pending.requireTotp, sessionHours: this.pending.sessionHours },
+        { allowDelegated: this.pending.version === CONNECTION_PROVIDER_DSH },
+      )
       await auth.enforceCurrentPolicy()
       this.stateStore = store
       this.authService = auth
@@ -130,12 +136,35 @@ export class AuthRemoteWebServer extends GuardedWebServer {
         protocol: listenerProtocol(this),
       })
       this.setOriginPolicy(this.resolved.originPolicy)
-      connections = new AuthConnections(store, auth)
-      readiness = new DshReadiness(this, this.resolved, () => {
-        if (connections) void connections.closeAll()
-      })
+      const carriers = new AuthConnections(store, auth)
+      connections = carriers
+      readiness = new DshReadiness(
+        this,
+        this.resolved,
+        () => {
+          if (connections) void connections.closeAll()
+        },
+        (connection, ctx) => {
+          const restoreProvider = installConnectionProvider(connection, auth, carriers)
+          try {
+            const delegation = new RemoteDelegation(ctx, this, auth, store, carriers)
+            return () => {
+              try {
+                delegation.dispose()
+              } finally {
+                restoreProvider()
+              }
+            }
+          } catch (error) {
+            restoreProvider()
+            throw error
+          }
+        },
+      )
       this.switchGate.set(new AuthGate(this.resolved, store, auth, readiness, connections))
-      new AuthRoutes(auth, profileName).install(this)
+      new AuthRoutes(auth, profileName, this.resolved.version === CONNECTION_PROVIDER_DSH).install(
+        this,
+      )
       accountLogin = new ManualAccountLogin(this.ctx, auth, store, this.pending.version, () =>
         this.pending.manualAccountLogin.get(),
       )
@@ -233,7 +262,10 @@ export class AuthRemoteWebServer extends GuardedWebServer {
   /** Declare the finalized bridge and any public authorities used by preserved routes. */
   get connectionTrustedHosts(): readonly string[] {
     const hosts = [this.resolved.nativeAuthority]
-    if (this.resolved.preserveOriginPaths.length > 0)
+    if (
+      this.resolved.version === CONNECTION_PROVIDER_DSH ||
+      this.resolved.preserveOriginPaths.length > 0
+    )
       hosts.push(...this.resolved.originPolicy.registeredOrigins.map((entry) => entry.host))
     return [...new Set(hosts)]
   }

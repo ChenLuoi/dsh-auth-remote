@@ -39,6 +39,7 @@ const hasAllNativeLocales = [
   '0.2.2-rc.3',
   '0.2.2-rc.4',
   '0.2.2-rc.5',
+  '0.2.3-alpha.2',
 ].includes(dshVersion)
 
 const password = 'browser test password 123'
@@ -1816,7 +1817,11 @@ test('official plugin settings persist through the guarded remote browser', asyn
     await openDshSettings(f.page)
     const settings = f.page.getByRole('dialog', { name: '设置' })
     await settings.getByRole('button', { name: '模型', exact: true }).click()
-    await settings.getByText('DeepSeek', { exact: true }).waitFor()
+    if (dshVersion === '0.2.3-alpha.2')
+      await expect(
+        settings.getByRole('button', { name: '添加模型提供商', exact: true }),
+      ).toBeEnabled()
+    else await settings.getByText('DeepSeek', { exact: true }).waitFor()
     await settings.getByRole('button', { name: /编辑/u }).click()
     await settings.getByText('自定义设置', { exact: true }).click()
     assert.equal(await settings.getByLabel('API 地址').inputValue(), f.model.baseURL)

@@ -2,7 +2,7 @@
 
 [English](reverse-proxy.md)
 
-DSH Auth Remote 会先验证浏览器 authority，再为 DSH 改写已认证流量。选择唯一 HTTP(S) 根地址，设置为 `publicUrl`，例如 `https://dsh.example.com/`。它配置准入和公布入口，不改变代理路由或 TLS。桥接无需额外 Connection 条目或 `--trusted-host`。TLS 可以在代理终止，DSH 继续监听私有 HTTP。
+DSH Auth Remote 会先验证浏览器 authority，再将已认证流量交给 DSH。选择唯一 HTTP(S) 根地址，设置为 `publicUrl`，例如 `https://dsh.example.com/`。它配置准入和公布入口，不改变代理路由或 TLS。桥接和原生 Connection provider 均无需额外 Connection 条目或 `--trusted-host`。TLS 可以在代理终止，DSH 继续监听私有 HTTP。
 
 ## 回环直连
 
@@ -16,7 +16,7 @@ DSH Auth Remote 会先验证浏览器 authority，再为 DSH 改写已认证流�
 
 用 `$http_host` 保留含非默认端口的原始 Host，用 `$http_origin` 转交真实 Origin。Nginx 必须显式转交 WebSocket 的 `Upgrade` 和映射后的 `Connection`。上游 HTTP/1.1、关闭响应缓冲/缓存与请求缓冲、加长读写超时，保障事件流、上传和长连接。不要把 Origin 改成上游 URL，也不要删除浏览器修改请求的 Origin。代理不应缓存登录、状态或已认证响应。
 
-示例设置 `publicUrl: https://dsh.example.com/`；公网 `:8443` 则使用 `https://dsh.example.com:8443/`，转发 Host 保留端口。插件 Secure Cookie 跟随已验证外部 HTTPS 来源，不取私有 HTTP socket 或转发协议提示。仅在路径需要原始公网 Host 时加入 `preserveOriginPaths`，原生 Connection 信任自动取最终来源。
+示例设置 `publicUrl: https://dsh.example.com/`；公网 `:8443` 则使用 `https://dsh.example.com:8443/`，转发 Host 保留端口。插件 Secure Cookie 跟随已验证外部 HTTPS 来源，不取私有 HTTP socket 或转发协议提示。较早的桥接宿主在路径需要原始公网 Host 时加入 `preserveOriginPaths`。`0.2.3-alpha.2` 的 Connection provider 直接保留已验证公网 Host 和请求提供的 Origin。Connection 信任跟随配置的公开来源。
 
 ## Traefik 外部 TLS
 
@@ -24,8 +24,8 @@ DSH Auth Remote 会先验证浏览器 authority，再为 DSH 改写已认证流�
 
 使用唯一规范公开入口，在请求到达受保护上游前，把其他主机名导向该入口。入口变更后替换 `publicUrl` 并重启，核对新根地址以及旧非回环来源被拒绝。检查匿名跳转/API 拒绝、密码加 TOTP、Cookie、设置、WebSocket、SSE、上传、预览及撤销。`/auth-remote/ready` 返回预期插件/协议与 `ready: true` 前保持访问私有。
 
-当前支持 DSH 原生 HTTPS 上游也可位于公开 HTTP 或 HTTPS 代理后。使用 HTTPS 上游 URL，配置代理的上游证书验证和与证书对应的 hostname/SNI。插件 Cookie 按外部入口协议，服务端原生 Cookie 按监听的 HTTPS audience/Secure；两个协议不同时仍保留 Host/Origin。文件和 CLI 相对证书路径基准不同，见[路径规则](deployment.zh-CN.md#配置优先级与路径基准)。
+当前支持 DSH 原生 HTTPS 上游也可位于公开 HTTP 或 HTTPS 代理后。使用 HTTPS 上游 URL，配置代理的上游证书验证和与证书对应的 hostname/SNI。插件 Cookie 按外部入口协议，桥接宿主的服务端原生 Cookie 按监听的 HTTPS audience 和 Secure 设置；两个协议不同时仍保留 Host/Origin。文件和 CLI 相对证书路径基准不同，见[路径规则](deployment.zh-CN.md#配置优先级与路径基准)。
 
 认证门禁不会用 `Forwarded` 或 `X-Forwarded-*` 作信任判断，避免把客户端可伪造提示当成 TLS 或主机证明。源码检出的浏览器套件使用自有 Node HTTP/HTTPS 转发器测试这些规则，不运行 Nginx 或 Traefik 二进制。
 
-已发布 `0.3.7` 以 Linux、Node.js 24、Chromium 和既有 Node 转发测试验证代理链。这些示例仍是部署模板；真实 Nginx/Traefik 产品、真实非回环 IPv6 网卡、其他平台/浏览器及真实外部服务未验证。独立 profile 演练、完整备份和对应数据回滚见部署指南。
+代理验证使用 Linux、Node.js 24、Chromium 和 Node 转发测试。`0.4.0` 的 `0.2.3-alpha.2` 套件覆盖原生 HTTPS 与 HTTPS 转发至 HTTP，覆盖委托会话到期和对应 SSE、WebSocket 关闭。这些示例仍是部署模板；真实 Nginx/Traefik 产品、真实非回环 IPv6 网卡、其他平台/浏览器及真实外部服务未验证。独立 profile 演练、完整备份和对应数据回滚见部署指南。

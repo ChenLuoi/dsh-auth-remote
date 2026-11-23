@@ -321,12 +321,30 @@ test('complete browser coverage permits only exact zero-registration exceptions 
 test('complete browser coverage rejects missing mandatory cases even when every file has other tests', () => {
   const additional = ['0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.5']
   const merged = ['0.2.2-rc.2', ...additional]
-  const transport = ['0.2.2-alpha.3', '0.2.2-rc.1', ...merged]
+  const transport = ['0.2.2-alpha.3', '0.2.2-rc.1', ...merged, '0.2.3-alpha.2']
   const hostRelease =
     'native host-release prompt survives a real runtime switch and reload rechecks authentication and saved settings'
   for (const version of additional) assert(testedDshVersions.includes(version))
   for (const version of testedDshVersions) {
     const names = requiredBrowserTestNames(version)
+    assert.equal(
+      names.includes(
+        'native remote authorization issues sessions through real QR and pairing in separate browsers',
+      ),
+      version === '0.2.3-alpha.2',
+    )
+    assert.equal(
+      names.includes(
+        'legacy remote login keeps password access and hides native device authorization',
+      ),
+      version !== '0.2.3-alpha.2',
+    )
+    for (const title of [
+      'delegated sessions preserve native HTTPS admission and expire both transports',
+      'delegated sessions preserve absolute deadlines across proxy, policy reload and restart',
+      'native reload after the Connection transition preserves authentication and saved settings',
+    ])
+      assert.equal(names.includes(title), version === '0.2.3-alpha.2', title)
     for (const title of [
       'native account entry decoration preserves child ownership across client reloads',
       'native account notifications remain local across language and lifecycle changes',
@@ -342,7 +360,7 @@ test('complete browser coverage rejects missing mandatory cases even when every 
       names.includes(
         'native Search provider automatic selection clears the override and survives restart',
       ),
-      version === '0.2.2-rc.5',
+      ['0.2.2-rc.5', '0.2.3-alpha.2'].includes(version),
     )
     assert.equal(
       names.includes(

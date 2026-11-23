@@ -7,8 +7,15 @@ import {
   validatePassword,
   verifyPassword,
 } from './password.js'
-import { isActiveSession, issueSession, sessionFor, sessionHash } from './sessions.js'
+import {
+  isActiveSession,
+  issueDelegatedSession,
+  issueSession,
+  sessionFor,
+  sessionHash,
+} from './sessions.js'
 import { backupCodeHash, generateBackupCodes, generateTotpSecret, matchedTotpStep } from './totp.js'
+import type { DelegatedSessionDays } from '../shared/delegation.js'
 
 export interface AuthPolicy {
   requireTotp: boolean
@@ -66,6 +73,7 @@ export type LoginResult =
 
 export interface AuthServiceOptions {
   now?: () => number
+  allowDelegated?: boolean
 }
 
 const LOGIN_CHALLENGE_MS = 5 * 60_000
@@ -95,6 +103,7 @@ function validUsername(username: unknown): username is string {
 
 export class AuthService {
   private readonly now: () => number
+  private readonly allowDelegated: boolean
   private readonly challenges = new Map<string, Challenge>()
   private readonly attempts: number[] = []
   private activeDerivations = 0
@@ -107,6 +116,7 @@ export class AuthService {
     options: AuthServiceOptions = {},
   ) {
     this.now = options.now ?? Date.now
+    this.allowDelegated = options.allowDelegated ?? true
     validatePolicy(policy, this.now())
     this.unsubscribe = store.subscribe((previous, current) => {
       if (previous.account?.securityVersion !== current.account?.securityVersion) {
@@ -137,13 +147,73 @@ export class AuthService {
       initialized: state.account !== null,
       totpEnabled: state.account?.totp !== null && state.account?.totp !== undefined,
       activeSessions: Object.values(state.sessions).filter((session) =>
-        isActiveSession(state, session, now, this.policy.requireTotp),
+        isActiveSession(state, session, now, this.policy.requireTotp, this.allowDelegated),
       ).length,
     }
   }
 
   session(token: string): SessionRecord | null {
-    return sessionFor(this.store.current(), token, this.now(), this.policy.requireTotp)
+    return this.findSession(this.store.current(), token)
+  }
+
+  passwordSession(hash: string, state = this.store.current()): SessionRecord | null {
+    const entry = state.sessions[hash]
+    const now = this.now()
+    return entry?.source === 'password' &&
+      entry.createdAt + this.policy.sessionHours * 3_600_000 > now &&
+      isActiveSession(state, entry, now, this.policy.requireTotp)
+      ? entry
+      : null
+  }
+
+  async authorizeRemote<T>(
+    hash: string,
+    code: string | undefined,
+    operation: (session: SessionRecord) => Promise<T>,
+    stillAvailable = () => true,
+  ): Promise<T> {
+    let policy: AuthPolicy
+    const check = (state: AuthState) => {
+      if (
+        this.policyChanging ||
+        policy !== this.policy ||
+        !this.passwordSession(hash, state) ||
+        !stillAvailable()
+      )
+        throw new AuthError('conflict')
+    }
+    return this.store.transact(async (draft) => {
+      policy = this.policy
+      if (this.policyChanging) throw new AuthError('busy')
+      const session = this.passwordSession(hash, draft)
+      if (!session || !draft.account) throw new AuthError('unauthorized')
+      if (draft.account.totp) {
+        this.occupyAttempt()
+        if (!this.verifyFactor(draft.account, code)) throw new AuthError('invalid_factor')
+      }
+      const result = await operation(session)
+      check(draft)
+      return result
+    }, check)
+  }
+
+  async claimRemote(
+    ownerHash: string,
+    securityVersion: number,
+    days: DelegatedSessionDays,
+    validUntil = Infinity,
+    signal?: AbortSignal,
+  ): Promise<{ token: string; expiresAt: number }> {
+    const check = (state: AuthState) => {
+      if (this.policyChanging) throw new AuthError('busy')
+      const owner = this.passwordSession(ownerHash, state)
+      if (owner?.securityVersion !== securityVersion || validUntil <= this.now() || signal?.aborted)
+        throw new AuthError('unauthorized')
+    }
+    return this.store.transact((draft) => {
+      check(draft)
+      return issueDelegatedSession(draft, this.now(), days)
+    }, check)
   }
 
   policySnapshot(): AuthPolicy {
@@ -159,7 +229,7 @@ export class AuthService {
   } {
     const state = this.store.current()
     const now = this.now()
-    const session = sessionFor(state, token, now, this.policy.requireTotp)
+    const session = this.findSession(state, token, now)
     if (!session || !state.account) throw new AuthError('unauthorized')
     return {
       username: state.account.username,
@@ -167,7 +237,7 @@ export class AuthService {
       createdAt: session.createdAt,
       expiresAt: session.expiresAt,
       activeSessions: Object.values(state.sessions).filter((entry) =>
-        isActiveSession(state, entry, now, this.policy.requireTotp),
+        isActiveSession(state, entry, now, this.policy.requireTotp, this.allowDelegated),
       ).length,
     }
   }
@@ -272,9 +342,12 @@ export class AuthService {
   }
 
   private requireSession(state: AuthState, token: string): AccountRecord {
-    if (!sessionFor(state, token, this.now(), this.policy.requireTotp))
-      throw new AuthError('unauthorized')
+    if (!this.findSession(state, token)) throw new AuthError('unauthorized')
     return state.account!
+  }
+
+  private findSession(state: AuthState, token: string, now = this.now()): SessionRecord | null {
+    return sessionFor(state, token, now, this.policy.requireTotp, this.allowDelegated)
   }
 
   private verifyFactor(account: AccountRecord, code: string | undefined): boolean {
@@ -493,7 +566,8 @@ export class AuthService {
   async logout(token: string): Promise<void> {
     if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/u.test(token)) return
     const hash = sessionHash(token)
-    if (!this.store.current().sessions[hash]) return
+    const session = this.store.current().sessions[hash]
+    if (!session || (!this.allowDelegated && session.source === 'delegated')) return
     await this.store.transact((draft) => {
       delete draft.sessions[hash]
     })
@@ -545,11 +619,13 @@ export class AuthService {
           draft.sessions = {}
         }
         if (next.sessionHours < previous.sessionHours) {
-          for (const session of Object.values(draft.sessions))
+          for (const session of Object.values(draft.sessions)) {
+            if (session.source !== 'password') continue
             session.expiresAt = Math.min(
               session.expiresAt,
               session.createdAt + next.sessionHours * 3_600_000,
             )
+          }
         }
       })
       this.challenges.clear()
@@ -567,7 +643,9 @@ export class AuthService {
     const revokeUnbound =
       this.policy.requireTotp && !state.account?.totp && Object.keys(state.sessions).length > 0
     const shorten = Object.values(state.sessions).some(
-      (session) => session.expiresAt > session.createdAt + this.policy.sessionHours * 3_600_000,
+      (session) =>
+        session.source === 'password' &&
+        session.expiresAt > session.createdAt + this.policy.sessionHours * 3_600_000,
     )
     if (!revokeUnbound && !shorten) return
     await this.store.transact((draft) => {
@@ -575,11 +653,13 @@ export class AuthService {
         draft.account.securityVersion++
         draft.sessions = {}
       }
-      for (const session of Object.values(draft.sessions))
+      for (const session of Object.values(draft.sessions)) {
+        if (session.source !== 'password') continue
         session.expiresAt = Math.min(
           session.expiresAt,
           session.createdAt + this.policy.sessionHours * 3_600_000,
         )
+      }
     })
   }
 }

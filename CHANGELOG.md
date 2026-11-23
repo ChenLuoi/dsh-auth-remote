@@ -6,7 +6,13 @@ This file records user-visible changes to the released package. Version numbers 
 
 ## Unreleased
 
-- Record the published `0.3.6` archive, completed verification and actual distribution times in repository documentation; preserve the immutable release archive and its preparation wording.
+## 0.4.0 - 2026-11-23
+
+- Add exact DSH `0.2.3-alpha.2` support alongside the eleven existing hosts. On this host, use native Connection authentication, refuse native token-only access and authorize devices through native QR invitations and pairing. Device sessions have a fixed lifetime of 1, 3 or 7 days, with 3 as the default.
+- On DSH `0.2.3-alpha.2`, add a sign-in method switch in the upper-right corner of the login card. Pairing starts automatically and supports refreshing or cancelling the request. If an approval write fails, the same live pairing request and unused second factor can be retried.
+- Migrate authentication state to v2 while preserving account data and verified password-session deadlines. Deliver pasted official DeepSeek sign-in callbacks to the native provider with their original PKCE and state.
+- Use Node `24.22.3` for release verification. Require one archive to pass complete CLI, browser and smoke on twelve hosts. The full plan also requires independent technical refusal on `0.2.1-alpha.2`.
+- Record the published `0.3.6` archive, completed verification and actual distribution times in repository documentation.
 
 ## 0.3.7 - 2026-11-20
 

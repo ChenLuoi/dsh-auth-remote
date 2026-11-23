@@ -1,6 +1,8 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
 import { ACCOUNT_LOGIN_CAPABILITY, supportsManualAccountLogin } from '../../shared/account-login.js'
+import { DELEGATION_CAPABILITY } from '../../shared/delegation.js'
+import { CONNECTION_PROVIDER_DSH } from './compatibility.js'
 
 /**
  * A fully authenticated administrator may use the Host settings surface from
@@ -13,6 +15,8 @@ export function installAuthenticatedHostCapability(ctx: Context, version?: strin
     (table: IndexInjection[], peer?: { principal: { kind: string } }) => {
       if (peer !== undefined && peer?.principal?.kind !== 'owner') return
       table.push({ kind: 'global', name: '__DSH_TRANSPORT__', value: { ownsHost: true } })
+      if (version === CONNECTION_PROVIDER_DSH)
+        table.push({ kind: 'global', name: DELEGATION_CAPABILITY, value: true })
       if (version && supportsManualAccountLogin(version))
         table.push({ kind: 'global', name: ACCOUNT_LOGIN_CAPABILITY, value: true })
     },

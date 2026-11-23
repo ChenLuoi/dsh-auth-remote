@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { chromium, expect } from '@playwright/test'
+import { dshVersion } from '../../scripts/runtime.mjs'
 import { startForwarder, type Forwarder } from '../helpers/proxy.js'
 import {
   archive,
@@ -31,6 +32,7 @@ const publicHost = `auth-remote.test:${publicPort}`
 const origin = `https://${publicHost}`
 const directOrigin = `http://127.0.0.1:${relayPort}`
 const password = 'proxy browser password 123'
+const usesConnectionProvider = dshVersion === '0.2.3-alpha.2'
 
 function testEnv(home: string): NodeJS.ProcessEnv {
   return isolatedDshEnv(home)
@@ -469,8 +471,8 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
       cookie: pluginCookie,
     })
     assert.equal(authenticatedGet.status, 200, authenticatedGet.body)
-    assert.equal(JSON.parse(authenticatedGet.body).hasNative, true)
-    assert.equal(JSON.parse(authenticatedGet.body).hasPlugin, false)
+    assert.equal(JSON.parse(authenticatedGet.body).hasNative, !usesConnectionProvider)
+    assert.equal(JSON.parse(authenticatedGet.body).hasPlugin, usesConnectionProvider)
 
     const bytes = Buffer.alloc(128 * 1024, 0x61)
     const upload = await proxyRequest('/plugins/strict/echo', {
@@ -481,12 +483,12 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
     })
     assert.equal(upload.status, 200, upload.body)
     const normalized = JSON.parse(upload.body)
-    assert.equal(normalized.host, `127.0.0.1:${dshPort}`)
-    assert.equal(normalized.origin, `http://127.0.0.1:${dshPort}`)
+    assert.equal(normalized.host, usesConnectionProvider ? publicHost : `127.0.0.1:${dshPort}`)
+    assert.equal(normalized.origin, usesConnectionProvider ? origin : `http://127.0.0.1:${dshPort}`)
     assert.equal(normalized.bytes, bytes.length)
     assert.equal(normalized.sha256, createHash('sha256').update(bytes).digest('hex'))
-    assert.equal(normalized.hasNative, true)
-    assert.equal(normalized.hasPlugin, false)
+    assert.equal(normalized.hasNative, !usesConnectionProvider)
+    assert.equal(normalized.hasPlugin, usesConnectionProvider)
     const preserved = await proxyRequest('/plugins/public/echo', {
       method: 'POST',
       origin,
@@ -496,7 +498,7 @@ test('Node HTTPS and HTTP forwarding preserve public authority and guarded trans
     assert.equal(preserved.status, 200, preserved.body)
     assert.equal(JSON.parse(preserved.body).host, publicHost)
     assert.equal(JSON.parse(preserved.body).origin, origin)
-    assert.equal(JSON.parse(preserved.body).hasNative, true)
+    assert.equal(JSON.parse(preserved.body).hasNative, !usesConnectionProvider)
     assert.equal(
       (
         await proxyRequest('/plugins/strict/echo', {

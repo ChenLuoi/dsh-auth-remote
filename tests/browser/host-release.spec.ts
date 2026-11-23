@@ -26,11 +26,15 @@ const previousVersions: Record<string, string> = {
   '0.2.2-rc.3': '0.2.2-rc.2',
   '0.2.2-rc.4': '0.2.2-rc.3',
   '0.2.2-rc.5': '0.2.2-rc.4',
+  '0.2.3-alpha.2': '0.2.2-rc.5',
 }
 const previousVersion = previousVersions[dshVersion]
+const crossesConnectionChange = dshVersion === '0.2.3-alpha.2'
 if (previousVersion)
   test(
-    'native host-release prompt survives a real runtime switch and reload rechecks authentication and saved settings',
+    crossesConnectionChange
+      ? 'native reload after the Connection transition preserves authentication and saved settings'
+      : 'native host-release prompt survives a real runtime switch and reload rechecks authentication and saved settings',
     { timeout: 180_000 },
     async () => {
       await promisify(execFile)(process.execPath, [join(project, 'scripts/prepare-test.mjs')], {
@@ -144,16 +148,19 @@ if (previousVersion)
         await start(previousDsh)
         assert.equal(await loadedVersion(), previousVersion)
         const prompt = page.getByRole('dialog', { name: '服务版本变化', exact: true })
-        await expect(prompt).toBeVisible({ timeout: 45_000 })
-        await expect(prompt).toContainText(previousVersion)
         assert.equal(await boot(), dshVersion)
-        const review = join(project, '.cache/ui-review', dshVersion)
-        await mkdir(review, { recursive: true })
-        await page.screenshot({ path: join(review, 'host-release-change.png') })
+        if (!crossesConnectionChange) {
+          await expect(prompt).toBeVisible({ timeout: 45_000 })
+          await expect(prompt).toContainText(previousVersion)
+          const review = join(project, '.cache/ui-review', dshVersion)
+          await mkdir(review, { recursive: true })
+          await page.screenshot({ path: join(review, 'host-release-change.png') })
+        }
         const checked = page.waitForResponse(
           (response) => new URL(response.url()).pathname === '/auth-remote/me',
         )
-        await prompt.getByRole('button', { name: '刷新以加载新版本', exact: true }).click()
+        if (crossesConnectionChange) await page.reload()
+        else await prompt.getByRole('button', { name: '刷新以加载新版本', exact: true }).click()
         assert.equal((await checked).status(), 200)
         await expect(page.locator('[class*="frame"]').first()).toBeVisible()
         await expect(prompt).toHaveCount(0)

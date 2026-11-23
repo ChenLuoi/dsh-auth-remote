@@ -48,6 +48,7 @@ export const suites = {
       '0.2.2-rc.3',
       '0.2.2-rc.4',
       '0.2.2-rc.5',
+      '0.2.3-alpha.2',
     ],
     count: 1,
   },
@@ -55,6 +56,10 @@ export const suites = {
 
 const hostReleaseTest =
   'native host-release prompt survives a real runtime switch and reload rechecks authentication and saved settings'
+const hostReleaseTestName = (version) =>
+  version === '0.2.3-alpha.2'
+    ? 'native reload after the Connection transition preserves authentication and saved settings'
+    : hostReleaseTest
 
 export const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex')
 
@@ -165,8 +170,16 @@ export function requiredBrowserTestNames(version) {
     'native settings security icon preserves host navigation and contribution lifecycle',
     'native Settings updates the live Loader reference without replacing auth, lock or long connections and survives restart',
     'Node HTTPS and HTTP forwarding preserve public authority and guarded transport',
+    version === '0.2.3-alpha.2'
+      ? 'native remote authorization issues sessions through real QR and pairing in separate browsers'
+      : 'legacy remote login keeps password access and hides native device authorization',
   ]
-  if (suites['host-release'].versions.includes(version)) names.push(hostReleaseTest)
+  if (version === '0.2.3-alpha.2')
+    names.push(
+      'delegated sessions preserve native HTTPS admission and expire both transports',
+      'delegated sessions preserve absolute deadlines across proxy, policy reload and restart',
+    )
+  if (suites['host-release'].versions.includes(version)) names.push(hostReleaseTestName(version))
   if (
     [
       '0.2.1-rc.3',
@@ -178,6 +191,7 @@ export function requiredBrowserTestNames(version) {
       '0.2.2-rc.3',
       '0.2.2-rc.4',
       '0.2.2-rc.5',
+      '0.2.3-alpha.2',
     ].includes(version)
   )
     names.push(
@@ -191,6 +205,7 @@ export function requiredBrowserTestNames(version) {
       '0.2.2-rc.3',
       '0.2.2-rc.4',
       '0.2.2-rc.5',
+      '0.2.3-alpha.2',
     ].includes(version)
   ) {
     for (const ingress of ['native-https', 'https-http-proxy'])
@@ -212,7 +227,7 @@ export function requiredBrowserTestNames(version) {
       'native account entry decoration preserves child ownership across client reloads',
       'native account notifications remain local across language and lifecycle changes',
     )
-  if (version === '0.2.2-rc.5')
+  if (['0.2.2-rc.5', '0.2.3-alpha.2'].includes(version))
     names.push(
       'native Search provider automatic selection clears the override and survives restart',
     )
@@ -263,8 +278,8 @@ export function assertRegisteredCoverage(name, version, counts) {
     assert.equal(counts.actualTests, suites[name].count, 'Wrong specialized test count')
   if (name === 'host-release')
     assert(
-      counts.testNames?.includes(hostReleaseTest),
-      `Required browser test did not register: ${hostReleaseTest}`,
+      counts.testNames?.includes(hostReleaseTestName(version)),
+      `Required browser test did not register: ${hostReleaseTestName(version)}`,
     )
 }
 

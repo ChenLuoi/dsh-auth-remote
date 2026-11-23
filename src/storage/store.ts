@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { constants } from 'node:fs'
-import { lstat, open, readFile, rename, unlink } from 'node:fs/promises'
+import { link, lstat, open, readFile, rename, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { assertPrivateStateFile, STATE_FILE, StateLock } from './lock.js'
 import { emptyState, validateState, type AuthState } from './state.js'
@@ -23,6 +23,15 @@ export interface StoreOptions {
 
 function errno(error: unknown, code: string): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === code
+}
+
+async function syncDirectory(path: string): Promise<void> {
+  const directory = await open(path, constants.O_RDONLY | constants.O_DIRECTORY)
+  try {
+    await directory.sync()
+  } finally {
+    await directory.close()
+  }
 }
 
 /** One process owns the lock; every mutation serializes through this instance. */
@@ -50,16 +59,32 @@ export class AuthStateStore {
     try {
       const path = join(lock.dir, STATE_FILE)
       let state = emptyState()
+      let legacy = false
       try {
         await assertPrivateStateFile(path)
         const info = await lstat(path)
         if (info.size > 16 * 1024 * 1024)
           throw new Error('auth-remote: state file exceeds the supported size')
-        state = validateState(JSON.parse(await readFile(path, 'utf8')))
+        const stored = JSON.parse(await readFile(path, 'utf8'))
+        state = validateState(stored)
+        legacy = stored.schemaVersion === 1
       } catch (error) {
         if (!errno(error, 'ENOENT')) throw error
       }
-      return new AuthStateStore(lock, state, options)
+      const store = new AuthStateStore(lock, state, options)
+      if (legacy) {
+        const backup = join(lock.dir, 'auth-state.v1.json')
+        // The existing private file becomes the backup before atomic replacement.
+        try {
+          await link(path, backup)
+        } catch (error) {
+          if (!errno(error, 'EEXIST')) throw error
+          await assertPrivateStateFile(backup)
+        }
+        await syncDirectory(lock.dir)
+        await store.persist(state)
+      }
+      return store
     } catch (error) {
       await lock.release()
       throw error
@@ -84,7 +109,10 @@ export class AuthStateStore {
     return () => this.listeners.delete(listener)
   }
 
-  async transact<T>(mutate: (draft: AuthState) => T | Promise<T>): Promise<T> {
+  async transact<T>(
+    mutate: (draft: AuthState) => T | Promise<T>,
+    beforeCommit?: (state: AuthState) => void,
+  ): Promise<T> {
     const run = async (): Promise<T> => {
       if (!this.healthy()) throw this.unavailableReason ?? new Error('auth-remote: store is closed')
       const draft = structuredClone(this.state)
@@ -93,7 +121,7 @@ export class AuthStateStore {
         throw new Error('auth-remote: state revision exhausted')
       draft.revision = this.state.revision + 1
       const next = validateState(draft)
-      await this.persist(next)
+      await this.persist(next, beforeCommit)
       return result
     }
     const operation = this.queue.then(run)
@@ -104,7 +132,7 @@ export class AuthStateStore {
     return operation
   }
 
-  private async persist(next: AuthState): Promise<void> {
+  private async persist(next: AuthState, beforeCommit?: (state: AuthState) => void): Promise<void> {
     const temp = `${this.path}.tmp-${process.pid}-${randomUUID()}`
     const bytes = Buffer.from(`${JSON.stringify(next)}\n`, 'utf8')
     if (bytes.length > 16 * 1024 * 1024)
@@ -124,15 +152,11 @@ export class AuthStateStore {
       await file.close()
       file = undefined
       await this.options.onStage?.('beforeRename')
+      beforeCommit?.(next)
       await rename(temp, this.path)
       renamed = true
       await this.options.onStage?.('afterRename')
-      const parent = await open(this.lock.dir, constants.O_RDONLY | constants.O_DIRECTORY)
-      try {
-        await parent.sync()
-      } finally {
-        await parent.close()
-      }
+      await syncDirectory(this.lock.dir)
       await this.options.onStage?.('afterDirSync')
       const previous = this.state
       this.state = next
